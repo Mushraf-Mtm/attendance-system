@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import { FiMapPin, FiClock, FiSave, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
-import axios from 'axios';
+import { getSettings, updateSettings } from '../services/api';
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState({
@@ -31,10 +31,8 @@ const AdminSettings = () => {
 
   const fetchSettings = async () => {
     try {
-      const token = sessionStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/settings', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      setLoading(true);
+      const response = await getSettings();
 
       if (response.data.success) {
         const s = response.data.settings;
@@ -83,14 +81,7 @@ const AdminSettings = () => {
     setSaving(true);
 
     try {
-      const token = sessionStorage.getItem('token');
-      const response = await axios.put(
-        'http://localhost:5000/api/settings',
-        settings,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await updateSettings(settings);
 
       if (response.data.success) {
         setAlertDialog({

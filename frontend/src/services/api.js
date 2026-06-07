@@ -147,4 +147,11 @@ export const toggleHolidayStatus = (id, is_enabled) =>
 export const checkHolidayStatus = (date) => 
   api.get('/holidays/check', { params: { date } });
 
+// Settings APIs
+export const getSettings = () => 
+  api.get('/settings');
+
+export const updateSettings = (data) => 
+  api.put('/settings', data);
+
 export default api;

@@ -3,7 +3,13 @@ import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import { FiCalendar, FiPlus, FiEdit2, FiTrash2, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
-import axios from 'axios';
+import { 
+  getAllHolidays, 
+  addHoliday, 
+  updateHoliday, 
+  deleteHoliday, 
+  toggleHolidayStatus 
+} from '../services/api';
 
 const AdminHolidays = () => {
   const [holidays, setHolidays] = useState([]);
@@ -39,10 +45,7 @@ const AdminHolidays = () => {
   const fetchHolidays = async () => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/holidays', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await getAllHolidays();
 
       if (response.data.success) {
         setHolidays(response.data.holidays);
@@ -80,14 +83,7 @@ const AdminHolidays = () => {
 
   const handleAddHoliday = async () => {
     try {
-      const token = sessionStorage.getItem('token');
-      const response = await axios.post(
-        'http://localhost:5000/api/holidays',
-        formData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await addHoliday(formData);
 
       if (response.data.success) {
         setAlertDialog({
@@ -112,14 +108,7 @@ const AdminHolidays = () => {
 
   const handleEditHoliday = async () => {
     try {
-      const token = sessionStorage.getItem('token');
-      const response = await axios.put(
-        `http://localhost:5000/api/holidays/${selectedHoliday.id}`,
-        formData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await updateHoliday(selectedHoliday.id, formData);
 
       if (response.data.success) {
         setAlertDialog({
@@ -145,14 +134,7 @@ const AdminHolidays = () => {
 
   const handleToggleStatus = async (holiday) => {
     try {
-      const token = sessionStorage.getItem('token');
-      const response = await axios.patch(
-        `http://localhost:5000/api/holidays/${holiday.id}/toggle`,
-        { is_enabled: !holiday.is_enabled },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await toggleHolidayStatus(holiday.id, !holiday.is_enabled);
 
       if (response.data.success) {
         setAlertDialog({
@@ -180,13 +162,7 @@ const AdminHolidays = () => {
       message: `Are you sure you want to delete "${holiday.holiday_title}" on ${formatDate(holiday.holiday_date)}? This action cannot be undone.`,
       onConfirm: async () => {
         try {
-          const token = sessionStorage.getItem('token');
-          const response = await axios.delete(
-            `http://localhost:5000/api/holidays/${holiday.id}`,
-            {
-              headers: { Authorization: `Bearer ${token}` }
-            }
-          );
+          const response = await deleteHoliday(holiday.id);
 
           if (response.data.success) {
             setAlertDialog({
