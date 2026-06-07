@@ -13,21 +13,30 @@ const holidayRoutes = require('./routes/holidayRoutes');
 
 const app = express();
 
-// CORS Configuration for Production
+// CORS Configuration for Production and Development
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:3000',
-  'http://localhost:3001'
+  'http://localhost:3001',
+  'http://localhost:5000' // Allow backend's own domain
 ].filter(Boolean);
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
+    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
     if (!origin) return callback(null, true);
     
+    // In development, allow all localhost origins
+    if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost')) {
+      return callback(null, true);
+    }
+    
+    // Check against whitelist
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      console.log(`✅ Allowed origins:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },

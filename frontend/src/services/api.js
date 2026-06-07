@@ -101,6 +101,10 @@ export const disableWFH = (employee_id) =>
 export const getWFHStatus = () => 
   api.get('/wfh/status');
 
+// Early Checkout APIs
+export const toggleEarlyCheckout = (employeeId, enabled) => 
+  api.post('/attendance/early-checkout', { employeeId, enabled });
+
 // PDF API
 export const downloadMonthlyPDF = (month, year) => {
   return api.get('/pdf/monthly', {

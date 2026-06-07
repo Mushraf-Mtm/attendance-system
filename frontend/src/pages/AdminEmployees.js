@@ -9,7 +9,8 @@ import {
   updateEmployee, 
   deleteEmployee,
   enableWFH,
-  disableWFH
+  disableWFH,
+  toggleEarlyCheckout
 } from '../services/api';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff } from 'react-icons/fi';
 
@@ -223,37 +224,27 @@ const AdminEmployees = () => {
       }`,
       onConfirm: async () => {
         try {
-          const token = sessionStorage.getItem('token');
-          const response = await fetch('http://localhost:5000/api/attendance/early-checkout', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              employeeId: employee.employee_id, // Use employee_id (code) instead of id
-              enabled: !employee.early_checkout_enabled
-            })
-          });
+          const response = await toggleEarlyCheckout(
+            employee.employee_id, // Use employee_id (code) instead of id
+            !employee.early_checkout_enabled
+          );
 
-          const data = await response.json();
-
-          if (data.success) {
+          if (response.data.success) {
             setAlertDialog({
               isOpen: true,
               title: 'Success',
-              message: data.message,
+              message: response.data.message,
               type: 'success'
             });
             fetchData();
           } else {
-            throw new Error(data.message);
+            throw new Error(response.data.message);
           }
         } catch (error) {
           setAlertDialog({
             isOpen: true,
             title: 'Error',
-            message: error.message || 'Operation failed. Please try again.',
+            message: error.response?.data?.message || 'Operation failed. Please try again.',
             type: 'error'
           });
         }
