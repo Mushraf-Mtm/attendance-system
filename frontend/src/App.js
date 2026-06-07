@@ -1,0 +1,238 @@
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Loader from './components/Loader';
+import LogoutWarningDialog from './components/LogoutWarningDialog';
+
+// Auth Pages
+import AdminLogin from './pages/AdminLogin';
+import EmployeeLogin from './pages/EmployeeLogin';
+
+// Admin Pages
+import AdminDashboard from './pages/AdminDashboard';
+import AdminEmployees from './pages/AdminEmployees';
+import AdminAttendance from './pages/AdminAttendance';
+import AdminSettings from './pages/AdminSettings';
+import AdminManagement from './pages/AdminManagement';
+import AdminHolidays from './pages/AdminHolidays';
+
+// Employee Pages
+import EmployeeDashboard from './pages/EmployeeDashboard';
+import EmployeeAttendance from './pages/EmployeeAttendance';
+import EmployeeProfile from './pages/EmployeeProfile';
+
+// Protected Route Component with custom logout warning dialog
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const { isAuthenticated, user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  // Show logout warning when trying to close tab/window
+  useEffect(() => {
+    if (isAuthenticated) {
+      const handleBeforeUnload = (e) => {
+        // This will trigger the browser's native dialog
+        // We cannot show ONLY our custom dialog due to browser security
+        e.preventDefault();
+        // Modern browsers require returnValue to be set
+        e.returnValue = 'Are you sure you want to leave? Please logout properly.';
+        return 'Are you sure you want to leave? Please logout properly.';
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
+  }, [isAuthenticated]);
+
+  // Add keyboard shortcut (Ctrl/Cmd + W) to show custom logout dialog
+  useEffect(() => {
+    if (isAuthenticated) {
+      const handleKeyDown = (e) => {
+        // Detect Ctrl+W or Cmd+W (close tab shortcut)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+          e.preventDefault();
+          setShowLogoutDialog(true);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isAuthenticated]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutDialog(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (requiredRole && user?.role !== requiredRole) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <>
+      {children}
+      <LogoutWarningDialog
+        isOpen={showLogoutDialog}
+        onClose={() => setShowLogoutDialog(false)}
+        onLogout={handleLogout}
+        userRole={user?.role === 'admin' ? 'Administrator' : 'Employee'}
+      />
+    </>
+  );
+};
+
+// Public Route Component (redirect if already logged in)
+const PublicRoute = ({ children }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (isAuthenticated) {
+    if (user?.role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />;
+    } else if (user?.role === 'employee') {
+      return <Navigate to="/employee/dashboard" replace />;
+    }
+  }
+
+  return children;
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route
+            path="/"
+            element={
+              <PublicRoute>
+                <EmployeeLogin />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <PublicRoute>
+                <AdminLogin />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/employee/login"
+            element={
+              <PublicRoute>
+                <EmployeeLogin />
+              </PublicRoute>
+            }
+          />
+
+          {/* Admin Protected Routes */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/employees"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminEmployees />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/attendance"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminAttendance />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/management"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/holidays"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminHolidays />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Employee Protected Routes */}
+          <Route
+            path="/employee/dashboard"
+            element={
+              <ProtectedRoute requiredRole="employee">
+                <EmployeeDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employee/attendance"
+            element={
+              <ProtectedRoute requiredRole="employee">
+                <EmployeeAttendance />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employee/profile"
+            element={
+              <ProtectedRoute requiredRole="employee">
+                <EmployeeProfile />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 404 Route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
