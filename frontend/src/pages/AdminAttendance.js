@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
-import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel } from '../services/api';
+import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, resetAttendance, deleteAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw } from 'react-icons/fi';
 
@@ -152,22 +152,9 @@ const AdminAttendance = () => {
       message: `Are you sure you want to reset ${resetText} for "${record.name}"? This will allow them to ${resetType === 'check-in' ? 'check in' : 'check out'} again for ${formatDate(record.attendance_date)}.`,
       onConfirm: async () => {
         try {
-          const token = sessionStorage.getItem('token');
-          const response = await fetch('http://localhost:5000/api/attendance/reset', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              attendanceId: record.id,
-              resetType: resetType
-            })
-          });
+          const response = await resetAttendance(record.id, resetType);
 
-          const data = await response.json();
-
-          if (data.success) {
+          if (response.data.success) {
             setAlertDialog({
               isOpen: true,
               title: 'Success',
@@ -176,13 +163,13 @@ const AdminAttendance = () => {
             });
             fetchAttendance();
           } else {
-            throw new Error(data.message);
+            throw new Error(response.data.message);
           }
         } catch (error) {
           setAlertDialog({
             isOpen: true,
             title: 'Error',
-            message: error.message || 'Operation failed. Please try again.',
+            message: error.response?.data?.message || 'Operation failed. Please try again.',
             type: 'error'
           });
         }
@@ -198,17 +185,9 @@ const AdminAttendance = () => {
       message: `Are you sure you want to permanently delete the attendance record for "${record.name}" on ${formatDate(record.attendance_date)}? This action cannot be undone.`,
       onConfirm: async () => {
         try {
-          const token = sessionStorage.getItem('token');
-          const response = await fetch(`http://localhost:5000/api/attendance/${record.id}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
+          const response = await deleteAttendance(record.id);
 
-          const data = await response.json();
-
-          if (data.success) {
+          if (response.data.success) {
             setAlertDialog({
               isOpen: true,
               title: 'Success',
@@ -217,13 +196,13 @@ const AdminAttendance = () => {
             });
             fetchAttendance();
           } else {
-            throw new Error(data.message);
+            throw new Error(response.data.message);
           }
         } catch (error) {
           setAlertDialog({
             isOpen: true,
             title: 'Error',
-            message: error.message || 'Delete failed. Please try again.',
+            message: error.response?.data?.message || 'Delete failed. Please try again.',
             type: 'error'
           });
         }

@@ -154,4 +154,11 @@ export const getSettings = () =>
 export const updateSettings = (data) => 
   api.put('/settings', data);
 
+// Attendance Reset and Delete APIs
+export const resetAttendance = (attendanceId, resetType) => 
+  api.post('/attendance/reset', { attendanceId, resetType });
+
+export const deleteAttendance = (id) => 
+  api.delete(`/attendance/${id}`);
+
 export default api;
