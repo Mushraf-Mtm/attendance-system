@@ -1,10 +1,10 @@
 {
   "companyLocation": {
     "name": "Company Office",
-    "latitude": 13.015837,
-    "longitude": 77.721172,
+    "latitude": 12.966000,
+    "longitude": 77.606400,
     "allowedRadius": 100,
-    "gpsAccuracyThreshold": 100,
+    "gpsAccuracyThreshold": 150,
     "note": "Change latitude and longitude to your office location. Radius is in meters."
   },
   "messages": {
@@ -22,10 +22,10 @@
     "lowAccuracyMessage": "GPS accuracy is too low. Please enable high accuracy mode in your device settings."
   },
   "workingHours": {
-    "lateAfterTime": "14:11",
+    "lateAfterTime": "10:30",
     "halfDayThreshold": 4,
-    "officeStartTime": "14:10",
-    "officeEndTime": "22:30",
+    "officeStartTime": "09:30",
+    "officeEndTime": "17:30",
     "checkInEnabled": true,
     "checkOutEnabled": true,
     "note": "All times in HH:MM (24-hour format). halfDayThreshold is in hours. Enable/disable check-in and check-out buttons."
