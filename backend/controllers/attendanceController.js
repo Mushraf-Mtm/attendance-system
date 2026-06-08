@@ -117,9 +117,12 @@ const checkIn = async (req, res) => {
     }
 
     // Check if current time is within office hours (after start time and before end time)
+    // Get current time in IST (UTC+5:30)
     const currentTime = new Date();
-    const currentHour = currentTime.getHours();
-    const currentMinute = currentTime.getMinutes();
+    const istOffset = 5.5 * 60; // IST is UTC+5:30 in minutes
+    const localTime = new Date(currentTime.getTime() + (istOffset * 60 * 1000));
+    const currentHour = localTime.getUTCHours();
+    const currentMinute = localTime.getUTCMinutes();
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
     const [startHour, startMinute] = settings.workingHours.officeStartTime.split(':').map(Number);
@@ -200,7 +203,7 @@ const checkIn = async (req, res) => {
       });
     }
 
-    // Determine attendance status based on time
+    // Determine attendance status based on time (using IST time)
     const [lateHour, lateMinute] = settings.workingHours.lateAfterTime.split(':').map(Number);
     
     let attendanceStatus = 'Present';
@@ -319,9 +322,12 @@ const checkOut = async (req, res) => {
 
     // Check if current time is before office end time
     if (!hasEarlyCheckoutPermission) {
+      // Get current time in IST (UTC+5:30)
       const currentTime = new Date();
-      const currentHour = currentTime.getHours();
-      const currentMinute = currentTime.getMinutes();
+      const istOffset = 5.5 * 60; // IST is UTC+5:30 in minutes
+      const localTime = new Date(currentTime.getTime() + (istOffset * 60 * 1000));
+      const currentHour = localTime.getUTCHours();
+      const currentMinute = localTime.getUTCMinutes();
       const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
       const [endHour, endMinute] = settings.workingHours.officeEndTime.split(':').map(Number);
