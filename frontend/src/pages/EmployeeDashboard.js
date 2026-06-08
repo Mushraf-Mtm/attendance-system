@@ -7,11 +7,11 @@ import {
   getTodayAttendance, 
   checkIn, 
   checkOut,
-  getWFHStatus 
+  getWFHStatus,
+  getSettings
 } from '../services/api';
 import { getCurrentLocation, getDeviceInfo, getIPAddress } from '../utils/location';
 import { formatTime, formatWorkingHours } from '../utils/formatTime';
-import settings from '../config/settings.json';
 import { FiLogIn, FiLogOut, FiClock, FiMapPin } from 'react-icons/fi';
 
 const EmployeeDashboard = () => {
@@ -21,6 +21,7 @@ const EmployeeDashboard = () => {
   const [wfhEnabled, setWfhEnabled] = useState(false);
   const [checkInEnabled, setCheckInEnabled] = useState(true);
   const [checkOutEnabled, setCheckOutEnabled] = useState(true);
+  const [settings, setSettings] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     title: '',
@@ -44,16 +45,14 @@ const EmployeeDashboard = () => {
 
   useEffect(() => {
     fetchData();
-    // Load check-in/check-out enabled settings
-    setCheckInEnabled(settings.workingHours.checkInEnabled !== undefined ? settings.workingHours.checkInEnabled : true);
-    setCheckOutEnabled(settings.workingHours.checkOutEnabled !== undefined ? settings.workingHours.checkOutEnabled : true);
   }, []);
 
   const fetchData = async () => {
     try {
-      const [attendanceRes, wfhRes] = await Promise.all([
+      const [attendanceRes, wfhRes, settingsRes] = await Promise.all([
         getTodayAttendance(),
-        getWFHStatus()
+        getWFHStatus(),
+        getSettings()
       ]);
 
       if (attendanceRes.data.success) {
@@ -63,14 +62,44 @@ const EmployeeDashboard = () => {
       if (wfhRes.data.success) {
         setWfhEnabled(wfhRes.data.wfh_enabled);
       }
+
+      if (settingsRes.data.success) {
+        setSettings(settingsRes.data.settings);
+        setCheckInEnabled(settingsRes.data.settings.workingHours.checkInEnabled !== undefined ? settingsRes.data.settings.workingHours.checkInEnabled : true);
+        setCheckOutEnabled(settingsRes.data.settings.workingHours.checkOutEnabled !== undefined ? settingsRes.data.settings.workingHours.checkOutEnabled : true);
+      } else {
+        console.error('Failed to load settings:', settingsRes.data);
+        setAlertDialog({
+          isOpen: true,
+          title: 'Error',
+          message: 'Failed to load settings. Please refresh the page.',
+          type: 'error'
+        });
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to load data. Please refresh the page.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCheckIn = () => {
+    if (!settings) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: 'Settings not loaded. Please refresh the page.',
+        type: 'error'
+      });
+      return;
+    }
+    
     setConfirmDialog({
       isOpen: true,
       title: 'Check In',
@@ -92,15 +121,6 @@ const EmployeeDashboard = () => {
                 // Get location
                 const location = await getCurrentLocation();
                 
-                console.log('=== CHECK-IN DEBUG ===');
-                console.log('Employee Location:', location);
-                console.log('Office Location (from settings.json):', {
-                  latitude: settings.companyLocation.latitude,
-                  longitude: settings.companyLocation.longitude,
-                  radius: settings.companyLocation.allowedRadius
-                });
-                console.log('WFH Enabled:', wfhEnabled);
-                
                 // Get device info
                 const deviceInfo = getDeviceInfo();
                 
@@ -117,11 +137,7 @@ const EmployeeDashboard = () => {
                   ip_address: ipAddress
                 };
 
-                console.log('Sending data to backend:', data);
-
                 const response = await checkIn(data);
-                
-                console.log('Backend response:', response.data);
                 
                 if (response.data.success) {
                   setAlertDialog({
@@ -191,6 +207,16 @@ const EmployeeDashboard = () => {
   };
 
   const handleCheckOut = () => {
+    if (!settings) {
+      setAlertDialog({
+        isOpen: true,
+        title: 'Error',
+        message: 'Settings not loaded. Please refresh the page.',
+        type: 'error'
+      });
+      return;
+    }
+    
     setConfirmDialog({
       isOpen: true,
       title: 'Check Out',
@@ -406,8 +432,8 @@ const EmployeeDashboard = () => {
               <li>Check in when you arrive at the office or start working from home</li>
               <li>Check out when you finish your work for the day</li>
               <li>You can only check in and check out once per day</li>
-              {!wfhEnabled && (
-                <li>You must be within 100 meters of the office to check in</li>
+              {!wfhEnabled && settings && (
+                <li>You must be within {settings.companyLocation.allowedRadius} meters of the office to check in</li>
               )}
             </ul>
           </div>

@@ -1,11 +1,52 @@
-const fs = require('fs');
-const path = require('path');
+const pool = require('../config/database');
+const { clearSettingsCache } = require('../utils/settingsHelper');
 
-// Get current settings
+// Get current settings from database
 const getSettings = async (req, res) => {
   try {
-    const settingsPath = path.join(__dirname, '../config/settings.json');
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    const result = await pool.query('SELECT * FROM settings ORDER BY id LIMIT 1');
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Settings not found. Please run migration first.'
+      });
+    }
+
+    const dbSettings = result.rows[0];
+    
+    // Format response to match frontend expectations
+    const settings = {
+      companyLocation: {
+        name: dbSettings.company_name,
+        latitude: parseFloat(dbSettings.latitude),
+        longitude: parseFloat(dbSettings.longitude),
+        allowedRadius: dbSettings.allowed_radius,
+        gpsAccuracyThreshold: dbSettings.gps_accuracy_threshold
+      },
+      workingHours: {
+        lateAfterTime: dbSettings.late_after_time.substring(0, 5),  // Format: HH:MM
+        halfDayThreshold: parseFloat(dbSettings.half_day_threshold),
+        officeStartTime: dbSettings.office_start_time.substring(0, 5),  // Format: HH:MM
+        officeEndTime: dbSettings.office_end_time.substring(0, 5),  // Format: HH:MM
+        checkInEnabled: dbSettings.check_in_enabled,
+        checkOutEnabled: dbSettings.check_out_enabled
+      },
+      messages: {
+        locationPermissionTitle: "Location Permission Required",
+        locationPermissionMessage: "This app needs access to your location to verify your attendance. Please allow location access to continue.",
+        locationDeniedTitle: "Location Access Denied",
+        locationDeniedMessage: "You have denied location access. Please enable location permission in your browser settings to use attendance features.",
+        locationUnavailableTitle: "Location Unavailable",
+        locationUnavailableMessage: "Unable to retrieve your location. Please check if GPS is enabled on your device.",
+        locationTimeoutTitle: "Location Timeout",
+        locationTimeoutMessage: "Location request timed out. Please try again.",
+        outsideRadiusTitle: "Outside Office Area",
+        outsideRadiusMessage: "You are outside the allowed office area. Please move closer to the office to check in.",
+        lowAccuracyTitle: "Low GPS Accuracy",
+        lowAccuracyMessage: "GPS accuracy is too low. Please enable high accuracy mode in your device settings."
+      }
+    };
 
     res.json({
       success: true,
@@ -20,7 +61,7 @@ const getSettings = async (req, res) => {
   }
 };
 
-// Update settings
+// Update settings in database
 const updateSettings = async (req, res) => {
   try {
     const { 
@@ -82,44 +123,65 @@ const updateSettings = async (req, res) => {
       });
     }
 
-    // Update backend settings.json
-    const backendSettingsPath = path.join(__dirname, '../config/settings.json');
-    const backendSettings = JSON.parse(fs.readFileSync(backendSettingsPath, 'utf8'));
+    // Update settings in database
+    const updateQuery = `
+      UPDATE settings SET
+        latitude = $1,
+        longitude = $2,
+        allowed_radius = $3,
+        late_after_time = $4,
+        office_start_time = $5,
+        office_end_time = $6,
+        check_in_enabled = $7,
+        check_out_enabled = $8,
+        half_day_threshold = $9,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
+      RETURNING *
+    `;
 
-    backendSettings.companyLocation.latitude = parseFloat(latitude);
-    backendSettings.companyLocation.longitude = parseFloat(longitude);
-    backendSettings.companyLocation.allowedRadius = parseInt(allowedRadius);
-    backendSettings.workingHours.lateAfterTime = lateAfterTime;
-    
-    if (officeStartTime) backendSettings.workingHours.officeStartTime = officeStartTime;
-    if (officeEndTime) backendSettings.workingHours.officeEndTime = officeEndTime;
-    if (checkInEnabled !== undefined) backendSettings.workingHours.checkInEnabled = checkInEnabled;
-    if (checkOutEnabled !== undefined) backendSettings.workingHours.checkOutEnabled = checkOutEnabled;
-    if (halfDayThreshold) backendSettings.workingHours.halfDayThreshold = parseFloat(halfDayThreshold);
+    const values = [
+      parseFloat(latitude),
+      parseFloat(longitude),
+      parseInt(allowedRadius),
+      lateAfterTime,
+      officeStartTime || '09:00',
+      officeEndTime || '18:00',
+      checkInEnabled !== undefined ? checkInEnabled : true,
+      checkOutEnabled !== undefined ? checkOutEnabled : true,
+      halfDayThreshold ? parseFloat(halfDayThreshold) : 4.0
+    ];
 
-    fs.writeFileSync(backendSettingsPath, JSON.stringify(backendSettings, null, 2));
+    const result = await pool.query(updateQuery, values);
 
-    // Update frontend settings.json
-    const frontendSettingsPath = path.join(__dirname, '../../frontend/src/config/settings.json');
-    const frontendSettings = JSON.parse(fs.readFileSync(frontendSettingsPath, 'utf8'));
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Settings not found. Please run migration first.'
+      });
+    }
 
-    frontendSettings.companyLocation.latitude = parseFloat(latitude);
-    frontendSettings.companyLocation.longitude = parseFloat(longitude);
-    frontendSettings.companyLocation.allowedRadius = parseInt(allowedRadius);
-    frontendSettings.workingHours.lateAfterTime = lateAfterTime;
-    
-    if (officeStartTime) frontendSettings.workingHours.officeStartTime = officeStartTime;
-    if (officeEndTime) frontendSettings.workingHours.officeEndTime = officeEndTime;
-    if (checkInEnabled !== undefined) frontendSettings.workingHours.checkInEnabled = checkInEnabled;
-    if (checkOutEnabled !== undefined) frontendSettings.workingHours.checkOutEnabled = checkOutEnabled;
-    if (halfDayThreshold) frontendSettings.workingHours.halfDayThreshold = parseFloat(halfDayThreshold);
-
-    fs.writeFileSync(frontendSettingsPath, JSON.stringify(frontendSettings, null, 2));
+    // Clear settings cache so next request gets fresh data
+    clearSettingsCache();
 
     res.json({
       success: true,
-      message: 'Settings updated successfully. Please restart the backend server for changes to take effect.',
-      settings: backendSettings
+      message: 'Settings updated successfully! Changes apply immediately - no restart needed.',
+      settings: {
+        companyLocation: {
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          allowedRadius: parseInt(allowedRadius)
+        },
+        workingHours: {
+          lateAfterTime,
+          officeStartTime,
+          officeEndTime,
+          checkInEnabled,
+          checkOutEnabled,
+          halfDayThreshold
+        }
+      }
     });
 
   } catch (error) {

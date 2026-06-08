@@ -1,4 +1,4 @@
-const settings = require('../config/settings.json');
+const { getSettingsFromDB } = require('./settingsHelper');
 
 // Haversine Formula to calculate distance between two coordinates
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -19,7 +19,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 // Validate if employee is within allowed radius
-const validateLocation = (employeeLat, employeeLon, isWFH = false) => {
+const validateLocation = async (employeeLat, employeeLon, isWFH = false) => {
   console.log('=== BACKEND LOCATION VALIDATION ===');
   console.log('Employee Location:', { lat: employeeLat, lon: employeeLon });
   console.log('Is WFH:', isWFH);
@@ -34,12 +34,13 @@ const validateLocation = (employeeLat, employeeLon, isWFH = false) => {
     };
   }
 
-  // Get location from settings.json
+  // Get location from database
+  const settings = await getSettingsFromDB();
   const companyLat = settings.companyLocation.latitude;
   const companyLon = settings.companyLocation.longitude;
   const allowedRadius = settings.companyLocation.allowedRadius;
 
-  console.log('Company Location (from settings.json):', { lat: companyLat, lon: companyLon });
+  console.log('Company Location (from database):', { lat: companyLat, lon: companyLon });
   console.log('Allowed Radius:', allowedRadius, 'meters');
 
   const distance = calculateDistance(
@@ -69,8 +70,9 @@ const validateLocation = (employeeLat, employeeLon, isWFH = false) => {
 };
 
 // Validate GPS Accuracy
-const validateGPSAccuracy = (accuracy) => {
-  // Get threshold from settings.json
+const validateGPSAccuracy = async (accuracy) => {
+  // Get threshold from database
+  const settings = await getSettingsFromDB();
   const threshold = settings.companyLocation.gpsAccuracyThreshold;
   
   if (accuracy > threshold) {

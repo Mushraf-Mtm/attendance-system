@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const { validateLocation, validateGPSAccuracy } = require('../utils/locationValidator');
-const settings = require('../config/settings.json');
+const { getSettingsFromDB } = require('../utils/settingsHelper');
 
 // Helper function to convert 24-hour time to 12-hour format
 const format24To12Hour = (time24) => {
@@ -108,6 +108,7 @@ const checkIn = async (req, res) => {
     }
 
     // Check if check-in is enabled
+    const settings = await getSettingsFromDB();
     if (!settings.workingHours.checkInEnabled) {
       return res.status(403).json({
         success: false,
@@ -152,7 +153,7 @@ const checkIn = async (req, res) => {
     }
 
     // Check GPS accuracy
-    const accuracyCheck = validateGPSAccuracy(accuracy);
+    const accuracyCheck = await validateGPSAccuracy(accuracy);
     if (!accuracyCheck.valid) {
       return res.status(400).json({
         success: false,
@@ -185,7 +186,7 @@ const checkIn = async (req, res) => {
     const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
 
     // Validate location (skip if WFH)
-    const locationCheck = validateLocation(
+    const locationCheck = await validateLocation(
       parseFloat(latitude),
       parseFloat(longitude),
       isWFH
@@ -274,6 +275,7 @@ const checkOut = async (req, res) => {
     } = req.body;
 
     // Check if check-out is enabled
+    const settings = await getSettingsFromDB();
     if (!settings.workingHours.checkOutEnabled) {
       return res.status(403).json({
         success: false,
@@ -338,7 +340,7 @@ const checkOut = async (req, res) => {
     const logoutTime = new Date();
     const workingHours = ((logoutTime - loginTime) / (1000 * 60 * 60)).toFixed(2);
 
-    // Update attendance status based on working hours (from settings.json)
+    // Update attendance status based on working hours (from database)
     const halfDayThreshold = settings.workingHours.halfDayThreshold;
     let finalStatus = attendance.attendance_status;
     if (parseFloat(workingHours) < halfDayThreshold) {

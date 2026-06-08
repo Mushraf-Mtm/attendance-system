@@ -117,6 +117,37 @@ CREATE INDEX IF NOT EXISTS idx_early_checkout_permissions_employee ON early_chec
 CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date);
 CREATE INDEX IF NOT EXISTS idx_holidays_enabled ON holidays(is_enabled);
 
+-- Create Settings Table
+CREATE TABLE IF NOT EXISTS settings (
+    id SERIAL PRIMARY KEY,
+    company_name VARCHAR(200) DEFAULT 'Company Office',
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    allowed_radius INTEGER NOT NULL DEFAULT 100,
+    gps_accuracy_threshold INTEGER DEFAULT 100,
+    office_start_time TIME NOT NULL DEFAULT '09:00',
+    office_end_time TIME NOT NULL DEFAULT '18:00',
+    late_after_time TIME NOT NULL DEFAULT '09:30',
+    half_day_threshold DECIMAL(3, 1) NOT NULL DEFAULT 4.0,
+    check_in_enabled BOOLEAN DEFAULT TRUE,
+    check_out_enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_settings_id ON settings(id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton ON settings ((id IS NOT NULL));
+
+-- Insert Default Settings
+INSERT INTO settings (
+    company_name, latitude, longitude, allowed_radius,
+    gps_accuracy_threshold, office_start_time, office_end_time,
+    late_after_time, half_day_threshold, check_in_enabled, check_out_enabled
+) VALUES (
+    'Company Office', 13.015837, 77.721172, 100, 100,
+    '09:00', '18:00', '09:30', 4.0, true, true
+) ON CONFLICT DO NOTHING;
+
 -- Insert Sample Departments
 INSERT INTO departments (name) VALUES 
     ('IT'),

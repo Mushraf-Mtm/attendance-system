@@ -1,5 +1,3 @@
-import settings from '../config/settings.json';
-
 // Get current location using browser Geolocation API
 export const getCurrentLocation = () => {
   return new Promise((resolve, reject) => {
@@ -17,20 +15,20 @@ export const getCurrentLocation = () => {
         });
       },
       (error) => {
-        let errorMessage = settings.messages.locationUnavailableMessage;
+        let errorMessage = 'Unable to retrieve your location. Please check if GPS is enabled on your device.';
         let errorType = 'unavailable';
         
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = settings.messages.locationDeniedMessage;
+            errorMessage = 'You have denied location access. Please enable location permission in your browser settings to use attendance features.';
             errorType = 'denied';
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = settings.messages.locationUnavailableMessage;
+            errorMessage = 'Unable to retrieve your location. Please check if GPS is enabled on your device.';
             errorType = 'unavailable';
             break;
           case error.TIMEOUT:
-            errorMessage = settings.messages.locationTimeoutMessage;
+            errorMessage = 'Location request timed out. Please try again.';
             errorType = 'timeout';
             break;
           default:

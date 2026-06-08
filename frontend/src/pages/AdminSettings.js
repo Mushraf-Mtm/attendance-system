@@ -87,7 +87,7 @@ const AdminSettings = () => {
         setAlertDialog({
           isOpen: true,
           title: 'Success',
-          message: 'Settings updated successfully!\n\nIMPORTANT: Please restart the backend server for changes to take effect.\n\n1. Go to backend terminal\n2. Press Ctrl+C\n3. Run: node server.js',
+          message: 'Settings updated successfully! Changes apply immediately.',
           type: 'success'
         });
       }
@@ -374,11 +374,11 @@ const AdminSettings = () => {
             </form>
 
             {/* Info Box */}
-            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <h3 className="font-semibold text-gray-800 mb-2">⚠️ Important Notes:</h3>
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-gray-800 mb-2">ℹ️ Important Notes:</h3>
               <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                <li>After saving, you MUST restart the backend server</li>
-                <li>Changes will apply to both frontend and backend</li>
+                <li>Changes apply immediately - no server restart needed!</li>
+                <li>Settings are stored in database and sync across all instances</li>
                 <li>Check-in/Check-out toggles control whether employees can use these buttons</li>
                 <li>Office timing validation applies when check-in/check-out are enabled</li>
                 <li>Give early checkout permission to specific employees from Employee Management</li>
