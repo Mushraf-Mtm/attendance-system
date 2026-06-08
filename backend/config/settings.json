@@ -4,7 +4,7 @@
     "latitude": 12.966000,
     "longitude": 77.606400,
     "allowedRadius": 100,
-    "gpsAccuracyThreshold": 100,
+    "gpsAccuracyThreshold": 150,
     "note": "Change latitude and longitude to your office location. Radius is in meters."
   },
   "messages": {
