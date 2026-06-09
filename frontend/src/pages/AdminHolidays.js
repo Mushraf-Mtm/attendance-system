@@ -214,7 +214,7 @@ const AdminHolidays = () => {
       <Sidebar />
       
       <div className="flex-1 overflow-y-auto w-full lg:w-auto">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4"
+        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>

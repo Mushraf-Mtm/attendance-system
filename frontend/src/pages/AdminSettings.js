@@ -160,7 +160,7 @@ const AdminSettings = () => {
       <Sidebar />
       
       <div className="flex-1 overflow-y-auto w-full lg:w-auto">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4"
+        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-800">System Settings</h1>
