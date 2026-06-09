@@ -10,21 +10,21 @@ const EmployeeProfile = () => {
     <div className="flex h-screen bg-gray-100">
       <Sidebar />
       
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+      <div className="flex-1 overflow-y-auto w-full lg:w-auto">
+        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
-            <p className="text-gray-600 mt-1">View your profile information</p>
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">My Profile</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">View your profile information</p>
           </div>
 
           {/* Profile Card */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             {/* Header Section */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8">
-              <div className="flex items-center space-x-6">
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
-                  <span className="text-4xl font-bold text-blue-600">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 sm:p-8">
+              <div className="flex flex-col sm:flex-row items-center sm:space-x-6 space-y-4 sm:space-y-0">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-3xl sm:text-4xl font-bold text-blue-600">
                     {user?.name?.charAt(0) || 'U'}
                   </span>
                 </div>

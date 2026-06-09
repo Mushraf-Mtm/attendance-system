@@ -61,16 +61,16 @@ const EmployeeLogin = () => {
       <div className="w-full max-w-md relative z-10">
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-10 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg mb-4">
-              <FiClock className="text-4xl text-blue-600" />
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 sm:px-8 py-6 sm:py-10 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-full shadow-lg mb-3 sm:mb-4">
+              <FiClock className="text-3xl sm:text-4xl text-blue-600" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Employee Portal</h1>
-            <p className="text-blue-100">Sign in to manage your attendance</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Employee Portal</h1>
+            <p className="text-sm sm:text-base text-blue-100">Sign in to manage your attendance</p>
           </div>
 
           {/* Form Section */}
-          <div className="px-8 py-8">
+          <div className="px-4 sm:px-8 py-6 sm:py-8">
             {error && (
               <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
                 <div className="flex items-center">
@@ -158,8 +158,8 @@ const EmployeeLogin = () => {
           </div>
 
           {/* Footer */}
-          <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
-            <p className="text-center text-sm text-gray-600">
+          <div className="px-4 sm:px-8 py-4 sm:py-6 bg-gray-50 border-t border-gray-100">
+            <p className="text-center text-xs sm:text-sm text-gray-600">
               Need help? Contact your administrator
             </p>
           </div>

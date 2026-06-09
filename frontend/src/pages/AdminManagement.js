@@ -270,8 +270,8 @@ const AdminManagement = () => {
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-8">
+      <div className="flex-1 overflow-auto w-full lg:w-auto">
+        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">Admin Management</h1>
 
           {/* Tabs */}

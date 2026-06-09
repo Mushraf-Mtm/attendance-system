@@ -75,16 +75,16 @@ const AdminDashboard = () => {
     <div className="flex h-screen bg-gray-100">
       <Sidebar />
       
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+      <div className="flex-1 overflow-y-auto w-full lg:w-auto">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome to Admin Panel</p>
+          <div className="mb-6 sm:mb-8 pt-16 lg:pt-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Welcome to Admin Panel</p>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <StatCard
               title="Total Employees"
               value={stats.totalEmployees}
@@ -124,60 +124,62 @@ const AdminDashboard = () => {
           </div>
 
           {/* Recent Attendance */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
+          <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">
               Today's Attendance
             </h2>
             
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                      Employee ID
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                      Name
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                      Department
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                      Login Time
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                      Logout Time
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentAttendance.length > 0 ? (
-                    recentAttendance.map((record) => (
-                      <tr key={record.id} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm">{record.emp_id}</td>
-                        <td className="px-4 py-3 text-sm font-medium">{record.name}</td>
-                        <td className="px-4 py-3 text-sm">{record.department}</td>
-                        <td className="px-4 py-3 text-sm">{formatTime(record.login_time)}</td>
-                        <td className="px-4 py-3 text-sm">{formatTime(record.logout_time)}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(record.attendance_status)}`}>
-                            {record.attendance_status}
-                          </span>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        Emp ID
+                      </th>
+                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        Name
+                      </th>
+                      <th className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        Department
+                      </th>
+                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        Login
+                      </th>
+                      <th className="hidden sm:table-cell px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        Logout
+                      </th>
+                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentAttendance.length > 0 ? (
+                      recentAttendance.map((record) => (
+                        <tr key={record.id} className="border-b hover:bg-gray-50">
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{record.emp_id}</td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium whitespace-nowrap">{record.name}</td>
+                          <td className="hidden md:table-cell px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{record.department}</td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{formatTime(record.login_time)}</td>
+                          <td className="hidden sm:table-cell px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{formatTime(record.logout_time)}</td>
+                          <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(record.attendance_status)}`}>
+                              {record.attendance_status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="px-4 py-8 text-center text-gray-500 text-sm">
+                          No attendance records for today
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
-                        No attendance records for today
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

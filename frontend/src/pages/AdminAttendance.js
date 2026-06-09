@@ -231,25 +231,25 @@ const AdminAttendance = () => {
     <div className="flex h-screen bg-gray-100">
       <Sidebar />
       
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+      <div className="flex-1 overflow-y-auto w-full lg:w-auto">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8 pt-16 lg:pt-0">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Attendance Monitoring</h1>
-              <p className="text-gray-600 mt-1">View and manage employee attendance</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Attendance Monitoring</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">View and manage employee attendance</p>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
               <button
                 onClick={() => handleDownloadPDF('pdf')}
-                className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 flex items-center space-x-2"
+                className="bg-red-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold hover:bg-red-700 flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
                 <FiDownload />
                 <span>Download PDF</span>
               </button>
               <button
                 onClick={() => handleDownloadPDF('excel')}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 flex items-center space-x-2"
+                className="bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold hover:bg-green-700 flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
                 <FiDownload />
                 <span>Download Excel</span>
@@ -258,15 +258,15 @@ const AdminAttendance = () => {
           </div>
 
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
             <div className="flex items-center space-x-2 mb-4">
               <FiFilter className="text-gray-600" />
-              <h2 className="text-lg font-semibold text-gray-800">Filters</h2>
+              <h2 className="text-base sm:text-lg font-semibold text-gray-800">Filters</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Date
                 </label>
                 <input
@@ -274,19 +274,19 @@ const AdminAttendance = () => {
                   name="date"
                   value={filters.date}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Status
                 </label>
                 <select
                   name="status"
                   value={filters.status}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                 >
                   <option value="">All Status</option>
                   <option value="Currently Working">Currently Working</option>
@@ -298,7 +298,7 @@ const AdminAttendance = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Employee ID
                 </label>
                 <input
@@ -307,7 +307,7 @@ const AdminAttendance = () => {
                   value={filters.employee_id}
                   onChange={handleFilterChange}
                   placeholder="Search by Employee ID"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                 />
               </div>
             </div>
@@ -320,87 +320,89 @@ const AdminAttendance = () => {
                   <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-600"></div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gray-50 border-b">
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Employee ID</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Department</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Login Time</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Logout Time</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Working Hours</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">WFH</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attendance.length > 0 ? (
-                        attendance.map((record) => (
-                          <tr key={record.id} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm">{formatDate(record.attendance_date)}</td>
-                            <td className="px-4 py-3 text-sm font-medium">{record.emp_id}</td>
-                            <td className="px-4 py-3 text-sm">{record.name}</td>
-                            <td className="px-4 py-3 text-sm">{record.department}</td>
-                            <td className="px-4 py-3 text-sm">{formatTime(record.login_time)}</td>
-                            <td className="px-4 py-3 text-sm">{formatTime(record.logout_time)}</td>
-                            <td className="px-4 py-3 text-sm">
-                              {formatWorkingHours(parseFloat(record.total_working_hours))}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(record.attendance_status)}`}>
-                                {getStatusDisplay(record.attendance_status)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                record.is_wfh ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {record.is_wfh ? 'Yes' : 'No'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <div className="flex space-x-1">
-                                {record.login_time && (
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="inline-block min-w-full align-middle">
+                    <table className="min-w-full">
+                      <thead>
+                        <tr className="bg-gray-50 border-b">
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Date</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Emp ID</th>
+                          <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                          <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Department</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Login</th>
+                          <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Logout</th>
+                          <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Hours</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                          <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">WFH</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendance.length > 0 ? (
+                          attendance.map((record) => (
+                            <tr key={record.id} className="border-b hover:bg-gray-50">
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{formatDate(record.attendance_date)}</td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium whitespace-nowrap">{record.emp_id}</td>
+                              <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{record.name}</td>
+                              <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{record.department}</td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{formatTime(record.login_time)}</td>
+                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{formatTime(record.logout_time)}</td>
+                              <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+                                {formatWorkingHours(parseFloat(record.total_working_hours))}
+                              </td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(record.attendance_status)}`}>
+                                  {getStatusDisplay(record.attendance_status)}
+                                </span>
+                              </td>
+                              <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                  record.is_wfh ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {record.is_wfh ? 'Yes' : 'No'}
+                                </span>
+                              </td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                                <div className="flex space-x-1">
+                                  {record.login_time && (
+                                    <button
+                                      onClick={() => handleResetAttendance(record, 'check-in')}
+                                      className="p-1.5 text-orange-600 hover:bg-orange-100 rounded"
+                                      title="Reset Check-In"
+                                    >
+                                      <FiRotateCcw size={14} />
+                                    </button>
+                                  )}
+                                  {record.logout_time && (
+                                    <button
+                                      onClick={() => handleResetAttendance(record, 'check-out')}
+                                      className="p-1.5 text-blue-600 hover:bg-blue-100 rounded"
+                                      title="Reset Check-Out"
+                                    >
+                                      <FiRefreshCw size={14} />
+                                    </button>
+                                  )}
                                   <button
-                                    onClick={() => handleResetAttendance(record, 'check-in')}
-                                    className="p-2 text-orange-600 hover:bg-orange-100 rounded"
-                                    title="Reset Check-In"
+                                    onClick={() => handleDeleteAttendance(record)}
+                                    className="p-1.5 text-red-600 hover:bg-red-100 rounded"
+                                    title="Delete Record"
                                   >
-                                    <FiRotateCcw size={16} />
+                                    <FiTrash2 size={14} />
                                   </button>
-                                )}
-                                {record.logout_time && (
-                                  <button
-                                    onClick={() => handleResetAttendance(record, 'check-out')}
-                                    className="p-2 text-blue-600 hover:bg-blue-100 rounded"
-                                    title="Reset Check-Out"
-                                  >
-                                    <FiRefreshCw size={16} />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleDeleteAttendance(record)}
-                                  className="p-2 text-red-600 hover:bg-red-100 rounded"
-                                  title="Delete Record"
-                                >
-                                  <FiTrash2 size={16} />
-                                </button>
-                              </div>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="10" className="px-4 py-8 text-center text-gray-500 text-sm">
+                              No attendance records found
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="10" className="px-4 py-8 text-center text-gray-500">
-                            No attendance records found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

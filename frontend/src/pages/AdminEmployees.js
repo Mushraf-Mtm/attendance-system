@@ -291,17 +291,17 @@ const AdminEmployees = () => {
     <div className="flex h-screen bg-gray-100">
       <Sidebar />
       
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+      <div className="flex-1 overflow-y-auto w-full lg:w-auto">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8 pt-16 lg:pt-0">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Employee Management</h1>
-              <p className="text-gray-600 mt-1">Manage your employees</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Employee Management</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your employees</p>
             </div>
             <button
               onClick={() => setShowModal(true)}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 flex items-center space-x-2"
+              className="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold hover:bg-blue-700 flex items-center space-x-2 text-sm sm:text-base"
             >
               <FiPlus />
               <span>Add Employee</span>
@@ -309,7 +309,7 @@ const AdminEmployees = () => {
           </div>
 
           {/* Search */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <div className="relative">
               <FiSearch className="absolute left-3 top-3 text-gray-400" />
               <input
@@ -317,93 +317,95 @@ const AdminEmployees = () => {
                 placeholder="Search employees..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
               />
             </div>
           </div>
 
           {/* Employee Table */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Employee ID</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Department</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Job Role</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Mobile</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">WFH</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Early Out</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEmployees.map((employee) => (
-                    <tr key={employee.id} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">{employee.employee_id}</td>
-                      <td className="px-4 py-3 text-sm font-medium">{employee.name}</td>
-                      <td className="px-4 py-3 text-sm">{employee.department_name}</td>
-                      <td className="px-4 py-3 text-sm">{employee.job_role}</td>
-                      <td className="px-4 py-3 text-sm">{employee.mobile}</td>
-                      <td className="px-4 py-3 text-sm">{employee.email}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          employee.status === 'Active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {employee.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <button
-                          onClick={() => handleWFHToggle(employee)}
-                          className={`p-2 rounded transition-all ${
-                            employee.wfh_enabled 
-                              ? 'bg-blue-100 text-blue-600' 
-                              : 'bg-gray-100 text-gray-400'
-                          }`}
-                          title={employee.wfh_enabled ? 'WFH Enabled - Click to disable' : 'WFH Disabled - Click to enable'}
-                        >
-                          <FiHome className="text-lg" />
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <button
-                          onClick={() => handleEarlyCheckoutToggle(employee)}
-                          className={`p-2 rounded transition-all ${
-                            employee.early_checkout_enabled 
-                              ? 'bg-green-100 text-green-600' 
-                              : 'bg-gray-100 text-gray-400'
-                          }`}
-                          title={employee.early_checkout_enabled ? 'Early Checkout Enabled - Click to disable' : 'Early Checkout Disabled - Click to enable'}
-                        >
-                          <FiClock className="text-lg" />
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(employee)}
-                            className="p-2 text-blue-600 hover:bg-blue-100 rounded"
-                          >
-                            <FiEdit />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(employee)}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded"
-                          >
-                            <FiTrash2 />
-                          </button>
-                        </div>
-                      </td>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Emp ID</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                      <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Department</th>
+                      <th className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Job Role</th>
+                      <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Mobile</th>
+                      <th className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">WFH</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Early</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredEmployees.map((employee) => (
+                      <tr key={employee.id} className="border-b hover:bg-gray-50">
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{employee.employee_id}</td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium whitespace-nowrap">{employee.name}</td>
+                        <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{employee.department_name}</td>
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{employee.job_role}</td>
+                        <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{employee.mobile}</td>
+                        <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{employee.email}</td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                            employee.status === 'Active' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {employee.status}
+                          </span>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          <button
+                            onClick={() => handleWFHToggle(employee)}
+                            className={`p-1.5 sm:p-2 rounded transition-all ${
+                              employee.wfh_enabled 
+                                ? 'bg-blue-100 text-blue-600' 
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                            title={employee.wfh_enabled ? 'WFH Enabled - Click to disable' : 'WFH Disabled - Click to enable'}
+                          >
+                            <FiHome className="text-sm sm:text-lg" />
+                          </button>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          <button
+                            onClick={() => handleEarlyCheckoutToggle(employee)}
+                            className={`p-1.5 sm:p-2 rounded transition-all ${
+                              employee.early_checkout_enabled 
+                                ? 'bg-green-100 text-green-600' 
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                            title={employee.early_checkout_enabled ? 'Early Checkout Enabled - Click to disable' : 'Early Checkout Disabled - Click to enable'}
+                          >
+                            <FiClock className="text-sm sm:text-lg" />
+                          </button>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => handleEdit(employee)}
+                              className="p-1.5 sm:p-2 text-blue-600 hover:bg-blue-100 rounded"
+                            >
+                              <FiEdit className="text-sm sm:text-base" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(employee)}
+                              className="p-1.5 sm:p-2 text-red-600 hover:bg-red-100 rounded"
+                            >
+                              <FiTrash2 className="text-sm sm:text-base" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -433,13 +435,13 @@ const AdminEmployees = () => {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">
+            <div className="p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
                 {editMode ? 'Edit Employee' : 'Add Employee'}
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Employee ID
