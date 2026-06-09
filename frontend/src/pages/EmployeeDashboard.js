@@ -319,115 +319,115 @@ const EmployeeDashboard = () => {
   const hasCheckedOut = todayAttendance?.logout_time;
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex flex-col md:flex-row h-screen bg-gray-100">
       <Sidebar />
       
       <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back!</p>
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1">Welcome back!</p>
           </div>
 
           {/* WFH Status */}
           {wfhEnabled && (
-            <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg mb-6">
-              <div className="flex items-center">
-                <FiMapPin className="mr-2" />
+            <div className="bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 md:px-4 md:py-3 rounded-lg mb-4 md:mb-6">
+              <div className="flex items-center text-sm md:text-base">
+                <FiMapPin className="mr-2 flex-shrink-0" />
                 <span className="font-medium">Work From Home is enabled for your account</span>
               </div>
             </div>
           )}
 
           {/* Check In/Out Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
             <button
               onClick={handleCheckIn}
               disabled={actionLoading || hasCheckedIn || !checkInEnabled}
-              className={`p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-4 transition-colors ${
+              className={`p-4 md:p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-2 md:space-y-4 transition-colors ${
                 hasCheckedIn || !checkInEnabled
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700 text-white'
               }`}
             >
-              <FiLogIn className="text-5xl" />
-              <span className="text-2xl font-bold">
+              <FiLogIn className="text-3xl md:text-5xl" />
+              <span className="text-lg md:text-2xl font-bold text-center">
                 {!checkInEnabled ? 'Check-In Disabled' : (hasCheckedIn ? 'Already Checked In' : 'Check In')}
               </span>
               {!checkInEnabled && (
-                <span className="text-sm">Contact admin to enable</span>
+                <span className="text-xs md:text-sm">Contact admin to enable</span>
               )}
             </button>
 
             <button
               onClick={handleCheckOut}
               disabled={actionLoading || !hasCheckedIn || hasCheckedOut || !checkOutEnabled}
-              className={`p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-4 transition-colors ${
+              className={`p-4 md:p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-2 md:space-y-4 transition-colors ${
                 !hasCheckedIn || hasCheckedOut || !checkOutEnabled
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-red-600 hover:bg-red-700 text-white'
               }`}
             >
-              <FiLogOut className="text-5xl" />
-              <span className="text-2xl font-bold">
+              <FiLogOut className="text-3xl md:text-5xl" />
+              <span className="text-lg md:text-2xl font-bold text-center">
                 {!checkOutEnabled ? 'Check-Out Disabled' : (hasCheckedOut ? 'Already Checked Out' : 'Check Out')}
               </span>
               {!checkOutEnabled && (
-                <span className="text-sm">Contact admin to enable</span>
+                <span className="text-xs md:text-sm">Contact admin to enable</span>
               )}
             </button>
           </div>
 
           {/* Today's Attendance */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+          <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
               <FiClock className="mr-2" />
               Today's Attendance
             </h2>
 
             {todayAttendance ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="border-l-4 border-green-500 pl-4">
-                  <p className="text-sm text-gray-600 mb-1">Login Time</p>
-                  <p className="text-2xl font-bold text-gray-800">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+                <div className="border-l-4 border-green-500 pl-3 md:pl-4">
+                  <p className="text-xs md:text-sm text-gray-600 mb-1">Login Time</p>
+                  <p className="text-lg md:text-2xl font-bold text-gray-800">
                     {formatTime(todayAttendance.login_time)}
                   </p>
                 </div>
 
-                <div className="border-l-4 border-red-500 pl-4">
-                  <p className="text-sm text-gray-600 mb-1">Logout Time</p>
-                  <p className="text-2xl font-bold text-gray-800">
+                <div className="border-l-4 border-red-500 pl-3 md:pl-4">
+                  <p className="text-xs md:text-sm text-gray-600 mb-1">Logout Time</p>
+                  <p className="text-lg md:text-2xl font-bold text-gray-800">
                     {formatTime(todayAttendance.logout_time)}
                   </p>
                 </div>
 
-                <div className="border-l-4 border-blue-500 pl-4">
-                  <p className="text-sm text-gray-600 mb-1">Working Hours</p>
-                  <p className="text-2xl font-bold text-gray-800">
+                <div className="border-l-4 border-blue-500 pl-3 md:pl-4">
+                  <p className="text-xs md:text-sm text-gray-600 mb-1">Working Hours</p>
+                  <p className="text-lg md:text-2xl font-bold text-gray-800">
                     {formatWorkingHours(parseFloat(todayAttendance.total_working_hours))}
                   </p>
                 </div>
 
-                <div className="border-l-4 border-purple-500 pl-4">
-                  <p className="text-sm text-gray-600 mb-1">Status</p>
-                  <span className={`inline-block px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(todayAttendance.attendance_status)}`}>
+                <div className="border-l-4 border-purple-500 pl-3 md:pl-4">
+                  <p className="text-xs md:text-sm text-gray-600 mb-1">Status</p>
+                  <span className={`inline-block px-2 md:px-4 py-1 md:py-2 rounded-full text-xs md:text-sm font-medium ${getStatusColor(todayAttendance.attendance_status)}`}>
                     {todayAttendance.attendance_status}
                   </span>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>No attendance record for today</p>
-                <p className="text-sm mt-2">Please check in to start tracking your attendance</p>
+              <div className="text-center py-6 md:py-8 text-gray-500">
+                <p className="text-sm md:text-base">No attendance record for today</p>
+                <p className="text-xs md:text-sm mt-2">Please check in to start tracking your attendance</p>
               </div>
             )}
           </div>
 
           {/* Instructions */}
-          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h3 className="font-semibold text-gray-800 mb-2">Important Instructions:</h3>
-            <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
+          <div className="mt-4 md:mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 md:p-6">
+            <h3 className="font-semibold text-gray-800 mb-2 text-sm md:text-base">Important Instructions:</h3>
+            <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-gray-700">
               <li>Make sure location services are enabled on your device</li>
               <li>Check in when you arrive at the office or start working from home</li>
               <li>Check out when you finish your work for the day</li>
