@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const sgMail = require('@sendgrid/mail');
+const { Resend } = require('resend');
 
 const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = 'password_reset') => {
   try {
@@ -56,7 +57,25 @@ const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = '
 </html>
     `;
 
-    // Use SendGrid if API key is provided, otherwise use SMTP
+    // Priority 1: Try Resend (easiest to sign up)
+    if (process.env.RESEND_API_KEY) {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      
+      const result = await resend.emails.send({
+        from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+        to: email,
+        subject: 'Attendance System - Password Reset OTP',
+        html: htmlContent
+      });
+
+      console.log('✅ Email sent successfully via Resend');
+      return {
+        success: true,
+        messageId: result.id
+      };
+    }
+    
+    // Priority 2: Try SendGrid
     if (process.env.SENDGRID_API_KEY) {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       
@@ -68,55 +87,55 @@ const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = '
       };
 
       await sgMail.send(msg);
-      console.log('Email sent successfully via SendGrid');
+      console.log('✅ Email sent successfully via SendGrid');
       
       return {
         success: true,
         messageId: 'sendgrid-' + Date.now()
       };
-    } else {
-      // Fallback to SMTP
-      const transportConfig = {
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT) || 465,
-        secure: true,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        connectionTimeout: 30000,
-        greetingTimeout: 30000,
-        socketTimeout: 30000
-      };
-
-      const transporter = nodemailer.createTransport(transportConfig);
-
-      // Verify SMTP connection before sending
-      try {
-        await transporter.verify();
-        console.log('✅ SMTP connection successful');
-      } catch (verifyError) {
-        console.error('❌ SMTP connection failed:', verifyError.message);
-        throw verifyError;
-      }
-
-      const mailOptions = {
-        from: `"${process.env.EMAIL_FROM_NAME || 'Attendance System'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Attendance System - Password Reset OTP',
-        html: htmlContent
-      };
-
-      const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email sent successfully via SMTP:', info.messageId);
-      
-      return {
-        success: true,
-        messageId: info.messageId
-      };
     }
+    
+    // Priority 3: Fallback to SMTP (won't work on Render)
+    const transportConfig = {
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000
+    };
+
+    const transporter = nodemailer.createTransport(transportConfig);
+
+    // Verify SMTP connection before sending
+    try {
+      await transporter.verify();
+      console.log('✅ SMTP connection successful');
+    } catch (verifyError) {
+      console.error('❌ SMTP connection failed:', verifyError.message);
+      throw verifyError;
+    }
+
+    const mailOptions = {
+      from: `"${process.env.EMAIL_FROM_NAME || 'Attendance System'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Attendance System - Password Reset OTP',
+      html: htmlContent
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent successfully via SMTP:', info.messageId);
+    
+    return {
+      success: true,
+      messageId: info.messageId
+    };
   } catch (error) {
-    console.error('Email sending error:', error);
+    console.error('❌ Email sending error:', error);
     return {
       success: false,
       error: error.message
