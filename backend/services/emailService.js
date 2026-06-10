@@ -2,21 +2,18 @@ const nodemailer = require('nodemailer');
 
 const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = 'password_reset') => {
   try {
-    // Try port 587 first, fallback to 465 if connection fails
+    // Use port 465 with SSL for better compatibility with hosting providers like Render
     const transportConfig = {
-      host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT || '587'),
-      secure: process.env.EMAIL_PORT === '465',
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 465,
+      secure: true, // Use SSL
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
       },
-      tls: {
-        rejectUnauthorized: false // Allow self-signed certificates
-      },
-      connectionTimeout: 10000, // 10 seconds timeout
-      greetingTimeout: 10000,
-      socketTimeout: 10000
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 30000
     };
 
     const transporter = nodemailer.createTransport(transportConfig);
@@ -98,16 +95,16 @@ const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = '
 const testEmailConfig = async () => {
   try {
     const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT || '587'),
-      secure: process.env.EMAIL_PORT === '465',
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 465,
+      secure: true, // Use SSL
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
       },
-      tls: {
-        rejectUnauthorized: process.env.NODE_ENV === 'production'
-      }
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000
     });
     
     await transporter.verify();
