@@ -7,6 +7,7 @@ import LogoutWarningDialog from './components/LogoutWarningDialog';
 // Auth Pages
 import AdminLogin from './pages/AdminLogin';
 import EmployeeLogin from './pages/EmployeeLogin';
+import ForgotPassword from './pages/ForgotPassword';
 
 // Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -15,11 +16,13 @@ import AdminAttendance from './pages/AdminAttendance';
 import AdminSettings from './pages/AdminSettings';
 import AdminManagement from './pages/AdminManagement';
 import AdminHolidays from './pages/AdminHolidays';
+import AdminOTPSettings from './pages/AdminOTPSettings';
 
 // Employee Pages
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import EmployeeAttendance from './pages/EmployeeAttendance';
 import EmployeeProfile from './pages/EmployeeProfile';
+import ChangePassword from './pages/ChangePassword';
 
 // Protected Route Component with custom logout warning dialog
 const ProtectedRoute = ({ children, requiredRole }) => {
@@ -150,6 +153,14 @@ function App() {
               </PublicRoute>
             }
           />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword />
+              </PublicRoute>
+            }
+          />
 
           {/* Admin Protected Routes */}
           <Route
@@ -200,6 +211,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/otp-settings"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminOTPSettings />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Employee Protected Routes */}
           <Route
@@ -223,6 +242,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="employee">
                 <EmployeeProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employee/change-password"
+            element={
+              <ProtectedRoute requiredRole="employee">
+                <ChangePassword />
               </ProtectedRoute>
             }
           />

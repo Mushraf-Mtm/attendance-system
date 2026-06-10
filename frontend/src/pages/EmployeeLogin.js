@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { employeeLogin } from '../services/api';
 import { FiUser, FiLock, FiEye, FiEyeOff, FiLogIn, FiClock } from 'react-icons/fi';
@@ -154,6 +154,16 @@ const EmployeeLogin = () => {
                   </>
                 )}
               </button>
+              
+              {/* Forgot Password Link */}
+              <div className="text-center">
+                <Link 
+                  to="/forgot-password" 
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
             </form>
           </div>
 

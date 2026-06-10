@@ -11,7 +11,8 @@ import {
   FiSettings,
   FiShield,
   FiMenu,
-  FiX
+  FiX,
+  FiLock
 } from 'react-icons/fi';
 
 const Sidebar = () => {
@@ -36,12 +37,14 @@ const Sidebar = () => {
     { path: '/admin/holidays', icon: FiCalendar, label: 'Holiday Management' },
     { path: '/admin/management', icon: FiShield, label: 'Admin Management' },
     { path: '/admin/settings', icon: FiSettings, label: 'Settings' },
+    { path: '/admin/otp-settings', icon: FiShield, label: 'OTP Settings' },
   ];
 
   const employeeMenuItems = [
     { path: '/employee/dashboard', icon: FiHome, label: 'Dashboard' },
     { path: '/employee/attendance', icon: FiClock, label: 'My Attendance' },
     { path: '/employee/profile', icon: FiUser, label: 'Profile' },
+    { path: '/employee/change-password', icon: FiLock, label: 'Change Password' },
   ];
 
   const menuItems = isAdmin ? adminMenuItems : employeeMenuItems;

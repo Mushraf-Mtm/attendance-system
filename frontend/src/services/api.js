@@ -161,4 +161,30 @@ export const resetAttendance = (attendanceId, resetType) =>
 export const deleteAttendance = (id) => 
   api.delete(`/attendance/${id}`);
 
+// Password Management APIs
+export const requestPasswordChange = (currentPassword) => 
+  api.post('/auth/change-password/request', { currentPassword });
+
+export const completePasswordChange = (otp, newPassword, confirmNewPassword) => 
+  api.post('/auth/change-password/complete', { otp, newPassword, confirmNewPassword });
+
+export const requestPasswordReset = (email) => 
+  api.post('/auth/forgot-password', { email });
+
+export const verifyResetOTP = (email, otp) => 
+  api.post('/auth/verify-otp', { email, otp });
+
+export const resetPassword = (email, otp, newPassword, confirmNewPassword) => 
+  api.post('/auth/reset-password', { email, otp, newPassword, confirmNewPassword });
+
+export const resendOTP = (email, purpose) => 
+  api.post('/auth/resend-otp', { email, purpose });
+
+// OTP Settings APIs (Admin only)
+export const getOTPSettings = () => 
+  api.get('/settings/otp');
+
+export const updateOTPSettings = (data) => 
+  api.put('/settings/otp', data);
+
 export default api;
