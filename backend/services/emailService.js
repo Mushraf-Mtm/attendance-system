@@ -1,31 +1,12 @@
 const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
 const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = 'password_reset') => {
   try {
-    // Use port 465 with SSL for better compatibility with hosting providers like Render
-    const transportConfig = {
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.EMAIL_PORT) || 465,
-      secure: true, // Use SSL
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      },
-      connectionTimeout: 30000, // 30 seconds
-      greetingTimeout: 30000,
-      socketTimeout: 30000
-    };
-
-    const transporter = nodemailer.createTransport(transportConfig);
-
     const purposeText = purpose === 'password_change' ? 'change your password' : 'reset your password';
     const actionText = purpose === 'password_change' ? 'password change' : 'password reset';
 
-    const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Attendance System'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Attendance System - Password Reset OTP',
-      html: `
+    const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -73,16 +54,67 @@ const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = '
   </div>
 </body>
 </html>
-      `
-    };
+    `;
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info.messageId);
-    
-    return {
-      success: true,
-      messageId: info.messageId
-    };
+    // Use SendGrid if API key is provided, otherwise use SMTP
+    if (process.env.SENDGRID_API_KEY) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      
+      const msg = {
+        to: email,
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        subject: 'Attendance System - Password Reset OTP',
+        html: htmlContent
+      };
+
+      await sgMail.send(msg);
+      console.log('Email sent successfully via SendGrid');
+      
+      return {
+        success: true,
+        messageId: 'sendgrid-' + Date.now()
+      };
+    } else {
+      // Fallback to SMTP
+      const transportConfig = {
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT) || 465,
+        secure: true,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000
+      };
+
+      const transporter = nodemailer.createTransport(transportConfig);
+
+      // Verify SMTP connection before sending
+      try {
+        await transporter.verify();
+        console.log('✅ SMTP connection successful');
+      } catch (verifyError) {
+        console.error('❌ SMTP connection failed:', verifyError.message);
+        throw verifyError;
+      }
+
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Attendance System'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Attendance System - Password Reset OTP',
+        html: htmlContent
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email sent successfully via SMTP:', info.messageId);
+      
+      return {
+        success: true,
+        messageId: info.messageId
+      };
+    }
   } catch (error) {
     console.error('Email sending error:', error);
     return {
