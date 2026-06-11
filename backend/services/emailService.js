@@ -1,6 +1,5 @@
 const nodemailer = require('nodemailer');
-const sgMail = require('@sendgrid/mail');
-const { Resend } = require('resend');
+const fetch = require('node-fetch');
 
 const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = 'password_reset') => {
   try {
@@ -57,52 +56,53 @@ const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = '
 </html>
     `;
 
-    // Priority 1: Try Resend (easiest to sign up)
-    if (process.env.RESEND_API_KEY) {
-      const resend = new Resend(process.env.RESEND_API_KEY);
+    // Use Brevo (Sendinblue) API
+    if (process.env.BREVO_API_KEY) {
+      console.log('Using Brevo API for email sending...');
+      console.log('API Key exists:', process.env.BREVO_API_KEY ? 'Yes' : 'No');
+      console.log('API Key length:', process.env.BREVO_API_KEY?.length);
       
-      const result = await resend.emails.send({
-        from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
-        to: email,
-        subject: 'Attendance System - Password Reset OTP',
-        html: htmlContent
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: {
+            name: process.env.EMAIL_FROM_NAME || 'Attendance System',
+            email: process.env.EMAIL_FROM
+          },
+          to: [{ email: email, name: employeeName }],
+          subject: 'Attendance System - Password Reset OTP',
+          htmlContent: htmlContent
+        })
       });
 
-      console.log('✅ Email sent successfully via Resend');
-      return {
-        success: true,
-        messageId: result.id
-      };
-    }
-    
-    // Priority 2: Try SendGrid
-    if (process.env.SENDGRID_API_KEY) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      
-      const msg = {
-        to: email,
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-        subject: 'Attendance System - Password Reset OTP',
-        html: htmlContent
-      };
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Brevo API Response:', errorData);
+        throw new Error(`Brevo API error: ${errorData.message || response.statusText}`);
+      }
 
-      await sgMail.send(msg);
-      console.log('✅ Email sent successfully via SendGrid');
+      const result = await response.json();
+      console.log('✅ Email sent successfully via Brevo:', result.messageId);
       
       return {
         success: true,
-        messageId: 'sendgrid-' + Date.now()
+        messageId: result.messageId
       };
     }
     
-    // Priority 3: Fallback to SMTP (won't work on Render)
+    // Fallback to SMTP (won't work on Render free tier)
     const transportConfig = {
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.EMAIL_PORT) || 465,
-      secure: true,
+      host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: false,
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        pass: process.env.EMAIL_PASS || process.env.BREVO_SMTP_KEY
       },
       connectionTimeout: 30000,
       greetingTimeout: 30000,
@@ -111,17 +111,8 @@ const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = '
 
     const transporter = nodemailer.createTransport(transportConfig);
 
-    // Verify SMTP connection before sending
-    try {
-      await transporter.verify();
-      console.log('✅ SMTP connection successful');
-    } catch (verifyError) {
-      console.error('❌ SMTP connection failed:', verifyError.message);
-      throw verifyError;
-    }
-
     const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Attendance System'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      from: `"${process.env.EMAIL_FROM_NAME || 'Attendance System'}" <${process.env.EMAIL_FROM}>`,
       to: email,
       subject: 'Attendance System - Password Reset OTP',
       html: htmlContent
@@ -145,13 +136,31 @@ const sendOTPEmail = async (email, employeeName, otp, expiryMinutes, purpose = '
 
 const testEmailConfig = async () => {
   try {
+    // Test Brevo API connection
+    if (process.env.BREVO_API_KEY) {
+      const response = await fetch('https://api.brevo.com/v3/account', {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Brevo API connection failed: ${response.statusText}`);
+      }
+
+      return { success: true, message: 'Brevo API connection is valid' };
+    }
+
+    // Test SMTP connection
     const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.EMAIL_PORT) || 465,
-      secure: true, // Use SSL
+      host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: false,
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        pass: process.env.EMAIL_PASS || process.env.BREVO_SMTP_KEY
       },
       connectionTimeout: 30000,
       greetingTimeout: 30000,

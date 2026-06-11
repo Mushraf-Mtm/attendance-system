@@ -1,10 +1,12 @@
-// Get current location using browser Geolocation API
-export const getCurrentLocation = () => {
+// Get current location using browser Geolocation API with retry
+export const getCurrentLocation = (retryCount = 0) => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by your browser'));
       return;
     }
+
+    const timeout = retryCount === 0 ? 30000 : 15000; // 30s first try, 15s for retries
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -28,7 +30,15 @@ export const getCurrentLocation = () => {
             errorType = 'unavailable';
             break;
           case error.TIMEOUT:
-            errorMessage = 'Location request timed out. Please try again.';
+            // Retry once if first attempt times out
+            if (retryCount < 1) {
+              console.log('Location timeout, retrying...');
+              getCurrentLocation(retryCount + 1)
+                .then(resolve)
+                .catch(reject);
+              return;
+            }
+            errorMessage = 'Location request timed out. Please ensure GPS is enabled and you have good signal.';
             errorType = 'timeout';
             break;
           default:
@@ -42,7 +52,7 @@ export const getCurrentLocation = () => {
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: timeout,
         maximumAge: 0,
       }
     );

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cron = require('node-cron');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -10,6 +11,10 @@ const pdfRoutes = require('./routes/pdfRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const holidayRoutes = require('./routes/holidayRoutes');
+
+// Import cron jobs
+const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
+const { autoCheckoutEmployees } = require('./jobs/autoCheckout');
 
 const app = express();
 
@@ -91,4 +96,20 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 http://localhost:${PORT}`);
+  
+  // Schedule auto-checkout job - runs every 30 minutes after office hours
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('🔄 Running auto-checkout job...');
+    await autoCheckoutEmployees();
+  });
+  
+  // Schedule daily absent records creation - runs at 12:01 AM every day
+  cron.schedule('1 0 * * *', async () => {
+    console.log('🔄 Running daily absent records job...');
+    await createDailyAbsentRecords();
+  });
+  
+  console.log('⏰ Cron jobs scheduled:');
+  console.log('   - Auto-checkout: Every 30 minutes');
+  console.log('   - Daily absent records: 12:01 AM daily');
 });
