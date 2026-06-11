@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     address_logout TEXT,
     attendance_status VARCHAR(20) DEFAULT 'Present' CHECK (attendance_status IN ('Present', 'Late', 'Half Day', 'Absent', 'Work From Home')),
     is_wfh BOOLEAN DEFAULT FALSE,
+    is_auto_checkout BOOLEAN DEFAULT FALSE,
     device_info TEXT,
     browser_info TEXT,
     ip_address VARCHAR(50),
@@ -94,6 +95,8 @@ CREATE TABLE IF NOT EXISTS attendance (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(employee_id, attendance_date)
 );
+
+COMMENT ON COLUMN attendance.is_auto_checkout IS 'Indicates if the employee was automatically checked out by the system';
 
 -- Create Holidays Table
 CREATE TABLE IF NOT EXISTS holidays (
@@ -127,13 +130,24 @@ CREATE TABLE IF NOT EXISTS settings (
     gps_accuracy_threshold INTEGER DEFAULT 100,
     office_start_time TIME NOT NULL DEFAULT '09:00',
     office_end_time TIME NOT NULL DEFAULT '18:00',
+    auto_checkout_time TIME DEFAULT '18:32:00',
     late_after_time TIME NOT NULL DEFAULT '09:30',
     half_day_threshold DECIMAL(3, 1) NOT NULL DEFAULT 4.0,
     check_in_enabled BOOLEAN DEFAULT TRUE,
     check_out_enabled BOOLEAN DEFAULT TRUE,
+    otp_expiry_minutes INTEGER DEFAULT 5,
+    otp_resend_seconds INTEGER DEFAULT 60,
+    otp_max_attempts INTEGER DEFAULT 3,
+    otp_requests_per_hour INTEGER DEFAULT 5,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMENT ON COLUMN settings.auto_checkout_time IS 'Time when automatic checkout should occur for employees who forgot to checkout manually';
+COMMENT ON COLUMN settings.otp_expiry_minutes IS 'OTP validity period in minutes';
+COMMENT ON COLUMN settings.otp_resend_seconds IS 'Cooldown period between OTP resend requests';
+COMMENT ON COLUMN settings.otp_max_attempts IS 'Maximum number of OTP verification attempts';
+COMMENT ON COLUMN settings.otp_requests_per_hour IS 'Maximum OTP requests allowed per hour per employee';
 
 CREATE INDEX IF NOT EXISTS idx_settings_id ON settings(id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton ON settings ((id IS NOT NULL));
@@ -142,10 +156,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton ON settings ((id IS NOT
 INSERT INTO settings (
     company_name, latitude, longitude, allowed_radius,
     gps_accuracy_threshold, office_start_time, office_end_time,
-    late_after_time, half_day_threshold, check_in_enabled, check_out_enabled
+    auto_checkout_time, late_after_time, half_day_threshold, 
+    check_in_enabled, check_out_enabled,
+    otp_expiry_minutes, otp_resend_seconds, otp_max_attempts, otp_requests_per_hour
 ) VALUES (
     'Company Office', 13.015837, 77.721172, 100, 100,
-    '09:00', '18:00', '09:30', 4.0, true, true
+    '09:00', '18:00', '18:32', '09:30', 4.0, true, true,
+    5, 60, 3, 5
 ) ON CONFLICT DO NOTHING;
 
 -- Insert Sample Departments
@@ -176,3 +193,73 @@ INSERT INTO employees (employee_id, name, department_id, job_role, mobile, email
     ('MTM-02', 'BILAL S', 1, 'SENIOR WEB DEVELOPER', '9113875925', 'bilal.mtm@gmail.com', '$2b$10$oLx2gCIP5dNQmWvM1xjfteLrbgfutmYAx6cvXJsZypbj5Peb/.TOy', 'Active'),
     ('MTM-03', 'ADITHYA MISHRA', 1, 'WEB DEVELOPER', '6360847309', 'adithya.mtm@gmail.com', '$2b$10$.RvgWiG8FlZORY6PBg7VculqfCUgHkbltR5Exifew17xe6WAy4n3q', 'Active')
 ON CONFLICT (employee_id) DO NOTHING;
+
+-- ============================================
+-- PASSWORD MANAGEMENT TABLES
+-- ============================================
+
+-- Create Password Reset OTPs Table
+CREATE TABLE IF NOT EXISTS password_reset_otps (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    otp_hash VARCHAR(255) NOT NULL,
+    purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('password_reset', 'password_change')),
+    expires_at TIMESTAMP NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    used BOOLEAN DEFAULT FALSE,
+    last_sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_employee ON password_reset_otps(employee_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expires ON password_reset_otps(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_used ON password_reset_otps(used);
+
+COMMENT ON TABLE password_reset_otps IS 'Stores OTP codes for password reset and change operations';
+COMMENT ON COLUMN password_reset_otps.otp_hash IS 'Bcrypt hash of the OTP code';
+COMMENT ON COLUMN password_reset_otps.purpose IS 'Purpose of OTP: password_reset (forgot password) or password_change (logged in user)';
+COMMENT ON COLUMN password_reset_otps.attempts IS 'Number of failed verification attempts';
+
+-- Create Audit Logs Table
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('employee', 'admin')),
+    action VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failed')),
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+
+COMMENT ON TABLE audit_logs IS 'Audit trail for security-sensitive operations';
+COMMENT ON COLUMN audit_logs.details IS 'Additional details about the action in JSON format';
+
+-- Create OTP Rate Limits Table
+CREATE TABLE IF NOT EXISTS otp_rate_limits (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    request_count INTEGER DEFAULT 0,
+    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_otp_rate_limits_employee ON otp_rate_limits(employee_id);
+CREATE INDEX IF NOT EXISTS idx_otp_rate_limits_window ON otp_rate_limits(window_start);
+
+COMMENT ON TABLE otp_rate_limits IS 'Tracks OTP request rate limiting per employee';
+COMMENT ON COLUMN otp_rate_limits.window_start IS 'Start time of current 1-hour rate limit window';
+
+-- Add password_changed_at column to employees table
+ALTER TABLE employees 
+ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP;
+
+COMMENT ON COLUMN employees.password_changed_at IS 'Timestamp of last password change';
