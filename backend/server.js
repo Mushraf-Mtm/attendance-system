@@ -93,13 +93,12 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 http://localhost:${PORT}`);
   
-  // Schedule auto-checkout job - runs every 30 minutes after office hours
-  cron.schedule('*/30 * * * *', async () => {
-    console.log('🔄 Running auto-checkout job...');
+  // Run auto-checkout check every minute
+  cron.schedule('* * * * *', async () => {
     await autoCheckoutEmployees();
   });
   
@@ -110,6 +109,6 @@ app.listen(PORT, '0.0.0.0', () => {
   });
   
   console.log('⏰ Cron jobs scheduled:');
-  console.log('   - Auto-checkout: Every 30 minutes');
+  console.log('   - Auto-checkout: Checks every minute');
   console.log('   - Daily absent records: 12:01 AM daily');
 });

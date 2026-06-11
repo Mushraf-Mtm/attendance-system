@@ -29,6 +29,7 @@ const getSettings = async (req, res) => {
         halfDayThreshold: parseFloat(dbSettings.half_day_threshold),
         officeStartTime: dbSettings.office_start_time.substring(0, 5),  // Format: HH:MM
         officeEndTime: dbSettings.office_end_time.substring(0, 5),  // Format: HH:MM
+        autoCheckoutTime: dbSettings.auto_checkout_time ? dbSettings.auto_checkout_time.substring(0, 5) : '18:32',  // Format: HH:MM
         checkInEnabled: dbSettings.check_in_enabled,
         checkOutEnabled: dbSettings.check_out_enabled
       },
@@ -71,6 +72,7 @@ const updateSettings = async (req, res) => {
       lateAfterTime,
       officeStartTime,
       officeEndTime,
+      autoCheckoutTime,
       checkInEnabled,
       checkOutEnabled,
       halfDayThreshold
@@ -123,6 +125,13 @@ const updateSettings = async (req, res) => {
       });
     }
 
+    if (autoCheckoutTime && !timeRegex.test(autoCheckoutTime)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid auto-checkout time format. Use HH:MM (24-hour format)'
+      });
+    }
+
     // Update settings in database
     const updateQuery = `
       UPDATE settings SET
@@ -132,9 +141,10 @@ const updateSettings = async (req, res) => {
         late_after_time = $4,
         office_start_time = $5,
         office_end_time = $6,
-        check_in_enabled = $7,
-        check_out_enabled = $8,
-        half_day_threshold = $9,
+        auto_checkout_time = $7,
+        check_in_enabled = $8,
+        check_out_enabled = $9,
+        half_day_threshold = $10,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
       RETURNING *
@@ -147,6 +157,7 @@ const updateSettings = async (req, res) => {
       lateAfterTime,
       officeStartTime || '09:00',
       officeEndTime || '18:00',
+      autoCheckoutTime || '18:32',
       checkInEnabled !== undefined ? checkInEnabled : true,
       checkOutEnabled !== undefined ? checkOutEnabled : true,
       halfDayThreshold ? parseFloat(halfDayThreshold) : 4.0
@@ -177,6 +188,7 @@ const updateSettings = async (req, res) => {
           lateAfterTime,
           officeStartTime,
           officeEndTime,
+          autoCheckoutTime,
           checkInEnabled,
           checkOutEnabled,
           halfDayThreshold

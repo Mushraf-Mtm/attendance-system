@@ -346,7 +346,16 @@ const AdminAttendance = () => {
                               <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{record.name}</td>
                               <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{record.department}</td>
                               <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{formatTime(record.login_time)}</td>
-                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">{formatTime(record.logout_time)}</td>
+                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                  <span>{formatTime(record.logout_time)}</span>
+                                  {record.is_auto_checkout && record.logout_time && (
+                                    <span className="text-xs text-orange-600 font-medium">
+                                      (Auto)
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
                               <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
                                 {formatWorkingHours(parseFloat(record.total_working_hours))}
                               </td>

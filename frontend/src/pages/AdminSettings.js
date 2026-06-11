@@ -12,6 +12,7 @@ const AdminSettings = () => {
     lateAfterTime: '',
     officeStartTime: '09:00',
     officeEndTime: '18:00',
+    autoCheckoutTime: '18:32',
     halfDayThreshold: 4,
     checkInEnabled: true,
     checkOutEnabled: true
@@ -43,6 +44,7 @@ const AdminSettings = () => {
           lateAfterTime: s.workingHours.lateAfterTime,
           officeStartTime: s.workingHours.officeStartTime || '09:00',
           officeEndTime: s.workingHours.officeEndTime || '18:00',
+          autoCheckoutTime: s.workingHours.autoCheckoutTime || '18:32',
           halfDayThreshold: s.workingHours.halfDayThreshold || 4,
           checkInEnabled: s.workingHours.checkInEnabled !== undefined ? s.workingHours.checkInEnabled : true,
           checkOutEnabled: s.workingHours.checkOutEnabled !== undefined ? s.workingHours.checkOutEnabled : true
@@ -297,6 +299,23 @@ const AdminSettings = () => {
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Employees cannot check out before this time (unless given early checkout permission)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Auto Checkout Time
+                    </label>
+                    <input
+                      type="time"
+                      name="autoCheckoutTime"
+                      value={settings.autoCheckoutTime}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      System will automatically checkout employees who forgot to checkout at this time
                     </p>
                   </div>
 

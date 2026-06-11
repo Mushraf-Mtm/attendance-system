@@ -123,7 +123,16 @@ const EmployeeAttendance = () => {
                         <tr key={record.id} className="border-b hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm">{formatDate(record.attendance_date)}</td>
                           <td className="px-4 py-3 text-sm">{formatTime(record.login_time)}</td>
-                          <td className="px-4 py-3 text-sm">{formatTime(record.logout_time)}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex flex-col gap-1">
+                              <span>{formatTime(record.logout_time)}</span>
+                              {record.is_auto_checkout && record.logout_time && (
+                                <span className="text-xs text-orange-600 font-medium">
+                                  (Auto checkout by system)
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-sm">
                             {formatWorkingHours(parseFloat(record.total_working_hours))}
                           </td>

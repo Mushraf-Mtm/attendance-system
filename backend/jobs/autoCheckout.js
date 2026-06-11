@@ -1,28 +1,48 @@
 const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
 
+// Track if we already ran auto-checkout today
+let lastAutoCheckoutDate = null;
+
 // Auto checkout employees who checked in but forgot to checkout after office end time
 const autoCheckoutEmployees = async () => {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const settings = await getSettingsFromDB();
+    
+    // Get auto-checkout time from database
+    const settingsResult = await pool.query(
+      'SELECT auto_checkout_time FROM settings ORDER BY id LIMIT 1'
+    );
+    
+    if (settingsResult.rows.length === 0 || !settingsResult.rows[0].auto_checkout_time) {
+      return { success: false, message: 'Auto-checkout time not configured in settings' };
+    }
+    
+    const autoCheckoutTime = settingsResult.rows[0].auto_checkout_time;
+    const [autoHour, autoMinute] = autoCheckoutTime.split(':').map(Number);
     
     // Get current time in IST
     const currentTime = new Date();
-    const istOffset = 5.5 * 60; // IST is UTC+5:30 in minutes
+    const istOffset = 5.5 * 60;
     const localTime = new Date(currentTime.getTime() + (istOffset * 60 * 1000));
     const currentHour = localTime.getUTCHours();
     const currentMinute = localTime.getUTCMinutes();
-    const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
-    const [endHour, endMinute] = settings.workingHours.officeEndTime.split(':').map(Number);
-    const endTimeInMinutes = endHour * 60 + endMinute;
-
-    // Only run if current time is past office end time
-    if (currentTimeInMinutes <= endTimeInMinutes) {
-      console.log('Auto-checkout: Not yet office end time');
-      return { success: false, message: 'Not yet office end time' };
+    // Check if it's the exact minute for auto-checkout
+    if (currentHour !== autoHour || currentMinute !== autoMinute) {
+      return { success: false, message: 'Not auto-checkout time' };
     }
+
+    // Check if we already ran today
+    if (lastAutoCheckoutDate === today) {
+      return { success: false, message: 'Already ran auto-checkout today' };
+    }
+
+    console.log(`🔄 Running auto-checkout at ${autoCheckoutTime}...`);
+
+    // Get half day threshold
+    const settings = await getSettingsFromDB();
+    const halfDayThreshold = settings.workingHours.halfDayThreshold;
 
     // Get all employees who checked in today but haven't checked out
     const result = await pool.query(
@@ -36,12 +56,11 @@ const autoCheckoutEmployees = async () => {
     );
 
     if (result.rows.length === 0) {
-      console.log('Auto-checkout: No employees to auto-checkout');
+      lastAutoCheckoutDate = today;
       return { success: true, checkedOut: 0, message: 'No employees to auto-checkout' };
     }
 
     let checkedOutCount = 0;
-    const halfDayThreshold = settings.workingHours.halfDayThreshold;
 
     for (const attendance of result.rows) {
       // Calculate working hours from login_time to now
@@ -61,7 +80,8 @@ const autoCheckoutEmployees = async () => {
          SET logout_time = CURRENT_TIMESTAMP,
              total_working_hours = $1,
              attendance_status = $2,
-             address_logout = 'Auto checkout at office end time',
+             address_logout = 'Auto checkout by system',
+             is_auto_checkout = TRUE,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $3`,
         [workingHours, finalStatus, attendance.id]
@@ -71,7 +91,10 @@ const autoCheckoutEmployees = async () => {
       console.log(`✅ Auto-checkout: ${attendance.name} (${attendance.employee_id}) - ${workingHours}h`);
     }
 
-    console.log(`Auto-checkout completed: ${checkedOutCount} employee(s) checked out`);
+    // Mark that we ran today
+    lastAutoCheckoutDate = today;
+
+    console.log(`✅ Auto-checkout completed: ${checkedOutCount} employee(s) checked out`);
     return {
       success: true,
       checkedOut: checkedOutCount,
@@ -79,7 +102,7 @@ const autoCheckoutEmployees = async () => {
     };
 
   } catch (error) {
-    console.error('Auto-checkout error:', error);
+    console.error('❌ Auto-checkout error:', error);
     return {
       success: false,
       error: error.message

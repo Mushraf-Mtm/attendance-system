@@ -400,6 +400,11 @@ const EmployeeDashboard = () => {
                   <p className="text-lg md:text-2xl font-bold text-gray-800">
                     {formatTime(todayAttendance.logout_time)}
                   </p>
+                  {todayAttendance.is_auto_checkout && todayAttendance.logout_time && (
+                    <p className="text-xs text-orange-600 font-medium mt-1">
+                      (Auto checkout by system)
+                    </p>
+                  )}
                 </div>
 
                 <div className="border-l-4 border-blue-500 pl-3 md:pl-4">

@@ -14,6 +14,7 @@ const {
   toggleEarlyCheckout,
   ensureDailyAttendanceRecords
 } = require('../controllers/attendanceController');
+const { autoCheckoutEmployees } = require('../jobs/autoCheckout');
 
 // Employee routes
 router.post('/checkin', verifyToken, isEmployee, checkIn);
@@ -45,6 +46,25 @@ router.post('/create-daily-records', verifyToken, isAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error creating daily records'
+    });
+  }
+});
+
+// Utility route to manually trigger auto-checkout (for testing)
+router.post('/trigger-auto-checkout', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const result = await autoCheckoutEmployees();
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      checkedOut: result.checkedOut || 0
+    });
+  } catch (error) {
+    console.error('Error triggering auto-checkout:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error triggering auto-checkout'
     });
   }
 });
