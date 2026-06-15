@@ -1,0 +1,11 @@
+# robots.txt for Attendance Management System
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /employee/dashboard
+Disallow: /employee/attendance
+Disallow: /employee/profile
+
+# Sitemap
+Sitemap: https://your-domain.com/sitemap.xml

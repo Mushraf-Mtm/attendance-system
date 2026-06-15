@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Loader from './components/Loader';
 import LogoutWarningDialog from './components/LogoutWarningDialog';
 
+// Public Pages
+import LandingPage from './pages/LandingPage';
+
 // Auth Pages
 import AdminLogin from './pages/AdminLogin';
 import EmployeeLogin from './pages/EmployeeLogin';
@@ -129,9 +132,12 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Routes */}
+          {/* Public Landing Page */}
+          <Route path="/" element={<LandingPage />} />
+
+          {/* Auth Routes */}
           <Route
-            path="/"
+            path="/employee/login"
             element={
               <PublicRoute>
                 <EmployeeLogin />
@@ -143,14 +149,6 @@ function App() {
             element={
               <PublicRoute>
                 <AdminLogin />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/employee/login"
-            element={
-              <PublicRoute>
-                <EmployeeLogin />
               </PublicRoute>
             }
           />
