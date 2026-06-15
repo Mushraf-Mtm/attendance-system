@@ -1,11 +1,19 @@
 # robots.txt for Attendance Management System
+# https://attendance-system-rho-five.vercel.app/robots.txt
 
 User-agent: *
 Allow: /
+Allow: /employee/login
+Allow: /favicon/
+Allow: /screenshots/
+
+# Disallow protected routes
+Disallow: /admin
 Disallow: /admin/
 Disallow: /employee/dashboard
 Disallow: /employee/attendance
 Disallow: /employee/profile
+Disallow: /employee/change-password
 
 # Sitemap
-Sitemap: https://your-domain.com/sitemap.xml
+Sitemap: https://attendance-system-rho-five.vercel.app/sitemap.xml
