@@ -1,8 +1,7 @@
--- Create Database
--- CREATE DATABASE attendance_db;
-
--- Connect to database
--- \c attendance_db;
+-- ============================================
+-- ATTENDANCE MANAGEMENT SYSTEM - COMPLETE DATABASE SCHEMA
+-- All migrations consolidated into one file
+-- ============================================
 
 -- Create Departments Table
 CREATE TABLE IF NOT EXISTS departments (
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS admin_login_logs (
     device_info TEXT
 );
 
--- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_admin_login_logs_admin ON admin_login_logs(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_login_logs_time ON admin_login_logs(login_time);
 
@@ -46,6 +44,7 @@ CREATE TABLE IF NOT EXISTS employees (
     email VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+    password_changed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -84,7 +83,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     longitude_logout DECIMAL(11,8),
     address_login TEXT,
     address_logout TEXT,
-    attendance_status VARCHAR(20) DEFAULT 'Present' CHECK (attendance_status IN ('Present', 'Late', 'Half Day', 'Absent', 'Work From Home')),
+    attendance_status VARCHAR(20) DEFAULT 'Present',
     is_wfh BOOLEAN DEFAULT FALSE,
     is_auto_checkout BOOLEAN DEFAULT FALSE,
     device_info TEXT,
@@ -98,10 +97,6 @@ CREATE TABLE IF NOT EXISTS attendance (
     UNIQUE(employee_id, attendance_date)
 );
 
-COMMENT ON COLUMN attendance.is_auto_checkout IS 'Indicates if the employee was automatically checked out by the system';
-COMMENT ON COLUMN attendance.device_fingerprint IS 'Device fingerprint used during check-in';
-COMMENT ON COLUMN attendance.validation_method IS 'Which validation passed: location, network, location_and_network, location_or_network';
-
 -- Create Holidays Table
 CREATE TABLE IF NOT EXISTS holidays (
     id SERIAL PRIMARY KEY,
@@ -114,15 +109,6 @@ CREATE TABLE IF NOT EXISTS holidays (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- Create Indexes for Performance
-CREATE INDEX IF NOT EXISTS idx_attendance_employee ON attendance(employee_id);
-CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(attendance_date);
-CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status);
-CREATE INDEX IF NOT EXISTS idx_wfh_permissions_employee ON wfh_permissions(employee_id);
-CREATE INDEX IF NOT EXISTS idx_early_checkout_permissions_employee ON early_checkout_permissions(employee_id);
-CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date);
-CREATE INDEX IF NOT EXISTS idx_holidays_enabled ON holidays(is_enabled);
 
 -- Create Settings Table
 CREATE TABLE IF NOT EXISTS settings (
@@ -145,24 +131,130 @@ CREATE TABLE IF NOT EXISTS settings (
     otp_requests_per_hour INTEGER DEFAULT 5,
     office_public_ip TEXT,
     allowed_ips TEXT,
-    attendance_validation_mode VARCHAR(30) DEFAULT 'location_or_network' CHECK (attendance_validation_mode IN ('location_only', 'network_only', 'location_or_network', 'location_and_network')),
+    attendance_validation_mode VARCHAR(30) DEFAULT 'location_or_network',
     attendance_rate_limit INTEGER DEFAULT 5,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON COLUMN settings.auto_checkout_time IS 'Time when automatic checkout should occur for employees who forgot to checkout manually';
-COMMENT ON COLUMN settings.otp_expiry_minutes IS 'OTP validity period in minutes';
-COMMENT ON COLUMN settings.otp_resend_seconds IS 'Cooldown period between OTP resend requests';
-COMMENT ON COLUMN settings.otp_max_attempts IS 'Maximum number of OTP verification attempts';
-COMMENT ON COLUMN settings.otp_requests_per_hour IS 'Maximum OTP requests allowed per hour per employee';
-COMMENT ON COLUMN settings.office_public_ip IS 'Primary office public IP address';
-COMMENT ON COLUMN settings.allowed_ips IS 'Comma-separated list of allowed office IP addresses';
-COMMENT ON COLUMN settings.attendance_validation_mode IS 'Attendance validation strategy: location_only, network_only, location_or_network, location_and_network';
-COMMENT ON COLUMN settings.attendance_rate_limit IS 'Maximum attendance API requests per minute per employee';
+-- Create Password Reset OTPs Table
+CREATE TABLE IF NOT EXISTS password_reset_otps (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    otp_hash VARCHAR(255) NOT NULL,
+    purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('password_reset', 'password_change')),
+    expires_at TIMESTAMP NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    used BOOLEAN DEFAULT FALSE,
+    last_sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- Create OTP Rate Limits Table
+CREATE TABLE IF NOT EXISTS otp_rate_limits (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    request_count INTEGER DEFAULT 0,
+    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id)
+);
+
+-- Create Audit Logs Table
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('employee', 'admin')),
+    action VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failed')),
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    device_fingerprint VARCHAR(255),
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Device Fingerprints Table (with all enhancements)
+CREATE TABLE IF NOT EXISTS device_fingerprints (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    device_fingerprint VARCHAR(255) NOT NULL,
+    device_alias VARCHAR(255),
+    device_type VARCHAR(50) DEFAULT 'Unknown' CHECK (device_type IN ('Desktop', 'Laptop', 'Mobile', 'Tablet', 'Unknown')),
+    browser VARCHAR(100),
+    browser_version VARCHAR(50),
+    operating_system VARCHAR(100),
+    screen_resolution VARCHAR(50),
+    timezone VARCHAR(50),
+    first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_approved BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, device_fingerprint)
+);
+
+-- Create Attendance Rate Limits Table
+CREATE TABLE IF NOT EXISTS attendance_rate_limits (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    ip_address VARCHAR(50),
+    request_count INTEGER DEFAULT 1,
+    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, ip_address)
+);
+
+-- Create trigger for device fingerprints
+CREATE OR REPLACE FUNCTION update_device_fingerprints_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_device_fingerprints_updated_at ON device_fingerprints;
+
+CREATE TRIGGER trigger_device_fingerprints_updated_at
+BEFORE UPDATE ON device_fingerprints
+FOR EACH ROW
+WHEN (OLD.device_alias IS DISTINCT FROM NEW.device_alias)
+EXECUTE FUNCTION update_device_fingerprints_updated_at();
+
+-- ============================================
+-- CREATE INDEXES FOR PERFORMANCE
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_attendance_employee ON attendance(employee_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(attendance_date);
+CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status);
+CREATE INDEX IF NOT EXISTS idx_wfh_permissions_employee ON wfh_permissions(employee_id);
+CREATE INDEX IF NOT EXISTS idx_early_checkout_permissions_employee ON early_checkout_permissions(employee_id);
+CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date);
+CREATE INDEX IF NOT EXISTS idx_holidays_enabled ON holidays(is_enabled);
 CREATE INDEX IF NOT EXISTS idx_settings_id ON settings(id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_employee ON password_reset_otps(employee_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expires ON password_reset_otps(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_used ON password_reset_otps(used);
+CREATE INDEX IF NOT EXISTS idx_otp_rate_limits_employee ON otp_rate_limits(employee_id);
+CREATE INDEX IF NOT EXISTS idx_otp_rate_limits_window ON otp_rate_limits(window_start);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_status ON audit_logs(status);
+CREATE INDEX IF NOT EXISTS idx_device_fingerprints_employee ON device_fingerprints(employee_id);
+CREATE INDEX IF NOT EXISTS idx_device_fingerprints_fingerprint ON device_fingerprints(device_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_device_fingerprints_alias ON device_fingerprints(device_alias);
+CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_employee ON attendance_rate_limits(employee_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_window ON attendance_rate_limits(window_start);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton ON settings ((id IS NOT NULL));
+
+-- ============================================
+-- INSERT DEFAULT DATA
+-- ============================================
 
 -- Insert Default Settings
 INSERT INTO settings (
@@ -188,140 +280,7 @@ INSERT INTO departments (name) VALUES
     ('Operations')
 ON CONFLICT (name) DO NOTHING;
 
--- Insert Sample Admin (password: admin123)
-INSERT INTO admins (username, email, password) VALUES 
-    ('admin', 'admin@company.com', '$2b$10$rKvVJkzYhZ8qXqxqxqxqxOJ5Yqxqxqxqxqxqxqxqxqxqxqxqxqxqx')
-ON CONFLICT (username) DO NOTHING;
-
--- Note: The password hash above is a placeholder. 
--- Actual hash will be generated when you create admin through API
--- Password: admin123
--- You need to hash it properly using bcrypt
-
--- Insert Sample Employees
--- MTM-01: MOHAMED MUSHRAF (password: Mushraf123)
--- MTM-02: BILAL S (password: Bilal123)
--- MTM-03: ADITHYA MISHRA (password: Adithya123)
-INSERT INTO employees (employee_id, name, department_id, job_role, mobile, email, password, status) VALUES 
-    ('MTM-01', 'MOHAMED MUSHRAF', 1, 'WEB DEVELOPER', '9677807887', 'mushraf1.mtm@gmail.com', '$2b$10$8lmqUI4ROUv2GUbDFpwCJuwcWr.fx4ceSobm/5Zo28MsukJjeEk8K', 'Active'),
-    ('MTM-02', 'BILAL S', 1, 'SENIOR WEB DEVELOPER', '9113875925', 'bilal.mtm@gmail.com', '$2b$10$oLx2gCIP5dNQmWvM1xjfteLrbgfutmYAx6cvXJsZypbj5Peb/.TOy', 'Active'),
-    ('MTM-03', 'ADITHYA MISHRA', 1, 'WEB DEVELOPER', '6360847309', 'adithya.mtm@gmail.com', '$2b$10$.RvgWiG8FlZORY6PBg7VculqfCUgHkbltR5Exifew17xe6WAy4n3q', 'Active')
-ON CONFLICT (employee_id) DO NOTHING;
-
 -- ============================================
--- PASSWORD MANAGEMENT TABLES
+-- SCHEMA SETUP COMPLETE
 -- ============================================
-
--- Create Password Reset OTPs Table
-CREATE TABLE IF NOT EXISTS password_reset_otps (
-    id SERIAL PRIMARY KEY,
-    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
-    otp_hash VARCHAR(255) NOT NULL,
-    purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('password_reset', 'password_change')),
-    expires_at TIMESTAMP NOT NULL,
-    attempts INTEGER DEFAULT 0,
-    used BOOLEAN DEFAULT FALSE,
-    last_sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_password_reset_otps_employee ON password_reset_otps(employee_id);
-CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expires ON password_reset_otps(expires_at);
-CREATE INDEX IF NOT EXISTS idx_password_reset_otps_used ON password_reset_otps(used);
-
-COMMENT ON TABLE password_reset_otps IS 'Stores OTP codes for password reset and change operations';
-COMMENT ON COLUMN password_reset_otps.otp_hash IS 'Bcrypt hash of the OTP code';
-COMMENT ON COLUMN password_reset_otps.purpose IS 'Purpose of OTP: password_reset (forgot password) or password_change (logged in user)';
-COMMENT ON COLUMN password_reset_otps.attempts IS 'Number of failed verification attempts';
-
--- Create Audit Logs Table
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id SERIAL PRIMARY KEY,
-    user_id VARCHAR(50) NOT NULL,
-    user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('employee', 'admin')),
-    action VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failed')),
-    ip_address VARCHAR(50),
-    user_agent TEXT,
-    device_fingerprint VARCHAR(255),
-    details JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_status ON audit_logs(status);
-
-COMMENT ON TABLE audit_logs IS 'Audit trail for security-sensitive operations including attendance';
-COMMENT ON COLUMN audit_logs.details IS 'Additional details about the action in JSON format';
-COMMENT ON COLUMN audit_logs.device_fingerprint IS 'Device fingerprint if applicable';
-
--- Create OTP Rate Limits Table
-CREATE TABLE IF NOT EXISTS otp_rate_limits (
-    id SERIAL PRIMARY KEY,
-    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
-    request_count INTEGER DEFAULT 0,
-    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(employee_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_otp_rate_limits_employee ON otp_rate_limits(employee_id);
-CREATE INDEX IF NOT EXISTS idx_otp_rate_limits_window ON otp_rate_limits(window_start);
-
-COMMENT ON TABLE otp_rate_limits IS 'Tracks OTP request rate limiting per employee';
-COMMENT ON COLUMN otp_rate_limits.window_start IS 'Start time of current 1-hour rate limit window';
-
--- Add password_changed_at column to employees table
-ALTER TABLE employees 
-ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP;
-
-COMMENT ON COLUMN employees.password_changed_at IS 'Timestamp of last password change';
-
--- ============================================
--- ATTENDANCE SECURITY TABLES
--- ============================================
-
--- Create Device Fingerprints Table
-CREATE TABLE IF NOT EXISTS device_fingerprints (
-    id SERIAL PRIMARY KEY,
-    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
-    device_fingerprint VARCHAR(255) NOT NULL,
-    browser VARCHAR(100),
-    operating_system VARCHAR(100),
-    screen_resolution VARCHAR(50),
-    timezone VARCHAR(50),
-    first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_approved BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(employee_id, device_fingerprint)
-);
-
-CREATE INDEX IF NOT EXISTS idx_device_fingerprints_employee ON device_fingerprints(employee_id);
-CREATE INDEX IF NOT EXISTS idx_device_fingerprints_fingerprint ON device_fingerprints(device_fingerprint);
-
-COMMENT ON TABLE device_fingerprints IS 'Stores device fingerprints for audit and security tracking';
-COMMENT ON COLUMN device_fingerprints.device_fingerprint IS 'Unique hash identifying the device';
-COMMENT ON COLUMN device_fingerprints.is_approved IS 'Whether this device is approved for attendance';
-
--- Create Attendance Rate Limits Table
-CREATE TABLE IF NOT EXISTS attendance_rate_limits (
-    id SERIAL PRIMARY KEY,
-    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
-    ip_address VARCHAR(50),
-    request_count INTEGER DEFAULT 1,
-    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(employee_id, ip_address)
-);
-
-CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_employee ON attendance_rate_limits(employee_id);
-CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_window ON attendance_rate_limits(window_start);
-
-COMMENT ON TABLE attendance_rate_limits IS 'Tracks attendance API rate limiting per employee per IP';
-COMMENT ON COLUMN attendance_rate_limits.window_start IS 'Start time of current rate limit window (1 minute)';
+SELECT 'Database schema created successfully!' AS message;
