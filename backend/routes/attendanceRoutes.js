@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken, isAdmin, isEmployee } = require('../middleware/auth');
+const { attendanceRateLimit } = require('../middleware/attendanceRateLimit');
 const {
   checkIn,
   checkOut,
@@ -16,9 +17,9 @@ const {
 } = require('../controllers/attendanceController');
 const { autoCheckoutEmployees } = require('../jobs/autoCheckout');
 
-// Employee routes
-router.post('/checkin', verifyToken, isEmployee, checkIn);
-router.post('/checkout', verifyToken, isEmployee, checkOut);
+// Employee routes (with rate limiting)
+router.post('/checkin', verifyToken, isEmployee, attendanceRateLimit, checkIn);
+router.post('/checkout', verifyToken, isEmployee, attendanceRateLimit, checkOut);
 router.get('/today', verifyToken, isEmployee, getTodayAttendance);
 router.get('/monthly', verifyToken, isEmployee, getEmployeeMonthlyAttendance);
 

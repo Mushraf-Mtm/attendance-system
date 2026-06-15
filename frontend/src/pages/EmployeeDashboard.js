@@ -10,7 +10,7 @@ import {
   getWFHStatus,
   getSettings
 } from '../services/api';
-import { getCurrentLocation, getDeviceInfo, getIPAddress } from '../utils/location';
+import { getCurrentLocation, getDeviceInfo, getDeviceFingerprintData, getIPAddress } from '../utils/location';
 import { formatTime, formatWorkingHours } from '../utils/formatTime';
 import { FiLogIn, FiLogOut, FiClock, FiMapPin } from 'react-icons/fi';
 
@@ -124,6 +124,9 @@ const EmployeeDashboard = () => {
                 // Get device info
                 const deviceInfo = getDeviceInfo();
                 
+                // Get device fingerprint data
+                const fingerprintData = getDeviceFingerprintData();
+                
                 // Get IP address
                 const ipAddress = await getIPAddress();
 
@@ -134,10 +137,14 @@ const EmployeeDashboard = () => {
                   address: 'Location captured',
                   device_info: deviceInfo.device_info,
                   browser_info: deviceInfo.browser_info,
+                  screenResolution: fingerprintData.screenResolution,
+                  timezone: fingerprintData.timezone,
                   ip_address: ipAddress
                 };
 
                 const response = await checkIn(data);
+                
+                console.log('Check-in response:', response.data);
                 
                 if (response.data.success) {
                   setAlertDialog({
@@ -146,7 +153,14 @@ const EmployeeDashboard = () => {
                     message: 'Your attendance has been recorded successfully!',
                     type: 'success'
                   });
-                  fetchData();
+                  await fetchData();
+                } else {
+                  setAlertDialog({
+                    isOpen: true,
+                    title: 'Check-in Failed',
+                    message: response.data.message || 'Check-in failed. Please try again.',
+                    type: 'error'
+                  });
                 }
               } catch (error) {
                 console.error('Check-in error:', error);
@@ -179,10 +193,22 @@ const EmployeeDashboard = () => {
                   });
                 } else if (error.response?.data?.message) {
                   // Backend validation errors (outside radius, duplicate, etc.)
+                  let errorMessage = error.response.data.message;
+                  
+                  // Add distance if available
+                  if (error.response.data.distance) {
+                    errorMessage += `\n\nYou are ${error.response.data.distance} meters away from the office.`;
+                  }
+                  
+                  // Add validation mode info
+                  if (error.response.data.validationMode) {
+                    errorMessage += `\n\nValidation Mode: ${error.response.data.validationMode.replace(/_/g, ' ').toUpperCase()}`;
+                  }
+                  
                   setAlertDialog({
                     isOpen: true,
                     title: 'Check-in Failed',
-                    message: error.response.data.message + (error.response.data.distance ? `\n\nYou are ${error.response.data.distance} meters away from the office.` : ''),
+                    message: errorMessage,
                     type: 'error'
                   });
                 } else {

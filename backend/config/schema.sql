@@ -91,12 +91,16 @@ CREATE TABLE IF NOT EXISTS attendance (
     browser_info TEXT,
     ip_address VARCHAR(50),
     gps_accuracy DECIMAL(10,2),
+    device_fingerprint VARCHAR(255),
+    validation_method VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(employee_id, attendance_date)
 );
 
 COMMENT ON COLUMN attendance.is_auto_checkout IS 'Indicates if the employee was automatically checked out by the system';
+COMMENT ON COLUMN attendance.device_fingerprint IS 'Device fingerprint used during check-in';
+COMMENT ON COLUMN attendance.validation_method IS 'Which validation passed: location, network, location_and_network, location_or_network';
 
 -- Create Holidays Table
 CREATE TABLE IF NOT EXISTS holidays (
@@ -139,6 +143,10 @@ CREATE TABLE IF NOT EXISTS settings (
     otp_resend_seconds INTEGER DEFAULT 60,
     otp_max_attempts INTEGER DEFAULT 3,
     otp_requests_per_hour INTEGER DEFAULT 5,
+    office_public_ip TEXT,
+    allowed_ips TEXT,
+    attendance_validation_mode VARCHAR(30) DEFAULT 'location_or_network' CHECK (attendance_validation_mode IN ('location_only', 'network_only', 'location_or_network', 'location_and_network')),
+    attendance_rate_limit INTEGER DEFAULT 5,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -148,6 +156,10 @@ COMMENT ON COLUMN settings.otp_expiry_minutes IS 'OTP validity period in minutes
 COMMENT ON COLUMN settings.otp_resend_seconds IS 'Cooldown period between OTP resend requests';
 COMMENT ON COLUMN settings.otp_max_attempts IS 'Maximum number of OTP verification attempts';
 COMMENT ON COLUMN settings.otp_requests_per_hour IS 'Maximum OTP requests allowed per hour per employee';
+COMMENT ON COLUMN settings.office_public_ip IS 'Primary office public IP address';
+COMMENT ON COLUMN settings.allowed_ips IS 'Comma-separated list of allowed office IP addresses';
+COMMENT ON COLUMN settings.attendance_validation_mode IS 'Attendance validation strategy: location_only, network_only, location_or_network, location_and_network';
+COMMENT ON COLUMN settings.attendance_rate_limit IS 'Maximum attendance API requests per minute per employee';
 
 CREATE INDEX IF NOT EXISTS idx_settings_id ON settings(id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton ON settings ((id IS NOT NULL));
@@ -158,11 +170,13 @@ INSERT INTO settings (
     gps_accuracy_threshold, office_start_time, office_end_time,
     auto_checkout_time, late_after_time, half_day_threshold, 
     check_in_enabled, check_out_enabled,
-    otp_expiry_minutes, otp_resend_seconds, otp_max_attempts, otp_requests_per_hour
+    otp_expiry_minutes, otp_resend_seconds, otp_max_attempts, otp_requests_per_hour,
+    office_public_ip, allowed_ips, attendance_validation_mode, attendance_rate_limit
 ) VALUES (
     'Company Office', 13.015837, 77.721172, 100, 100,
     '09:00', '18:00', '18:32', '09:30', 4.0, true, true,
-    5, 60, 3, 5
+    5, 60, 3, 5,
+    NULL, NULL, 'location_or_network', 5
 ) ON CONFLICT DO NOTHING;
 
 -- Insert Sample Departments
@@ -230,6 +244,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failed')),
     ip_address VARCHAR(50),
     user_agent TEXT,
+    device_fingerprint VARCHAR(255),
     details JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -237,9 +252,11 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_status ON audit_logs(status);
 
-COMMENT ON TABLE audit_logs IS 'Audit trail for security-sensitive operations';
+COMMENT ON TABLE audit_logs IS 'Audit trail for security-sensitive operations including attendance';
 COMMENT ON COLUMN audit_logs.details IS 'Additional details about the action in JSON format';
+COMMENT ON COLUMN audit_logs.device_fingerprint IS 'Device fingerprint if applicable';
 
 -- Create OTP Rate Limits Table
 CREATE TABLE IF NOT EXISTS otp_rate_limits (
@@ -263,3 +280,48 @@ ALTER TABLE employees
 ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP;
 
 COMMENT ON COLUMN employees.password_changed_at IS 'Timestamp of last password change';
+
+-- ============================================
+-- ATTENDANCE SECURITY TABLES
+-- ============================================
+
+-- Create Device Fingerprints Table
+CREATE TABLE IF NOT EXISTS device_fingerprints (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    device_fingerprint VARCHAR(255) NOT NULL,
+    browser VARCHAR(100),
+    operating_system VARCHAR(100),
+    screen_resolution VARCHAR(50),
+    timezone VARCHAR(50),
+    first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_approved BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, device_fingerprint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_fingerprints_employee ON device_fingerprints(employee_id);
+CREATE INDEX IF NOT EXISTS idx_device_fingerprints_fingerprint ON device_fingerprints(device_fingerprint);
+
+COMMENT ON TABLE device_fingerprints IS 'Stores device fingerprints for audit and security tracking';
+COMMENT ON COLUMN device_fingerprints.device_fingerprint IS 'Unique hash identifying the device';
+COMMENT ON COLUMN device_fingerprints.is_approved IS 'Whether this device is approved for attendance';
+
+-- Create Attendance Rate Limits Table
+CREATE TABLE IF NOT EXISTS attendance_rate_limits (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    ip_address VARCHAR(50),
+    request_count INTEGER DEFAULT 1,
+    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, ip_address)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_employee ON attendance_rate_limits(employee_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_window ON attendance_rate_limits(window_start);
+
+COMMENT ON TABLE attendance_rate_limits IS 'Tracks attendance API rate limiting per employee per IP';
+COMMENT ON COLUMN attendance_rate_limits.window_start IS 'Start time of current rate limit window (1 minute)';

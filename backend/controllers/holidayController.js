@@ -1,5 +1,14 @@
 const pool = require('../config/database');
 
+// Helper function to get local date in YYYY-MM-DD format
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // Get all holidays
 const getAllHolidays = async (req, res) => {
   try {
@@ -260,11 +269,17 @@ const deleteHoliday = async (req, res) => {
 const checkHolidayStatus = async (req, res) => {
   try {
     const { date } = req.query;
-    const checkDate = date || new Date().toISOString().split('T')[0];
+    const checkDate = date || getLocalDateString(); // Use local date instead of UTC
     
-    // Check if Sunday
-    const dateObj = new Date(checkDate);
+    // Check if Sunday (using proper date parsing)
+    const [year, month, day] = checkDate.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day); // month is 0-indexed
     const isSunday = dateObj.getDay() === 0;
+    
+    console.log('=== HOLIDAY CHECK - SUNDAY CHECK ===');
+    console.log('Check Date:', checkDate);
+    console.log('Date Object:', dateObj.toDateString());
+    console.log('Is Sunday:', isSunday);
     
     if (isSunday) {
       return res.json({

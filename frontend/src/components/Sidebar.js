@@ -38,6 +38,7 @@ const Sidebar = () => {
     { path: '/admin/management', icon: FiShield, label: 'Admin Management' },
     { path: '/admin/settings', icon: FiSettings, label: 'Settings' },
     { path: '/admin/otp-settings', icon: FiShield, label: 'OTP Settings' },
+    { path: '/admin/security-logs', icon: FiShield, label: 'Security Logs' },
   ];
 
   const employeeMenuItems = [

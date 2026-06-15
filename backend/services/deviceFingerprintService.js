@@ -1,0 +1,166 @@
+const pool = require('../config/database');
+
+/**
+ * Generate device fingerprint from request
+ */
+const generateFingerprint = (req) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const acceptLanguage = req.headers['accept-language'] || '';
+  const acceptEncoding = req.headers['accept-encoding'] || '';
+  
+  // Create a simple fingerprint (in production, use a proper fingerprinting library)
+  const crypto = require('crypto');
+  const fingerprintString = `${userAgent}|${acceptLanguage}|${acceptEncoding}`;
+  const fingerprint = crypto.createHash('md5').update(fingerprintString).digest('hex');
+  
+  return fingerprint;
+};
+
+/**
+ * Extract device info from user agent
+ */
+const parseDeviceInfo = (userAgent) => {
+  let browser = 'Unknown';
+  let browserVersion = 'Unknown';
+  let os = 'Unknown';
+  let deviceType = 'Unknown';
+  
+  // Detect browser and version
+  if (userAgent.indexOf('Chrome') > -1 && userAgent.indexOf('Edg') === -1) {
+    browser = 'Chrome';
+    const match = userAgent.match(/Chrome\/(\d+\.\d+)/);
+    if (match) browserVersion = match[1];
+  } else if (userAgent.indexOf('Safari') > -1 && userAgent.indexOf('Chrome') === -1) {
+    browser = 'Safari';
+    const match = userAgent.match(/Version\/(\d+\.\d+)/);
+    if (match) browserVersion = match[1];
+  } else if (userAgent.indexOf('Firefox') > -1) {
+    browser = 'Firefox';
+    const match = userAgent.match(/Firefox\/(\d+\.\d+)/);
+    if (match) browserVersion = match[1];
+  } else if (userAgent.indexOf('Edg') > -1) {
+    browser = 'Edge';
+    const match = userAgent.match(/Edg\/(\d+\.\d+)/);
+    if (match) browserVersion = match[1];
+  } else if (userAgent.indexOf('MSIE') > -1 || userAgent.indexOf('Trident') > -1) {
+    browser = 'Internet Explorer';
+    const match = userAgent.match(/(?:MSIE |rv:)(\d+\.\d+)/);
+    if (match) browserVersion = match[1];
+  }
+  
+  // Detect OS
+  if (userAgent.indexOf('Windows') > -1) {
+    os = 'Windows';
+  } else if (userAgent.indexOf('Mac OS') > -1) {
+    os = 'macOS';
+  } else if (userAgent.indexOf('Linux') > -1) {
+    os = 'Linux';
+  } else if (userAgent.indexOf('Android') > -1) {
+    os = 'Android';
+  } else if (userAgent.indexOf('iOS') > -1 || userAgent.indexOf('iPhone') > -1 || userAgent.indexOf('iPad') > -1) {
+    os = 'iOS';
+  }
+  
+  // Detect device type
+  const ua = userAgent.toLowerCase();
+  if (/mobile|android|iphone|ipod|blackberry|iemobile|opera mini/i.test(ua)) {
+    deviceType = 'Mobile';
+  } else if (/ipad|tablet|kindle|playbook|silk/i.test(ua)) {
+    deviceType = 'Tablet';
+  } else if (/macbook|laptop/i.test(ua)) {
+    deviceType = 'Laptop';
+  } else if (/windows|mac os|linux|x11/i.test(ua) && deviceType === 'Unknown') {
+    deviceType = 'Desktop';
+  }
+  
+  return { browser, browserVersion, os, deviceType };
+};
+
+/**
+ * Log device fingerprint
+ */
+const logDeviceFingerprint = async (employeeId, req, additionalInfo = {}) => {
+  try {
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const fingerprint = generateFingerprint(req);
+    const { browser, browserVersion, os, deviceType } = parseDeviceInfo(userAgent);
+    
+    const { screenResolution, timezone } = additionalInfo;
+    
+    // Check if device exists
+    const existing = await pool.query(
+      'SELECT * FROM device_fingerprints WHERE employee_id = $1 AND device_fingerprint = $2',
+      [employeeId, fingerprint]
+    );
+    
+    if (existing.rows.length > 0) {
+      // Update last seen and device info
+      await pool.query(
+        `UPDATE device_fingerprints 
+         SET last_seen_at = CURRENT_TIMESTAMP,
+             browser = $1,
+             browser_version = $2,
+             operating_system = $3,
+             device_type = $4,
+             screen_resolution = COALESCE($5, screen_resolution),
+             timezone = COALESCE($6, timezone)
+         WHERE id = $7`,
+        [browser, browserVersion, os, deviceType, screenResolution, timezone, existing.rows[0].id]
+      );
+    } else {
+      // Insert new device
+      await pool.query(
+        `INSERT INTO device_fingerprints 
+         (employee_id, device_fingerprint, browser, browser_version, operating_system, 
+          device_type, screen_resolution, timezone, is_approved)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [employeeId, fingerprint, browser, browserVersion, os, deviceType, 
+         screenResolution || null, timezone || null, true]
+      );
+    }
+    
+    return {
+      fingerprint,
+      browser,
+      browserVersion,
+      os,
+      deviceType,
+      screenResolution,
+      timezone
+    };
+  } catch (error) {
+    console.error('Error logging device fingerprint:', error);
+    // Don't throw - device fingerprinting is non-blocking
+    return null;
+  }
+};
+
+/**
+ * Check if device is approved
+ */
+const isDeviceApproved = async (employeeId, fingerprint) => {
+  try {
+    const result = await pool.query(
+      'SELECT is_approved FROM device_fingerprints WHERE employee_id = $1 AND device_fingerprint = $2',
+      [employeeId, fingerprint]
+    );
+    
+    if (result.rows.length === 0) {
+      // New device - approve by default (for now)
+      return true;
+    }
+    
+    return result.rows[0].is_approved;
+  } catch (error) {
+    console.error('Error checking device approval:', error);
+    // Default to approved if error
+    return true;
+  }
+};
+
+module.exports = {
+  generateFingerprint,
+  parseDeviceInfo,
+  logDeviceFingerprint,
+  isDeviceApproved
+};

@@ -8,12 +8,13 @@ const logAudit = async ({
   status,
   ipAddress = null,
   userAgent = null,
+  deviceFingerprint = null,
   details = null
 }) => {
   try {
     await pool.query(
-      `INSERT INTO audit_logs (user_id, user_type, action, status, ip_address, user_agent, details)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO audit_logs (user_id, user_type, action, status, ip_address, user_agent, device_fingerprint, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         userId,
         userType,
@@ -21,6 +22,7 @@ const logAudit = async ({
         status,
         ipAddress,
         userAgent,
+        deviceFingerprint,
         details ? JSON.stringify(details) : null
       ]
     );
@@ -109,7 +111,16 @@ const AUDIT_ACTIONS = {
   OTP_SETTINGS_UPDATED: 'otp_settings_updated',
   LOGIN: 'login',
   LOGOUT: 'logout',
-  FAILED_LOGIN: 'failed_login'
+  FAILED_LOGIN: 'failed_login',
+  // Attendance Actions
+  CHECKIN_SUCCESS: 'checkin_success',
+  CHECKIN_FAILED: 'checkin_failed',
+  CHECKOUT_SUCCESS: 'checkout_success',
+  CHECKOUT_FAILED: 'checkout_failed',
+  LOCATION_VALIDATION_FAILED: 'location_validation_failed',
+  NETWORK_VALIDATION_FAILED: 'network_validation_failed',
+  RATE_LIMIT_EXCEEDED: 'attendance_rate_limit_exceeded',
+  UNAUTHORIZED_ACCESS: 'unauthorized_access_attempt'
 };
 
 // Audit Status Constants

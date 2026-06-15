@@ -33,6 +33,16 @@ const getSettings = async (req, res) => {
         checkInEnabled: dbSettings.check_in_enabled,
         checkOutEnabled: dbSettings.check_out_enabled
       },
+      network: {
+        officePublicIP: dbSettings.office_public_ip || '',
+        allowedIPs: dbSettings.allowed_ips || ''
+      },
+      validation: {
+        attendanceValidationMode: dbSettings.attendance_validation_mode || 'location_or_network'
+      },
+      security: {
+        attendanceRateLimit: dbSettings.attendance_rate_limit || 5
+      },
       messages: {
         locationPermissionTitle: "Location Permission Required",
         locationPermissionMessage: "This app needs access to your location to verify your attendance. Please allow location access to continue.",
@@ -68,14 +78,19 @@ const updateSettings = async (req, res) => {
     const { 
       latitude, 
       longitude, 
-      allowedRadius, 
+      allowedRadius,
+      gpsAccuracyThreshold,
       lateAfterTime,
       officeStartTime,
       officeEndTime,
       autoCheckoutTime,
       checkInEnabled,
       checkOutEnabled,
-      halfDayThreshold
+      halfDayThreshold,
+      officePublicIP,
+      allowedIPs,
+      attendanceValidationMode,
+      attendanceRateLimit
     } = req.body;
 
     // Validation
@@ -132,19 +147,33 @@ const updateSettings = async (req, res) => {
       });
     }
 
+    // Validate validation mode
+    const validModes = ['location_only', 'network_only', 'location_or_network', 'location_and_network'];
+    if (attendanceValidationMode && !validModes.includes(attendanceValidationMode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid attendance validation mode'
+      });
+    }
+
     // Update settings in database
     const updateQuery = `
       UPDATE settings SET
         latitude = $1,
         longitude = $2,
         allowed_radius = $3,
-        late_after_time = $4,
-        office_start_time = $5,
-        office_end_time = $6,
-        auto_checkout_time = $7,
-        check_in_enabled = $8,
-        check_out_enabled = $9,
-        half_day_threshold = $10,
+        gps_accuracy_threshold = $4,
+        late_after_time = $5,
+        office_start_time = $6,
+        office_end_time = $7,
+        auto_checkout_time = $8,
+        check_in_enabled = $9,
+        check_out_enabled = $10,
+        half_day_threshold = $11,
+        office_public_ip = $12,
+        allowed_ips = $13,
+        attendance_validation_mode = $14,
+        attendance_rate_limit = $15,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
       RETURNING *
@@ -154,13 +183,18 @@ const updateSettings = async (req, res) => {
       parseFloat(latitude),
       parseFloat(longitude),
       parseInt(allowedRadius),
+      gpsAccuracyThreshold ? parseInt(gpsAccuracyThreshold) : 100,
       lateAfterTime,
       officeStartTime || '09:00',
       officeEndTime || '18:00',
       autoCheckoutTime || '18:32',
       checkInEnabled !== undefined ? checkInEnabled : true,
       checkOutEnabled !== undefined ? checkOutEnabled : true,
-      halfDayThreshold ? parseFloat(halfDayThreshold) : 4.0
+      halfDayThreshold ? parseFloat(halfDayThreshold) : 4.0,
+      officePublicIP || null,
+      allowedIPs || null,
+      attendanceValidationMode || 'location_or_network',
+      attendanceRateLimit ? parseInt(attendanceRateLimit) : 5
     ];
 
     const result = await pool.query(updateQuery, values);
@@ -182,7 +216,8 @@ const updateSettings = async (req, res) => {
         companyLocation: {
           latitude: parseFloat(latitude),
           longitude: parseFloat(longitude),
-          allowedRadius: parseInt(allowedRadius)
+          allowedRadius: parseInt(allowedRadius),
+          gpsAccuracyThreshold: gpsAccuracyThreshold ? parseInt(gpsAccuracyThreshold) : 100
         },
         workingHours: {
           lateAfterTime,
@@ -192,6 +227,16 @@ const updateSettings = async (req, res) => {
           checkInEnabled,
           checkOutEnabled,
           halfDayThreshold
+        },
+        network: {
+          officePublicIP,
+          allowedIPs
+        },
+        validation: {
+          attendanceValidationMode
+        },
+        security: {
+          attendanceRateLimit
         }
       }
     });

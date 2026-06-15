@@ -187,4 +187,24 @@ export const getOTPSettings = () =>
 export const updateOTPSettings = (data) => 
   api.put('/settings/otp', data);
 
+// Security APIs (Admin only)
+export const getAuditLogs = (params) => 
+  api.get('/security/audit-logs', { params });
+
+export const getDeviceFingerprints = (params) => 
+  api.get('/security/device-fingerprints', { params });
+
+export const getRateLimits = (params) => 
+  api.get('/security/rate-limits', { params });
+
+export const getSecurityStats = () => 
+  api.get('/security/stats');
+
+export const clearRateLimit = (employeeId) => 
+  api.post('/security/clear-rate-limit', { employeeId });
+
+// Update device alias
+export const updateDeviceAlias = (deviceId, device_alias) => 
+  api.put(`/security/device/${deviceId}/alias`, { device_alias });
+
 export default api;

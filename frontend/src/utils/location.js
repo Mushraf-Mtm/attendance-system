@@ -91,6 +91,25 @@ export const getDeviceInfo = () => {
   };
 };
 
+// Get device fingerprint data
+export const getDeviceFingerprintData = () => {
+  try {
+    const screenResolution = `${window.screen.width}x${window.screen.height}`;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    return {
+      screenResolution,
+      timezone
+    };
+  } catch (error) {
+    console.error('Error getting device fingerprint data:', error);
+    return {
+      screenResolution: 'unknown',
+      timezone: 'unknown'
+    };
+  }
+};
+
 // Get IP address (simplified - in production use a proper IP detection service)
 export const getIPAddress = async () => {
   try {

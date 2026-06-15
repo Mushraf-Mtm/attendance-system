@@ -11,6 +11,7 @@ const pdfRoutes = require('./routes/pdfRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const holidayRoutes = require('./routes/holidayRoutes');
+const securityRoutes = require('./routes/securityRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
@@ -64,6 +65,7 @@ app.use('/api/pdf', pdfRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admins', adminRoutes);
 app.use('/api/holidays', holidayRoutes);
+app.use('/api/security', securityRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

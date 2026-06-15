@@ -1,13 +1,22 @@
 const pool = require('../config/database');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
 
+// Helper function to get local date in YYYY-MM-DD format
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // Track if we already ran auto-checkout today
 let lastAutoCheckoutDate = null;
 
 // Auto checkout employees who checked in but forgot to checkout after office end time
 const autoCheckoutEmployees = async () => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(); // Use local date instead of UTC
     
     // Get auto-checkout time from database
     const settingsResult = await pool.query(

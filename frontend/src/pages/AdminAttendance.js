@@ -9,8 +9,17 @@ import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw } from 'react-
 const AdminAttendance = () => {
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Helper function to get local date in YYYY-MM-DD format
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [filters, setFilters] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     status: '',
     employee_id: ''
   });

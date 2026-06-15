@@ -39,6 +39,16 @@ async function getSettingsFromDB() {
         officeEndTime: dbSettings.office_end_time.substring(0, 5),  // Format: HH:MM
         checkInEnabled: dbSettings.check_in_enabled,
         checkOutEnabled: dbSettings.check_out_enabled
+      },
+      network: {
+        officePublicIP: dbSettings.office_public_ip,
+        allowedIPs: dbSettings.allowed_ips ? dbSettings.allowed_ips.split(',').map(ip => ip.trim()) : []
+      },
+      validation: {
+        attendanceValidationMode: dbSettings.attendance_validation_mode || 'location_or_network'
+      },
+      security: {
+        attendanceRateLimit: dbSettings.attendance_rate_limit || 5
       }
     };
 

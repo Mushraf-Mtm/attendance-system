@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
-import { FiMapPin, FiClock, FiSave, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
+import { FiMapPin, FiClock, FiSave, FiToggleLeft, FiToggleRight, FiWifi, FiShield } from 'react-icons/fi';
 import { getSettings, updateSettings } from '../services/api';
 
 const AdminSettings = () => {
@@ -9,13 +9,18 @@ const AdminSettings = () => {
     latitude: '',
     longitude: '',
     allowedRadius: '',
+    gpsAccuracyThreshold: 100,
     lateAfterTime: '',
     officeStartTime: '09:00',
     officeEndTime: '18:00',
     autoCheckoutTime: '18:32',
     halfDayThreshold: 4,
     checkInEnabled: true,
-    checkOutEnabled: true
+    checkOutEnabled: true,
+    officePublicIP: '',
+    allowedIPs: '',
+    attendanceValidationMode: 'location_or_network',
+    attendanceRateLimit: 5
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,13 +46,18 @@ const AdminSettings = () => {
           latitude: s.companyLocation.latitude,
           longitude: s.companyLocation.longitude,
           allowedRadius: s.companyLocation.allowedRadius,
+          gpsAccuracyThreshold: s.companyLocation.gpsAccuracyThreshold || 100,
           lateAfterTime: s.workingHours.lateAfterTime,
           officeStartTime: s.workingHours.officeStartTime || '09:00',
           officeEndTime: s.workingHours.officeEndTime || '18:00',
           autoCheckoutTime: s.workingHours.autoCheckoutTime || '18:32',
           halfDayThreshold: s.workingHours.halfDayThreshold || 4,
           checkInEnabled: s.workingHours.checkInEnabled !== undefined ? s.workingHours.checkInEnabled : true,
-          checkOutEnabled: s.workingHours.checkOutEnabled !== undefined ? s.workingHours.checkOutEnabled : true
+          checkOutEnabled: s.workingHours.checkOutEnabled !== undefined ? s.workingHours.checkOutEnabled : true,
+          officePublicIP: s.network?.officePublicIP || '',
+          allowedIPs: s.network?.allowedIPs || '',
+          attendanceValidationMode: s.validation?.attendanceValidationMode || 'location_or_network',
+          attendanceRateLimit: s.security?.attendanceRateLimit || 5
         });
       }
     } catch (error) {
@@ -232,6 +242,28 @@ const AdminSettings = () => {
                     </p>
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      GPS Accuracy Threshold (meters)
+                    </label>
+                    <select
+                      name="gpsAccuracyThreshold"
+                      value={settings.gpsAccuracyThreshold}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="50">50m - Very High Accuracy</option>
+                      <option value="100">100m - High Accuracy (Recommended)</option>
+                      <option value="200">200m - Medium Accuracy</option>
+                      <option value="300">300m - Low Accuracy</option>
+                      <option value="500">500m - Very Low Accuracy</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Minimum GPS accuracy required for attendance check-in. Lower values = stricter validation.
+                    </p>
+                  </div>
+
                   <button
                     type="button"
                     onClick={getCurrentLocation}
@@ -240,6 +272,101 @@ const AdminSettings = () => {
                     <FiMapPin />
                     <span>Use My Current Location</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Network Validation Settings */}
+              <div className="mb-8">
+                <div className="flex items-center space-x-2 mb-4">
+                  <FiWifi className="text-2xl text-green-600" />
+                  <h2 className="text-xl font-bold text-gray-800">Network Validation</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Office Public IP
+                    </label>
+                    <input
+                      type="text"
+                      name="officePublicIP"
+                      value={settings.officePublicIP}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="122.165.45.100 (optional)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Primary office public IP address for network validation
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Additional Allowed IPs
+                    </label>
+                    <textarea
+                      name="allowedIPs"
+                      value={settings.allowedIPs}
+                      onChange={handleChange}
+                      rows="3"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="122.165.45.101, 122.165.45.102 (optional)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Multiple IPs separated by commas. Useful for offices with multiple internet connections.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security & Validation Settings */}
+              <div className="mb-8">
+                <div className="flex items-center space-x-2 mb-4">
+                  <FiShield className="text-2xl text-purple-600" />
+                  <h2 className="text-xl font-bold text-gray-800">Security & Validation</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Attendance Validation Mode
+                    </label>
+                    <select
+                      name="attendanceValidationMode"
+                      value={settings.attendanceValidationMode}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="location_only">Location Only - GPS validation required</option>
+                      <option value="network_only">Network Only - Office IP validation required</option>
+                      <option value="location_or_network">Location OR Network - Either validation passes (Recommended)</option>
+                      <option value="location_and_network">Location AND Network - Both validations required</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Choose validation strategy. "Location OR Network" is recommended for offices with both Wi-Fi and Ethernet users.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Attendance Rate Limit (requests per minute)
+                    </label>
+                    <input
+                      type="number"
+                      name="attendanceRateLimit"
+                      value={settings.attendanceRateLimit}
+                      onChange={handleChange}
+                      min="1"
+                      max="20"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="5"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Maximum check-in/check-out attempts per employee per minute. Prevents spam and abuse.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -401,6 +528,10 @@ const AdminSettings = () => {
                 <li>Check-in/Check-out toggles control whether employees can use these buttons</li>
                 <li>Office timing validation applies when check-in/check-out are enabled</li>
                 <li>Give early checkout permission to specific employees from Employee Management</li>
+                <li><strong>GPS Accuracy Threshold:</strong> Lower values = stricter validation. 100m is recommended for most offices.</li>
+                <li><strong>Network Validation:</strong> Requires office public IP for Ethernet users. Use "Location OR Network" mode for flexibility.</li>
+                <li><strong>Validation Modes:</strong> Choose based on your office setup - Wi-Fi users prefer location, Ethernet users prefer network.</li>
+                <li><strong>Rate Limiting:</strong> Protects against spam and automated abuse. 5 requests/minute is recommended.</li>
               </ul>
             </div>
           </div>

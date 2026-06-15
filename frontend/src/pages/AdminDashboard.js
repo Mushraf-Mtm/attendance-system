@@ -30,9 +30,13 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
+      // Get local date in YYYY-MM-DD format
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      
       const [statsRes, attendanceRes] = await Promise.all([
         getDashboardStats(),
-        getAllAttendance({ date: new Date().toISOString().split('T')[0] })
+        getAllAttendance({ date: localDate })
       ]);
 
       if (statsRes.data.success) {

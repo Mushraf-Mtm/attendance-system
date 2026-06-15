@@ -17,6 +17,7 @@ import AdminSettings from './pages/AdminSettings';
 import AdminManagement from './pages/AdminManagement';
 import AdminHolidays from './pages/AdminHolidays';
 import AdminOTPSettings from './pages/AdminOTPSettings';
+import AdminSecurityLogs from './pages/AdminSecurityLogs';
 
 // Employee Pages
 import EmployeeDashboard from './pages/EmployeeDashboard';
@@ -216,6 +217,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminOTPSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/security-logs"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminSecurityLogs />
               </ProtectedRoute>
             }
           />

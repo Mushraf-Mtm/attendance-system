@@ -1,6 +1,18 @@
 const pool = require('../config/database');
-const { validateLocation, validateGPSAccuracy } = require('../utils/locationValidator');
+const { validateAttendance, calculateAttendanceStatus } = require('../utils/attendanceValidator');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
+const { logDeviceFingerprint } = require('../services/deviceFingerprintService');
+const { getClientIP } = require('../services/networkValidationService');
+const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
+
+// Helper function to get local date in YYYY-MM-DD format
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Helper function to convert 24-hour time to 12-hour format
 const format24To12Hour = (time24) => {
@@ -23,12 +35,22 @@ const format24To12Hour = (time24) => {
 
 // Helper function to ensure daily attendance records exist
 const ensureDailyAttendanceRecords = async (date) => {
-  const targetDate = date || new Date().toISOString().split('T')[0];
-  const dateObj = new Date(targetDate);
+  const targetDate = date || getLocalDateString(); // Use local date instead of UTC
   
   try {
     // Check if date is Sunday - skip creating absent records
-    if (dateObj.getDay() === 0) {
+    // Use the date string to create a proper date object
+    const [year, month, day] = targetDate.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day); // month is 0-indexed
+    const dayOfWeek = dateObj.getDay();
+    
+    console.log('=== DAILY ABSENT RECORDS - SUNDAY CHECK ===');
+    console.log('Target Date:', targetDate);
+    console.log('Date Object:', dateObj.toDateString());
+    console.log('Day of Week:', dayOfWeek, '(0=Sunday, 1=Monday, etc.)');
+    
+    if (dayOfWeek === 0) {
+      console.log('✅ Sunday detected - skipping absent records');
       return 0; // Sunday - no absent records needed
     }
     
@@ -73,14 +95,34 @@ const checkIn = async (req, res) => {
       address,
       device_info,
       browser_info,
-      ip_address
+      screenResolution,
+      timezone
     } = req.body;
 
-    const today = new Date().toISOString().split('T')[0];
-    const todayDate = new Date(today);
-
-    // Check if today is Sunday
-    if (todayDate.getDay() === 0) {
+    const clientIP = getClientIP(req);
+    const today = getLocalDateString(); // Use local date instead of UTC
+    
+    // Check if today is Sunday (using current system date)
+    const currentDate = new Date();
+    const dayOfWeek = currentDate.getDay();
+    
+    console.log('=== SUNDAY CHECK ===');
+    console.log('Current Date:', currentDate.toISOString());
+    console.log('Local Date String:', today);
+    console.log('Day of Week:', dayOfWeek, '(0=Sunday, 1=Monday, 2=Tuesday, etc.)');
+    console.log('Date String:', today);
+    
+    if (dayOfWeek === 0) {
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'Sunday', date: today, dayOfWeek }
+      });
+      
       return res.status(403).json({
         success: false,
         message: 'Today is Sunday. Attendance is not required on Sundays.',
@@ -97,6 +139,17 @@ const checkIn = async (req, res) => {
 
     if (holidayCheck.rows.length > 0) {
       const holiday = holidayCheck.rows[0];
+      
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'Holiday', holidayTitle: holiday.holiday_title }
+      });
+      
       return res.status(403).json({
         success: false,
         message: `Today is a ${holiday.holiday_type}: ${holiday.holiday_title}. Attendance is not required today.`,
@@ -110,6 +163,16 @@ const checkIn = async (req, res) => {
     // Check if check-in is enabled
     const settings = await getSettingsFromDB();
     if (!settings.workingHours.checkInEnabled) {
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'Check-in disabled by admin' }
+      });
+      
       return res.status(403).json({
         success: false,
         message: 'Check-in is currently disabled by administrator'
@@ -133,6 +196,16 @@ const checkIn = async (req, res) => {
 
     // Check if before office start time
     if (currentTimeInMinutes < startTimeInMinutes) {
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'Before office start time' }
+      });
+      
       return res.status(403).json({
         success: false,
         message: `Check-in is not allowed before office start time (${format24To12Hour(settings.workingHours.officeStartTime)})`
@@ -141,6 +214,16 @@ const checkIn = async (req, res) => {
 
     // Check if after office end time
     if (currentTimeInMinutes > endTimeInMinutes) {
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'After office end time' }
+      });
+      
       return res.status(403).json({
         success: false,
         message: `Check-in is not allowed after office end time (${format24To12Hour(settings.workingHours.officeEndTime)}). Office hours are ${format24To12Hour(settings.workingHours.officeStartTime)} to ${format24To12Hour(settings.workingHours.officeEndTime)}`
@@ -149,22 +232,23 @@ const checkIn = async (req, res) => {
 
     // Validation
     if (!latitude || !longitude) {
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'Missing coordinates' }
+      });
+      
       return res.status(400).json({
         success: false,
         message: 'Location coordinates are required'
       });
     }
 
-    // Check GPS accuracy
-    const accuracyCheck = await validateGPSAccuracy(accuracy);
-    if (!accuracyCheck.valid) {
-      return res.status(400).json({
-        success: false,
-        message: accuracyCheck.message
-      });
-    }
-
-    // Ensure daily attendance records exist for today (using today declared earlier)
+    // Ensure daily attendance records exist for today
     await ensureDailyAttendanceRecords(today);
 
     // Check if already checked in today
@@ -174,6 +258,16 @@ const checkIn = async (req, res) => {
     );
 
     if (existingAttendance.rows.length > 0 && existingAttendance.rows[0].login_time) {
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'Already checked in' }
+      });
+      
       return res.status(400).json({
         success: false,
         message: 'You have already checked in today'
@@ -188,35 +282,48 @@ const checkIn = async (req, res) => {
 
     const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
 
-    // Validate location (skip if WFH)
-    const locationCheck = await validateLocation(
-      parseFloat(latitude),
-      parseFloat(longitude),
+    // Validate attendance using new multi-mode validator
+    const validationResult = await validateAttendance(
+      req,
+      latitude,
+      longitude,
+      accuracy,
       isWFH
     );
 
-    if (!locationCheck.valid) {
+    if (!validationResult.valid) {
+      // Log validation failure
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: validationResult.method === 'location' ? AUDIT_ACTIONS.LOCATION_VALIDATION_FAILED : AUDIT_ACTIONS.NETWORK_VALIDATION_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { 
+          reason: validationResult.message,
+          validationMode: settings.validation.attendanceValidationMode,
+          gpsAccuracy: accuracy,
+          distance: validationResult.distance
+        }
+      });
+      
       return res.status(400).json({
         success: false,
-        message: locationCheck.message,
-        distance: locationCheck.distance
+        message: validationResult.message,
+        distance: validationResult.distance,
+        validationMode: settings.validation.attendanceValidationMode
       });
     }
 
-    // Determine attendance status based on time (using IST time)
-    const [lateHour, lateMinute] = settings.workingHours.lateAfterTime.split(':').map(Number);
-    
-    let attendanceStatus = 'Present';
-    
-    // Check if late (applies to ALL employees, both office and WFH)
-    if (currentHour > lateHour || (currentHour === lateHour && currentMinute > lateMinute)) {
-      attendanceStatus = 'Late';
-    }
+    // Calculate attendance status on backend (NEVER trust frontend)
+    const attendanceStatus = await calculateAttendanceStatus(isWFH);
 
-    // Override with WFH status if employee has WFH permission and NOT late
-    if (isWFH && attendanceStatus !== 'Late') {
-      attendanceStatus = 'Work From Home';
-    }
+    // Log device fingerprint
+    const deviceData = await logDeviceFingerprint(employeeCode, req, {
+      screenResolution,
+      timezone
+    });
 
     // Insert or update attendance
     let result;
@@ -233,33 +340,72 @@ const checkIn = async (req, res) => {
              browser_info = $7,
              ip_address = $8,
              gps_accuracy = $9,
+             device_fingerprint = $10,
+             validation_method = $11,
              updated_at = CURRENT_TIMESTAMP
-         WHERE employee_id = $10 AND attendance_date = $11
+         WHERE employee_id = $12 AND attendance_date = $13
          RETURNING *`,
         [latitude, longitude, address, attendanceStatus, isWFH, 
-         device_info, browser_info, ip_address, accuracy, employeeCode, today]
+         device_info, browser_info, clientIP, accuracy, 
+         deviceData ? deviceData.fingerprint : null, validationResult.method,
+         employeeCode, today]
       );
     } else {
       result = await pool.query(
         `INSERT INTO attendance 
          (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
           address_login, attendance_status, is_wfh, device_info, browser_info, 
-          ip_address, gps_accuracy)
-         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          ip_address, gps_accuracy, device_fingerprint, validation_method)
+         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING *`,
         [employeeCode, today, latitude, longitude, address, attendanceStatus, 
-         isWFH, device_info, browser_info, ip_address, accuracy]
+         isWFH, device_info, browser_info, clientIP, accuracy,
+         deviceData ? deviceData.fingerprint : null, validationResult.method]
       );
     }
+
+    // Log successful check-in
+    await logAudit({
+      userId: employeeCode,
+      userType: 'employee',
+      action: AUDIT_ACTIONS.CHECKIN_SUCCESS,
+      status: AUDIT_STATUS.SUCCESS,
+      ipAddress: clientIP,
+      userAgent: req.headers['user-agent'],
+      deviceFingerprint: deviceData ? deviceData.fingerprint : null,
+      details: { 
+        attendanceStatus,
+        validationMethod: validationResult.method,
+        isWFH,
+        gpsAccuracy: accuracy
+      }
+    });
 
     res.json({
       success: true,
       message: 'Check-in successful',
-      attendance: result.rows[0]
+      attendance: result.rows[0],
+      validationMethod: validationResult.method
     });
 
   } catch (error) {
     console.error('Check-in error:', error);
+    
+    // Log error
+    try {
+      await logAudit({
+        userId: req.user?.employee_id || 'unknown',
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: getClientIP(req),
+        userAgent: req.headers['user-agent'],
+        details: { error: error.message }
+      });
+    } catch (logError) {
+      console.error('Error logging audit:', logError);
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -286,7 +432,7 @@ const checkOut = async (req, res) => {
       });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(); // Use local date instead of UTC
 
     // Check if checked in today
     const attendanceResult = await pool.query(
@@ -333,12 +479,42 @@ const checkOut = async (req, res) => {
       const [endHour, endMinute] = settings.workingHours.officeEndTime.split(':').map(Number);
       const endTimeInMinutes = endHour * 60 + endMinute;
 
+      console.log('=== CHECK-OUT TIME VALIDATION ===');
+      console.log('System Time:', currentTime.toISOString());
+      console.log('IST Time:', localTime.toISOString());
+      console.log('Current Hour:', currentHour, 'Minute:', currentMinute);
+      console.log('Current Time (minutes):', currentTimeInMinutes);
+      console.log('Office End Time:', settings.workingHours.officeEndTime);
+      console.log('Office End Time (minutes):', endTimeInMinutes);
+      console.log('Has Early Checkout Permission:', hasEarlyCheckoutPermission);
+
       if (currentTimeInMinutes < endTimeInMinutes) {
+        console.log('❌ Check-out BLOCKED - Before office end time');
+        
+        // Log failed checkout attempt
+        await logAudit({
+          userId: employeeCode,
+          userType: 'employee',
+          action: AUDIT_ACTIONS.CHECKOUT_FAILED,
+          status: AUDIT_STATUS.FAILED,
+          ipAddress: getClientIP(req),
+          userAgent: req.headers['user-agent'],
+          details: { 
+            reason: 'Before office end time',
+            currentTime: `${currentHour}:${currentMinute}`,
+            officeEndTime: settings.workingHours.officeEndTime
+          }
+        });
+        
         return res.status(403).json({
           success: false,
           message: `Check-out is not allowed before office end time (${format24To12Hour(settings.workingHours.officeEndTime)}). Contact admin for early checkout permission.`
         });
       }
+      
+      console.log('✅ Check-out ALLOWED - After office end time');
+    } else {
+      console.log('✅ Check-out ALLOWED - Has early checkout permission');
     }
 
     // Calculate working hours
@@ -368,6 +544,22 @@ const checkOut = async (req, res) => {
       [latitude, longitude, address, workingHours, finalStatus, employeeCode, today]
     );
 
+    // Log successful check-out
+    const clientIP = getClientIP(req);
+    await logAudit({
+      userId: employeeCode,
+      userType: 'employee',
+      action: AUDIT_ACTIONS.CHECKOUT_SUCCESS,
+      status: AUDIT_STATUS.SUCCESS,
+      ipAddress: clientIP,
+      userAgent: req.headers['user-agent'],
+      details: { 
+        finalStatus,
+        workingHours: parseFloat(workingHours),
+        earlyCheckout: hasEarlyCheckoutPermission
+      }
+    });
+
     res.json({
       success: true,
       message: 'Check-out successful',
@@ -376,6 +568,23 @@ const checkOut = async (req, res) => {
 
   } catch (error) {
     console.error('Check-out error:', error);
+    
+    // Log error
+    try {
+      const clientIP = getClientIP(req);
+      await logAudit({
+        userId: req.user?.employee_id || 'unknown',
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKOUT_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { error: error.message }
+      });
+    } catch (logError) {
+      console.error('Error logging audit:', logError);
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -387,7 +596,7 @@ const checkOut = async (req, res) => {
 const getTodayAttendance = async (req, res) => {
   try {
     const employeeCode = req.user.employee_id; // Use employee code from JWT
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(); // Use local date instead of UTC
 
     const result = await pool.query(
       'SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
@@ -452,7 +661,7 @@ const getEmployeeMonthlyAttendance = async (req, res) => {
 const getAllAttendance = async (req, res) => {
   try {
     const { date, status, employee_id } = req.query;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getLocalDateString(); // Use local date instead of UTC
 
     // Ensure daily attendance records exist for the target date
     await ensureDailyAttendanceRecords(targetDate);
@@ -510,7 +719,7 @@ const getAllAttendance = async (req, res) => {
 // Admin: Get dashboard statistics
 const getDashboardStats = async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(); // Use local date instead of UTC
 
     // Total employees
     const totalEmployees = await pool.query(
@@ -574,7 +783,7 @@ const getDashboardStats = async (req, res) => {
 const getAbsentEmployees = async (req, res) => {
   try {
     const { date } = req.query;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getLocalDateString(); // Use local date instead of UTC
 
     // Get all active employees who haven't checked in on the target date
     const result = await pool.query(

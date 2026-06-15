@@ -1,12 +1,23 @@
 const pool = require('../config/database');
 
 /**
+ * Helper function to get local date in YYYY-MM-DD format
+ */
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Create daily attendance records with "Absent" status for all active employees
  * This should be run at the start of each day (e.g., via cron job or manual trigger)
  */
 async function createDailyAbsentRecords(date = null) {
   try {
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getLocalDateString(); // Use local date instead of UTC
     
     console.log(`Creating absent records for date: ${targetDate}`);
 
