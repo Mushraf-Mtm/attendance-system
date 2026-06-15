@@ -42,6 +42,7 @@ const EmployeeDashboard = () => {
     message: '',
     type: 'success'
   });
+  const [loadingMessage, setLoadingMessage] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -108,6 +109,7 @@ const EmployeeDashboard = () => {
         : `Are you sure you want to check in? You must be within ${settings.companyLocation.allowedRadius} meters of the office. Your location will be verified.`,
       onConfirm: async () => {
         setActionLoading(true);
+        setLoadingMessage('Requesting location permission...');
         
         try {
           // Show location permission dialog first
@@ -119,9 +121,11 @@ const EmployeeDashboard = () => {
             onAllow: async () => {
               try {
                 // Get location
+                setLoadingMessage('Getting your location...');
                 const location = await getCurrentLocation();
                 
                 // Get device info
+                setLoadingMessage('Collecting device information...');
                 const deviceInfo = getDeviceInfo();
                 
                 // Get device fingerprint data
@@ -130,6 +134,7 @@ const EmployeeDashboard = () => {
                 // Get IP address
                 const ipAddress = await getIPAddress();
 
+                setLoadingMessage('Validating attendance...');
                 const data = {
                   latitude: location.latitude,
                   longitude: location.longitude,
@@ -142,52 +147,57 @@ const EmployeeDashboard = () => {
                   ip_address: ipAddress
                 };
 
+                setLoadingMessage('Marking attendance...');
                 const response = await checkIn(data);
                 
                 console.log('Check-in response:', response.data);
                 
                 if (response.data.success) {
+                  setLoadingMessage('');
                   setAlertDialog({
                     isOpen: true,
-                    title: 'Check-in Successful',
+                    title: '✅ Check-in Successful',
                     message: 'Your attendance has been recorded successfully!',
                     type: 'success'
                   });
+                  // Immediately refresh data to show updated attendance
                   await fetchData();
                 } else {
+                  setLoadingMessage('');
                   setAlertDialog({
                     isOpen: true,
-                    title: 'Check-in Failed',
+                    title: '❌ Check-in Failed',
                     message: response.data.message || 'Check-in failed. Please try again.',
                     type: 'error'
                   });
                 }
               } catch (error) {
+                setLoadingMessage('');
                 console.error('Check-in error:', error);
                 console.error('Error response:', error.response?.data);
                 
-                // Show appropriate error dialog
+                // Show appropriate error dialog based on error type
                 if (error.type === 'denied') {
                   setLocationDialog({
                     isOpen: true,
-                    title: settings.messages.locationDeniedTitle,
-                    message: settings.messages.locationDeniedMessage,
+                    title: '❌ Location Permission Denied',
+                    message: settings.messages.locationDeniedMessage || 'Please enable location permissions in your device settings to continue.',
                     type: 'error',
                     onAllow: null
                   });
                 } else if (error.type === 'unavailable') {
                   setLocationDialog({
                     isOpen: true,
-                    title: settings.messages.locationUnavailableTitle,
-                    message: settings.messages.locationUnavailableMessage,
+                    title: '❌ Location Unavailable',
+                    message: settings.messages.locationUnavailableMessage || 'Unable to retrieve your location. Please check your device settings.',
                     type: 'error',
                     onAllow: null
                   });
                 } else if (error.type === 'timeout') {
                   setLocationDialog({
                     isOpen: true,
-                    title: settings.messages.locationTimeoutTitle,
-                    message: settings.messages.locationTimeoutMessage,
+                    title: '⏱️ Location Timeout',
+                    message: settings.messages.locationTimeoutMessage || 'Location request timed out. Please try again.',
                     type: 'warning',
                     onAllow: null
                   });
@@ -197,35 +207,44 @@ const EmployeeDashboard = () => {
                   
                   // Add distance if available
                   if (error.response.data.distance) {
-                    errorMessage += `\n\nYou are ${error.response.data.distance} meters away from the office.`;
+                    errorMessage += `\n\n📍 Distance: ${error.response.data.distance} meters from office`;
+                  }
+                  
+                  // Add accuracy info if available
+                  if (error.response.data.accuracyInfo) {
+                    const { accuracy, threshold } = error.response.data.accuracyInfo;
+                    errorMessage += `\n\n📡 GPS Accuracy: ${accuracy}m (Required: ${threshold}m or better)`;
                   }
                   
                   // Add validation mode info
                   if (error.response.data.validationMode) {
-                    errorMessage += `\n\nValidation Mode: ${error.response.data.validationMode.replace(/_/g, ' ').toUpperCase()}`;
+                    const mode = error.response.data.validationMode.replace(/_/g, ' ').toUpperCase();
+                    errorMessage += `\n\n🔒 Validation Mode: ${mode}`;
                   }
                   
                   setAlertDialog({
                     isOpen: true,
-                    title: 'Check-in Failed',
+                    title: '❌ Check-in Failed',
                     message: errorMessage,
                     type: 'error'
                   });
                 } else {
                   setAlertDialog({
                     isOpen: true,
-                    title: 'Check-in Failed',
-                    message: error.message || 'Unable to complete check-in. Please try again.',
+                    title: '❌ Check-in Failed',
+                    message: error.message || 'Unable to complete check-in. Please check your internet connection and try again.',
                     type: 'error'
                   });
                 }
               } finally {
                 setActionLoading(false);
+                setLoadingMessage('');
               }
             }
           });
         } catch (error) {
           setActionLoading(false);
+          setLoadingMessage('');
         }
       },
       type: 'info'
@@ -371,18 +390,27 @@ const EmployeeDashboard = () => {
             <button
               onClick={handleCheckIn}
               disabled={actionLoading || hasCheckedIn || !checkInEnabled}
-              className={`p-4 md:p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-2 md:space-y-4 transition-colors ${
+              className={`p-4 md:p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-2 md:space-y-4 transition-colors relative ${
                 hasCheckedIn || !checkInEnabled
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700 text-white'
               }`}
             >
-              <FiLogIn className="text-3xl md:text-5xl" />
-              <span className="text-lg md:text-2xl font-bold text-center">
-                {!checkInEnabled ? 'Check-In Disabled' : (hasCheckedIn ? 'Already Checked In' : 'Check In')}
-              </span>
-              {!checkInEnabled && (
-                <span className="text-xs md:text-sm">Contact admin to enable</span>
+              {actionLoading && loadingMessage ? (
+                <>
+                  <div className="animate-spin rounded-full h-8 w-8 md:h-12 md:w-12 border-t-4 border-b-4 border-white"></div>
+                  <span className="text-sm md:text-base font-medium text-center">{loadingMessage}</span>
+                </>
+              ) : (
+                <>
+                  <FiLogIn className="text-3xl md:text-5xl" />
+                  <span className="text-lg md:text-2xl font-bold text-center">
+                    {!checkInEnabled ? 'Check-In Disabled' : (hasCheckedIn ? 'Already Checked In' : 'Check In')}
+                  </span>
+                  {!checkInEnabled && (
+                    <span className="text-xs md:text-sm">Contact admin to enable</span>
+                  )}
+                </>
               )}
             </button>
 

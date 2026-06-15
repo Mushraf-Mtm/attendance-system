@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import DetailsDialog from '../components/DetailsDialog';
 import { FiShield, FiFilter, FiDownload, FiEye, FiEdit2, FiSave, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import { updateDeviceAlias } from '../services/api';
@@ -12,6 +13,11 @@ const AdminSecurityLogs = () => {
   const [editAlias, setEditAlias] = useState('');
   const [savingAlias, setSavingAlias] = useState(false);
   const [aliasError, setAliasError] = useState('');
+  const [detailsDialog, setDetailsDialog] = useState({
+    isOpen: false,
+    title: '',
+    details: null
+  });
   const [filters, setFilters] = useState({
     employeeId: '',
     action: '',
@@ -188,10 +194,16 @@ const AdminSecurityLogs = () => {
               <td className="px-4 py-3 text-sm text-gray-600">
                 {log.details ? (
                   <button
-                    onClick={() => alert(JSON.stringify(log.details, null, 2))}
-                    className="text-blue-600 hover:text-blue-800"
+                    onClick={() => setDetailsDialog({
+                      isOpen: true,
+                      title: `Audit Log Details - ${log.action}`,
+                      details: log.details
+                    })}
+                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    title="View Details"
                   >
-                    <FiEye />
+                    <FiEye className="text-lg" />
+                    <span className="text-xs">View</span>
                   </button>
                 ) : 'N/A'}
               </td>
@@ -494,6 +506,14 @@ const AdminSecurityLogs = () => {
           </div>
         </div>
       </div>
+
+      {/* Details Dialog */}
+      <DetailsDialog
+        isOpen={detailsDialog.isOpen}
+        onClose={() => setDetailsDialog({ isOpen: false, title: '', details: null })}
+        title={detailsDialog.title}
+        details={detailsDialog.details}
+      />
     </div>
   );
 };
