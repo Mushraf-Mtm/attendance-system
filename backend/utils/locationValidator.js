@@ -75,16 +75,27 @@ const validateGPSAccuracy = async (accuracy) => {
   const settings = await getSettingsFromDB();
   const threshold = settings.companyLocation.gpsAccuracyThreshold;
   
+  console.log('=== GPS ACCURACY VALIDATION ===');
+  console.log('GPS Accuracy (from device):', accuracy, 'meters');
+  console.log('GPS Accuracy Threshold (from database):', threshold, 'meters');
+  console.log('Comparison:', accuracy, '>', threshold, '=', accuracy > threshold);
+  
   if (accuracy > threshold) {
+    console.log('❌ GPS accuracy check FAILED');
     return {
       valid: false,
-      message: `GPS accuracy too low (${accuracy}m). Please enable high accuracy mode.`
+      message: `GPS accuracy too low (${accuracy}m). Required: ${threshold}m or better. Please enable high accuracy mode or move to an open area.`,
+      accuracy: accuracy,
+      threshold: threshold
     };
   }
   
+  console.log('✅ GPS accuracy check PASSED');
   return {
     valid: true,
-    message: 'GPS accuracy acceptable'
+    message: 'GPS accuracy acceptable',
+    accuracy: accuracy,
+    threshold: threshold
   };
 };
 

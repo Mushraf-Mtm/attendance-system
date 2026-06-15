@@ -98,58 +98,80 @@ const validateNetwork = async (req) => {
     const normalizedClientIP = normalizeIP(clientIP);
     
     console.log('=== NETWORK VALIDATION ===');
-    console.log('Client IP:', normalizedClientIP);
+    console.log('Client IP (raw):', clientIP);
+    console.log('Client IP (normalized):', normalizedClientIP);
+    
+    // Get network settings from the correct location
+    const officePublicIP = settings.network?.officePublicIP;
+    const allowedIPs = settings.network?.allowedIPs || [];
+    
+    console.log('Office Public IP (from DB):', officePublicIP);
+    console.log('Allowed IPs (from DB):', allowedIPs);
     
     // If no network validation configured, return invalid
-    if (!settings.officePublicIP && !settings.allowedIPs) {
-      console.log('No office IPs configured');
+    if (!officePublicIP && (!allowedIPs || allowedIPs.length === 0)) {
+      console.log('❌ No office IPs configured in database');
       return {
         valid: false,
-        message: 'Network validation not configured',
+        message: 'Network validation not configured. Please contact admin to configure office IP addresses.',
         clientIP: normalizedClientIP
       };
     }
     
     // Check primary office IP
-    if (settings.officePublicIP) {
-      const normalizedOfficeIP = normalizeIP(settings.officePublicIP);
-      console.log('Primary Office IP:', normalizedOfficeIP);
+    if (officePublicIP) {
+      const normalizedOfficeIP = normalizeIP(officePublicIP);
+      console.log('Checking Primary Office IP:', normalizedOfficeIP);
       
       if (normalizedClientIP === normalizedOfficeIP) {
         console.log('✅ IP matches primary office IP');
         return {
           valid: true,
-          message: 'Request from office network',
+          message: 'Connected from office network',
           clientIP: normalizedClientIP
         };
+      } else {
+        console.log('❌ IP does not match primary office IP');
+        console.log('   Expected:', normalizedOfficeIP);
+        console.log('   Got:', normalizedClientIP);
       }
     }
     
     // Check allowed IPs list
-    if (settings.allowedIPs && settings.allowedIPs.length > 0) {
-      console.log('Checking allowed IPs:', settings.allowedIPs);
+    if (allowedIPs && allowedIPs.length > 0) {
+      console.log('Checking allowed IPs list...');
       
-      if (isIPAllowed(clientIP, settings.allowedIPs)) {
-        console.log('✅ IP in allowed list');
+      for (const allowedIP of allowedIPs) {
+        const normalizedAllowedIP = normalizeIP(allowedIP.trim());
+        console.log('  Checking:', normalizedAllowedIP, 'vs', normalizedClientIP);
+        
+        if (normalizedClientIP === normalizedAllowedIP) {
+          console.log('  ✅ Match found!');
+        }
+      }
+      
+      if (isIPAllowed(clientIP, allowedIPs)) {
+        console.log('✅ IP found in allowed list');
         return {
           valid: true,
-          message: 'Request from allowed office network',
+          message: 'Connected from authorized office network',
           clientIP: normalizedClientIP
         };
       }
     }
     
-    console.log('❌ IP not in allowed list');
+    console.log('❌ IP not authorized');
+    console.log('=== NETWORK VALIDATION FAILED ===');
     return {
       valid: false,
-      message: `Request from unauthorized network. Your IP: ${normalizedClientIP}`,
+      message: `Not connected to office network. Your IP: ${normalizedClientIP}${officePublicIP ? '. Expected: ' + normalizeIP(officePublicIP) : ''}`,
       clientIP: normalizedClientIP
     };
   } catch (error) {
-    console.error('Network validation error:', error);
+    console.error('❌ Network validation error:', error);
     return {
       valid: false,
-      message: 'Network validation error',
+      message: 'Network validation error. Please try again.',
       clientIP: 'Unknown'
     };
   }
