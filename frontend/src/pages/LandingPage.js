@@ -66,11 +66,15 @@ const LandingPage = () => {
       <nav className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
+            <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
               <FiCheckCircle className="text-3xl text-blue-600 mr-2" />
               <span className="text-xl font-bold text-gray-800">Attendance Management System</span>
             </div>
-            <div>
+            <div className="flex items-center space-x-4">
+              <button onClick={() => navigate('/about')} className="text-gray-700 hover:text-blue-600 font-medium">About</button>
+              <button onClick={() => navigate('/features')} className="text-gray-700 hover:text-blue-600 font-medium">Features</button>
+              <button onClick={() => navigate('/faq')} className="text-gray-700 hover:text-blue-600 font-medium">FAQ</button>
+              <button onClick={() => navigate('/contact')} className="text-gray-700 hover:text-blue-600 font-medium">Contact</button>
               <button
                 onClick={() => navigate('/employee/login')}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
@@ -300,44 +304,43 @@ const LandingPage = () => {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center mb-4">
                 <FiCheckCircle className="text-2xl text-blue-400 mr-2" />
-                <span className="text-xl font-bold">Attendance Management System</span>
+                <span className="text-xl font-bold">AMS</span>
               </div>
               <p className="text-gray-400">
-                Efficient employee attendance tracking and management solution for modern organizations.
+                Modern attendance management for modern organizations.
               </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+              <h3 className="text-lg font-semibold mb-4">Pages</h3>
               <ul className="space-y-2">
-                <li>
-                  <button onClick={() => navigate('/employee/login')} className="text-gray-400 hover:text-white transition-colors">
-                    Employee Login
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => navigate('/forgot-password')} className="text-gray-400 hover:text-white transition-colors">
-                    Forgot Password
-                  </button>
-                </li>
+                <li><button onClick={() => navigate('/')} className="text-gray-400 hover:text-white transition-colors">Home</button></li>
+                <li><button onClick={() => navigate('/about')} className="text-gray-400 hover:text-white transition-colors">About</button></li>
+                <li><button onClick={() => navigate('/features')} className="text-gray-400 hover:text-white transition-colors">Features</button></li>
+                <li><button onClick={() => navigate('/faq')} className="text-gray-400 hover:text-white transition-colors">FAQ</button></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold mb-4">Features</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li>GPS Attendance Tracking</li>
-                <li>Employee Management</li>
-                <li>Attendance Reports</li>
-                <li>Security Monitoring</li>
+              <h3 className="text-lg font-semibold mb-4">Support</h3>
+              <ul className="space-y-2">
+                <li><button onClick={() => navigate('/contact')} className="text-gray-400 hover:text-white transition-colors">Contact</button></li>
+                <li><button onClick={() => navigate('/support')} className="text-gray-400 hover:text-white transition-colors">Help Center</button></li>
+                <li><button onClick={() => navigate('/employee/login')} className="text-gray-400 hover:text-white transition-colors">Login</button></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Legal</h3>
+              <ul className="space-y-2">
+                <li><button onClick={() => navigate('/privacy-policy')} className="text-gray-400 hover:text-white transition-colors">Privacy Policy</button></li>
+                <li><button onClick={() => navigate('/terms-and-conditions')} className="text-gray-400 hover:text-white transition-colors">Terms of Service</button></li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
             <p>&copy; {new Date().getFullYear()} Attendance Management System. All rights reserved.</p>
-            <p className="mt-2">Version 2.0.0</p>
           </div>
         </div>
       </footer>

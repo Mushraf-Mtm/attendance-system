@@ -1,0 +1,112 @@
+========================================
+GOOGLE SEARCH CONSOLE - URLs TO INDEX
+========================================
+
+Website: https://attendance-system-rho-five.vercel.app
+
+Add these URLs to Google Search Console for indexing:
+
+PUBLIC PAGES (High Priority - Submit First):
+-------------------------------------------
+1. Home Page
+   https://attendance-system-rho-five.vercel.app/
+
+2. About Page
+   https://attendance-system-rho-five.vercel.app/about
+
+3. Features Page
+   https://attendance-system-rho-five.vercel.app/features
+
+4. FAQ Page
+   https://attendance-system-rho-five.vercel.app/faq
+
+5. Contact Page
+   https://attendance-system-rho-five.vercel.app/contact
+
+6. Support / Help Center
+   https://attendance-system-rho-five.vercel.app/support
+
+7. Privacy Policy
+   https://attendance-system-rho-five.vercel.app/privacy-policy
+
+8. Terms and Conditions
+   https://attendance-system-rho-five.vercel.app/terms-and-conditions
+
+9. Employee Login
+   https://attendance-system-rho-five.vercel.app/employee/login
+
+
+SITEMAP AND ROBOTS:
+-------------------
+10. Sitemap
+    https://attendance-system-rho-five.vercel.app/sitemap.xml
+
+11. Robots.txt
+    https://attendance-system-rho-five.vercel.app/robots.txt
+
+
+========================================
+HOW TO SUBMIT TO GOOGLE SEARCH CONSOLE
+========================================
+
+1. Go to: https://search.google.com/search-console
+
+2. Verify your website ownership
+
+3. Submit Sitemap:
+   - Click "Sitemaps" in left menu
+   - Enter: sitemap.xml
+   - Click "Submit"
+
+4. Request Indexing for Individual URLs:
+   - Click "URL Inspection" at top
+   - Paste each URL above
+   - Click "Request Indexing"
+
+5. Priority Order (submit in this order):
+   - Home (/)
+   - About
+   - Features
+   - Contact
+   - FAQ
+   - Support
+   - Employee Login
+   - Privacy Policy
+   - Terms and Conditions
+
+
+========================================
+IMPORTANT NOTES
+========================================
+
+- Protected routes (/admin, /employee/dashboard, etc.) are NOT included
+- Only public pages should be indexed
+- Sitemap is automatically updated with all public URLs
+- robots.txt blocks admin and employee protected routes
+- Wait 24-48 hours for Google to crawl after submission
+- Check indexing status in Google Search Console
+
+
+========================================
+SEO KEYWORDS (Already Implemented)
+========================================
+
+Primary Keywords:
+- Employee Attendance Management System
+- GPS Attendance Tracking
+- Attendance Management Software
+- Employee Check-in Check-out System
+
+Secondary Keywords:
+- Work From Home Attendance
+- Attendance Reports
+- Employee Management System
+- GPS Verification
+- OTP Authentication
+- Device Security
+- Audit Logs
+- Holiday Management
+- Automated Attendance
+
+
+========================================

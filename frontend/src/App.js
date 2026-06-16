@@ -6,6 +6,13 @@ import LogoutWarningDialog from './components/LogoutWarningDialog';
 
 // Public Pages
 import LandingPage from './pages/LandingPage';
+import AboutPage from './pages/AboutPage';
+import FeaturesPage from './pages/FeaturesPage';
+import FAQPage from './pages/FAQPage';
+import ContactPage from './pages/ContactPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsAndConditionsPage from './pages/TermsAndConditionsPage';
+import SupportPage from './pages/SupportPage';
 
 // Auth Pages
 import AdminLogin from './pages/AdminLogin';
@@ -134,6 +141,15 @@ function App() {
         <Routes>
           {/* Public Landing Page */}
           <Route path="/" element={<LandingPage />} />
+          
+          {/* Public Pages */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
+          <Route path="/support" element={<SupportPage />} />
 
           {/* Auth Routes */}
           <Route

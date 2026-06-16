@@ -643,9 +643,31 @@ const getEmployeeMonthlyAttendance = async (req, res) => {
 
     const result = await pool.query(query, values);
 
+    // Fetch holidays for the same period
+    let holidayQuery;
+    let holidayValues;
+    
+    if (month && year) {
+      holidayQuery = `SELECT * FROM holidays 
+                      WHERE EXTRACT(MONTH FROM holiday_date) = $1 
+                      AND EXTRACT(YEAR FROM holiday_date) = $2
+                      AND is_enabled = true
+                      ORDER BY holiday_date`;
+      holidayValues = [month, year];
+    } else {
+      holidayQuery = `SELECT * FROM holidays 
+                      WHERE is_enabled = true
+                      ORDER BY holiday_date DESC
+                      LIMIT 30`;
+      holidayValues = [];
+    }
+
+    const holidayResult = await pool.query(holidayQuery, holidayValues);
+
     res.json({
       success: true,
-      attendance: result.rows
+      attendance: result.rows,
+      holidays: holidayResult.rows
     });
 
   } catch (error) {

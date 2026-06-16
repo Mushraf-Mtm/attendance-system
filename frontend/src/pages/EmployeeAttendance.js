@@ -2,32 +2,90 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { getEmployeeMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
-import { FiCalendar } from 'react-icons/fi';
+import { FiCalendar, FiInfo } from 'react-icons/fi';
 
 const EmployeeAttendance = () => {
   const [attendance, setAttendance] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    fetchAttendance();
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
 
-  const fetchAttendance = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
+      
+      // Fetch attendance records (now includes holidays)
       const response = await getEmployeeMonthlyAttendance(selectedMonth, selectedYear);
       
       if (response.data.success) {
         setAttendance(response.data.attendance);
+        setHolidays(response.data.holidays || []);
       }
     } catch (error) {
-      console.error('Error fetching attendance:', error);
-      alert('Error loading attendance data');
+      console.error('Error fetching data:', error);
+      alert('Error loading data');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to check if a date is Sunday
+  const isSunday = (dateString) => {
+    const date = new Date(dateString);
+    return date.getDay() === 0;
+  };
+
+  // Helper to get holiday info for a date
+  const getHolidayInfo = (dateString) => {
+    return holidays.find(h => {
+      const holidayDate = new Date(h.holiday_date).toISOString().split('T')[0];
+      const recordDate = new Date(dateString).toISOString().split('T')[0];
+      return holidayDate === recordDate;
+    });
+  };
+
+  // Determine display status with priority logic
+  const getDisplayStatus = (record) => {
+    // Priority 1: If attendance record has login_time, use actual status
+    if (record.login_time) {
+      return {
+        status: record.attendance_status,
+        type: 'attendance',
+        holiday: null
+      };
+    }
+
+    // Priority 2: Check if it's a holiday
+    const holiday = getHolidayInfo(record.attendance_date);
+    if (holiday) {
+      return {
+        status: holiday.holiday_type === 'Government Holiday' ? 'Government Holiday' : 'Office Holiday',
+        type: 'holiday',
+        holiday: holiday
+      };
+    }
+
+    // Priority 3: Check if it's Sunday
+    if (isSunday(record.attendance_date)) {
+      return {
+        status: 'Sunday',
+        type: 'sunday',
+        holiday: null
+      };
+    }
+
+    // Priority 4: Otherwise, it's Absent
+    return {
+      status: 'Absent',
+      type: 'absent',
+      holiday: null
+    };
   };
 
   const getStatusColor = (status) => {
@@ -37,6 +95,9 @@ const EmployeeAttendance = () => {
       'Half Day': 'bg-orange-100 text-orange-800',
       'Absent': 'bg-red-100 text-red-800',
       'Work From Home': 'bg-blue-100 text-blue-800',
+      'Government Holiday': 'bg-purple-100 text-purple-800',
+      'Office Holiday': 'bg-blue-100 text-blue-800',
+      'Sunday': 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -119,37 +180,56 @@ const EmployeeAttendance = () => {
                   </thead>
                   <tbody>
                     {attendance.length > 0 ? (
-                      attendance.map((record) => (
-                        <tr key={record.id} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm">{formatDate(record.attendance_date)}</td>
-                          <td className="px-4 py-3 text-sm">{formatTime(record.login_time)}</td>
-                          <td className="px-4 py-3 text-sm">
-                            <div className="flex flex-col gap-1">
-                              <span>{formatTime(record.logout_time)}</span>
-                              {record.is_auto_checkout && record.logout_time && (
-                                <span className="text-xs text-orange-600 font-medium">
-                                  (Auto checkout by system)
+                      attendance.map((record) => {
+                        const displayInfo = getDisplayStatus(record);
+                        return (
+                          <tr key={record.id} className="border-b hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm">{formatDate(record.attendance_date)}</td>
+                            <td className="px-4 py-3 text-sm">
+                              {displayInfo.type === 'attendance' ? formatTime(record.login_time) : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="flex flex-col gap-1">
+                                <span>{displayInfo.type === 'attendance' ? formatTime(record.logout_time) : '-'}</span>
+                                {record.is_auto_checkout && record.logout_time && (
+                                  <span className="text-xs text-orange-600 font-medium">
+                                    (Auto checkout by system)
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {displayInfo.type === 'attendance' ? formatWorkingHours(parseFloat(record.total_working_hours)) : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(displayInfo.status)}`}>
+                                  {displayInfo.status}
                                 </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {formatWorkingHours(parseFloat(record.total_working_hours))}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(record.attendance_status)}`}>
-                              {record.attendance_status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              record.is_wfh ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {record.is_wfh ? 'Yes' : 'No'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                                {displayInfo.holiday && (
+                                  <div className="relative group">
+                                    <FiInfo className="text-blue-600 cursor-help" />
+                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 w-64 z-10 shadow-lg">
+                                      <div className="font-semibold mb-1">{displayInfo.holiday.holiday_title}</div>
+                                      {displayInfo.holiday.holiday_note && (
+                                        <div className="text-gray-300">{displayInfo.holiday.holiday_note}</div>
+                                      )}
+                                      <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                record.is_wfh ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {record.is_wfh ? 'Yes' : 'No'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
