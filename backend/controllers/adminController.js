@@ -158,10 +158,19 @@ const updateAdmin = async (req, res) => {
 const deleteAdmin = async (req, res) => {
   try {
     const { id } = req.params;
+    const currentAdminId = req.user.id; // Get currently logged-in admin ID from JWT token
+
+    // Check if trying to delete own account
+    if (parseInt(id) === parseInt(currentAdminId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete your own admin account. Please ask another administrator to delete your account.'
+      });
+    }
 
     // Check if admin exists
     const adminCheck = await pool.query(
-      'SELECT id FROM admins WHERE id = $1',
+      'SELECT id, username FROM admins WHERE id = $1',
       [id]
     );
 
@@ -177,22 +186,34 @@ const deleteAdmin = async (req, res) => {
     if (parseInt(adminCount.rows[0].count) <= 1) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete the last admin'
+        message: 'Cannot delete the last admin account. At least one administrator must remain.'
       });
     }
 
+    // Update all foreign key references to NULL before deleting
+    // This prevents foreign key constraint violations
+    
+    // 1. Update wfh_permissions
+    await pool.query('UPDATE wfh_permissions SET enabled_by = NULL WHERE enabled_by = $1', [id]);
+    
+    // 2. Update early_checkout_permissions
+    await pool.query('UPDATE early_checkout_permissions SET enabled_by = NULL WHERE enabled_by = $1', [id]);
+    
+    // 3. Check if there are any other tables with foreign keys to admins
+    // Add more updates here if needed for other tables
+    
     // Delete admin (login logs will be deleted automatically due to CASCADE)
     await pool.query('DELETE FROM admins WHERE id = $1', [id]);
 
     res.json({
       success: true,
-      message: 'Admin deleted successfully'
+      message: `Admin account "${adminCheck.rows[0].username}" has been deleted successfully`
     });
   } catch (error) {
     console.error('Error deleting admin:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to delete admin'
+      message: 'Failed to delete admin account. Please try again.'
     });
   }
 };

@@ -7,10 +7,10 @@ const AboutPage = () => {
 
   useEffect(() => {
     // Set page title and meta description for SEO
-    document.title = 'About Us - Attendance Management System | Employee Tracking Solution';
+    document.title = 'About Us - AttendNest | Employee Attendance Management System';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Learn about our comprehensive Attendance Management System. We provide secure employee attendance tracking with GPS verification, work-from-home support, and real-time reporting for modern organizations.');
+      metaDescription.setAttribute('content', 'Learn about AttendNest, the comprehensive Employee Attendance Management System. We provide secure employee attendance tracking with GPS verification, work-from-home support, and real-time reporting for modern organizations.');
     }
   }, []);
 
@@ -22,7 +22,7 @@ const AboutPage = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
               <FiCheckCircle className="text-3xl text-blue-600 mr-2" />
-              <span className="text-xl font-bold text-gray-800">Attendance Management System</span>
+              <span className="text-xl font-bold text-gray-800">AttendNest</span>
             </div>
             <div className="flex items-center space-x-4">
               <button onClick={() => navigate('/')} className="text-gray-700 hover:text-blue-600 font-medium">Home</button>
@@ -44,7 +44,7 @@ const AboutPage = () => {
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            About Our Attendance Management System
+            About AttendNest
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Building the future of employee attendance tracking with innovative technology and security-first approach
@@ -214,7 +214,7 @@ const AboutPage = () => {
             <div>
               <div className="flex items-center mb-4">
                 <FiCheckCircle className="text-2xl text-blue-400 mr-2" />
-                <span className="text-xl font-bold">AMS</span>
+                <span className="text-xl font-bold">AttendNest</span>
               </div>
               <p className="text-gray-400">
                 Modern attendance management for modern organizations.
@@ -246,7 +246,7 @@ const AboutPage = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} Attendance Management System. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} AttendNest. All rights reserved.</p>
           </div>
         </div>
       </footer>

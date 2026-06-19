@@ -13,10 +13,10 @@ const ContactPage = () => {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    document.title = 'Contact Us - Attendance Management System | Get Support';
+    document.title = 'Contact Us - AttendNest | Get Support';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Contact our Attendance Management System support team. Get help with employee attendance tracking, GPS validation, technical issues, or general inquiries. We\'re here to help you.');
+      metaDescription.setAttribute('content', 'Contact AttendNest support team. Get help with employee attendance tracking, GPS validation, technical issues, or general inquiries. We\'re here to help you.');
     }
   }, []);
 
@@ -46,7 +46,7 @@ const ContactPage = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
               <FiCheckCircle className="text-3xl text-blue-600 mr-2" />
-              <span className="text-xl font-bold text-gray-800">Attendance Management System</span>
+              <span className="text-xl font-bold text-gray-800">AttendNest</span>
             </div>
             <div className="flex items-center space-x-4">
               <button onClick={() => navigate('/')} className="text-gray-700 hover:text-blue-600 font-medium">Home</button>
@@ -252,7 +252,7 @@ const ContactPage = () => {
             <div>
               <div className="flex items-center mb-4">
                 <FiCheckCircle className="text-2xl text-blue-400 mr-2" />
-                <span className="text-xl font-bold">AMS</span>
+                <span className="text-xl font-bold">AttendNest</span>
               </div>
               <p className="text-gray-400">
                 Modern attendance management for modern organizations.
@@ -284,7 +284,7 @@ const ContactPage = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} Attendance Management System. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} AttendNest. All rights reserved.</p>
           </div>
         </div>
       </footer>

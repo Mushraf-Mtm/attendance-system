@@ -167,7 +167,7 @@ const AdminLogin = () => {
 
         {/* Copyright */}
         <p className="text-center text-sm text-gray-500 mt-6">
-          © {new Date().getFullYear()} Attendance Management System. All rights reserved.
+          © {new Date().getFullYear()} AttendNest. All rights reserved.
         </p>
       </div>
 

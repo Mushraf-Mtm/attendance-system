@@ -1,7 +1,7 @@
 {
-  "name": "Attendance Management System",
-  "short_name": "Attendance",
-  "description": "Employee Attendance Management System",
+  "name": "AttendNest - Attendance Management System",
+  "short_name": "AttendNest",
+  "description": "AttendNest: Advanced Employee Attendance Management System with GPS tracking",
   "icons": [
     {
       "src": "/favicon/web-app-manifest-192x192.png",

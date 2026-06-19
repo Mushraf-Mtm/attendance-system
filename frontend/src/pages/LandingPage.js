@@ -68,7 +68,7 @@ const LandingPage = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
               <FiCheckCircle className="text-3xl text-blue-600 mr-2" />
-              <span className="text-xl font-bold text-gray-800">Attendance Management System</span>
+              <span className="text-xl font-bold text-gray-800">AttendNest</span>
             </div>
             <div className="flex items-center space-x-4">
               <button onClick={() => navigate('/about')} className="text-gray-700 hover:text-blue-600 font-medium">About</button>
@@ -90,7 +90,7 @@ const LandingPage = () => {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Employee Attendance Management System
+            AttendNest - Employee Attendance Management System
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
             Manage employee attendance efficiently with secure check-in, check-out, GPS attendance tracking, 
@@ -150,7 +150,7 @@ const LandingPage = () => {
                 About Our System
               </h2>
               <p className="text-lg text-gray-700 mb-4">
-                Our Attendance Management System is a comprehensive solution designed to streamline 
+                AttendNest is a comprehensive solution designed to streamline 
                 employee attendance tracking and management. Built with modern technology and security 
                 best practices, it provides organizations with powerful tools to monitor and manage 
                 workforce attendance efficiently.
@@ -308,7 +308,7 @@ const LandingPage = () => {
             <div>
               <div className="flex items-center mb-4">
                 <FiCheckCircle className="text-2xl text-blue-400 mr-2" />
-                <span className="text-xl font-bold">AMS</span>
+                <span className="text-xl font-bold">AttendNest</span>
               </div>
               <p className="text-gray-400">
                 Modern attendance management for modern organizations.
@@ -340,7 +340,7 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} Attendance Management System. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} AttendNest. All rights reserved.</p>
           </div>
         </div>
       </footer>
