@@ -1,75 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import DetailsDialog from '../components/DetailsDialog';
-import { FiShield, FiFilter, FiDownload, FiEye, FiEdit2, FiSave, FiX } from 'react-icons/fi';
+import { Spinner } from '../components/Loader';
+import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle } from 'react-icons/fi';
 import axios from 'axios';
 import { updateDeviceAlias } from '../services/api';
 
+const TABS = [
+  { id: 'audit',     label: 'Audit Logs',          icon: FiList        },
+  { id: 'devices',   label: 'Device Fingerprints',  icon: FiMonitor     },
+  { id: 'rateLimit', label: 'Rate Limits',           icon: FiAlertCircle },
+];
+
+const Th = ({ children }) => (
+  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide whitespace-nowrap">{children}</th>
+);
+
+const Td = ({ children, className = '' }) => (
+  <td className={`px-4 py-3 text-sm text-slate-700 ${className}`}>{children}</td>
+);
+
+const EmptyState = ({ message }) => (
+  <tr>
+    <td colSpan="99" className="text-center py-12 text-sm text-slate-400">{message}</td>
+  </tr>
+);
+
+const StatusPill = ({ status }) => {
+  const map = {
+    success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    failed:  'bg-red-50 text-red-700 border border-red-200',
+    pending: 'bg-amber-50 text-amber-700 border border-amber-200',
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+      {status}
+    </span>
+  );
+};
+
+const DeviceTypePill = ({ type }) => {
+  const map = {
+    Desktop: 'bg-blue-50 text-blue-700 border border-blue-200',
+    Laptop:  'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    Mobile:  'bg-purple-50 text-purple-700 border border-purple-200',
+    Tablet:  'bg-orange-50 text-orange-700 border border-orange-200',
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[type] || 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+      {type || 'Unknown'}
+    </span>
+  );
+};
+
 const AdminSecurityLogs = () => {
-  const [activeTab, setActiveTab] = useState('audit'); // audit, devices, rateLimit
+  const [activeTab, setActiveTab] = useState('audit');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [editingDevice, setEditingDevice] = useState(null);
   const [editAlias, setEditAlias] = useState('');
   const [savingAlias, setSavingAlias] = useState(false);
   const [aliasError, setAliasError] = useState('');
-  const [detailsDialog, setDetailsDialog] = useState({
-    isOpen: false,
-    title: '',
-    details: null
-  });
-  const [filters, setFilters] = useState({
-    employeeId: '',
-    action: '',
-    status: '',
-    startDate: '',
-    endDate: ''
-  });
+  const [detailsDialog, setDetailsDialog] = useState({ isOpen: false, title: '', details: null });
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTab]);
+  useEffect(() => { fetchData(); }, [activeTab]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const token = sessionStorage.getItem('token');
-      const config = {
-        headers: { Authorization: `Bearer ${token}` }
-      };
-
-      let endpoint = '';
-      switch (activeTab) {
-        case 'audit':
-          endpoint = '/security/audit-logs';
-          break;
-        case 'devices':
-          endpoint = '/security/device-fingerprints';
-          break;
-        case 'rateLimit':
-          endpoint = '/security/rate-limits';
-          break;
-        default:
-          endpoint = '/security/audit-logs';
-      }
-
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}${endpoint}`,
-        config
-      );
-
-      console.log('Security API response:', response.data);
-
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const endpointMap = { audit: '/security/audit-logs', devices: '/security/device-fingerprints', rateLimit: '/security/rate-limits' };
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}${endpointMap[activeTab] || endpointMap.audit}`, config);
       if (response.data.success) {
-        // Handle different response structures
-        let fetchedData = [];
-        if (activeTab === 'audit') {
-          fetchedData = response.data.logs || [];
-        } else if (activeTab === 'devices') {
-          fetchedData = response.data.devices || [];
-        } else if (activeTab === 'rateLimit') {
-          fetchedData = response.data.data || [];
-        }
+        const fetchedData = activeTab === 'audit' ? response.data.logs || []
+          : activeTab === 'devices' ? response.data.devices || []
+          : response.data.data || [];
         setData(fetchedData);
       }
     } catch (error) {
@@ -82,432 +88,213 @@ const AdminSecurityLogs = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return new Date(dateString).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleEditAlias = (device) => {
-    setEditingDevice(device.id);
-    setEditAlias(device.device_alias || '');
-    setAliasError('');
-  };
-
-  const handleCancelEdit = () => {
-    setEditingDevice(null);
-    setEditAlias('');
-    setAliasError('');
-  };
+  const handleEditAlias = (device) => { setEditingDevice(device.id); setEditAlias(device.device_alias || ''); setAliasError(''); };
+  const handleCancelEdit = () => { setEditingDevice(null); setEditAlias(''); setAliasError(''); };
 
   const handleSaveAlias = async (deviceId) => {
-    if (!editAlias.trim()) {
-      setAliasError('Device alias cannot be empty');
-      return;
-    }
-
-    if (editAlias.trim().length > 255) {
-      setAliasError('Device alias must be 255 characters or less');
-      return;
-    }
-
-    setSavingAlias(true);
-    setAliasError('');
-
+    if (!editAlias.trim()) { setAliasError('Device alias cannot be empty'); return; }
+    if (editAlias.trim().length > 255) { setAliasError('Device alias must be 255 characters or less'); return; }
+    setSavingAlias(true); setAliasError('');
     try {
       const response = await updateDeviceAlias(deviceId, editAlias.trim());
-
       if (response.data.success) {
-        // Update local data
-        setData(data.map(device => 
-          device.id === deviceId 
-            ? { ...device, device_alias: editAlias.trim(), updated_at: new Date().toISOString() }
-            : device
-        ));
-        setEditingDevice(null);
-        setEditAlias('');
-      } else {
-        setAliasError(response.data.message || 'Failed to update alias');
-      }
+        setData(data.map(d => d.id === deviceId ? { ...d, device_alias: editAlias.trim(), updated_at: new Date().toISOString() } : d));
+        setEditingDevice(null); setEditAlias('');
+      } else { setAliasError(response.data.message || 'Failed to update alias'); }
     } catch (error) {
       console.error('Error updating alias:', error);
       setAliasError(error.response?.data?.message || 'Failed to update device alias');
-    } finally {
-      setSavingAlias(false);
-    }
+    } finally { setSavingAlias(false); }
   };
 
-  const getStatusBadge = (status) => {
-    const colors = {
-      success: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      pending: 'bg-yellow-100 text-yellow-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
+  const activeRateCount = activeTab === 'rateLimit'
+    ? data.filter(r => (new Date() - new Date(r.window_start)) < 60000).length
+    : null;
 
   const renderAuditLogs = () => (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User ID</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP Address</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Device</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+    <table className="min-w-full">
+      <thead className="bg-slate-50 border-b border-slate-200">
+        <tr><Th>Time</Th><Th>User ID</Th><Th>Type</Th><Th>Action</Th><Th>Status</Th><Th>IP Address</Th><Th>Device</Th><Th>Details</Th></tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {data.length === 0 ? <EmptyState message="No audit logs found" /> : data.map((log, i) => (
+          <tr key={i} className="hover:bg-slate-50/70 transition-colors">
+            <Td className="whitespace-nowrap text-slate-500">{formatDate(log.created_at)}</Td>
+            <Td className="font-medium text-slate-900">{log.user_id}</Td>
+            <Td>{log.user_type}</Td>
+            <Td>{log.action}</Td>
+            <Td><StatusPill status={log.status} /></Td>
+            <Td>{log.ip_address || 'N/A'}</Td>
+            <Td className="font-mono text-xs">{log.device_fingerprint ? log.device_fingerprint.substring(0, 8) + '…' : 'N/A'}</Td>
+            <Td>
+              {log.details ? (
+                <button onClick={() => setDetailsDialog({ isOpen: true, title: `${log.action} — Details`, details: log.details })} className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium">
+                  <FiEye size={13} /> View
+                </button>
+              ) : <span className="text-slate-400">—</span>}
+            </Td>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {data.map((log, index) => (
-            <tr key={index} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                {formatDate(log.created_at)}
-              </td>
-              <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                {log.user_id}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {log.user_type}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {log.action}
-              </td>
-              <td className="px-4 py-3 text-sm">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(log.status)}`}>
-                  {log.status}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {log.ip_address || 'N/A'}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {log.device_fingerprint ? log.device_fingerprint.substring(0, 8) + '...' : 'N/A'}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {log.details ? (
-                  <button
-                    onClick={() => setDetailsDialog({
-                      isOpen: true,
-                      title: `Audit Log Details - ${log.action}`,
-                      details: log.details
-                    })}
-                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                    title="View Details"
-                  >
-                    <FiEye className="text-lg" />
-                    <span className="text-xs">View</span>
-                  </button>
-                ) : 'N/A'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {data.length === 0 && !loading && (
-        <div className="text-center py-8 text-gray-500">
-          No audit logs found
-        </div>
-      )}
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 
   const renderDeviceFingerprints = () => (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Device Alias</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Device Type</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Browser</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">OS</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Screen</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">First Seen</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Seen</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {data.map((device, index) => (
-            <tr key={index} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                {device.employee_id}
-                <div className="text-xs text-gray-500">{device.employee_name || ''}</div>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-900">
-                {editingDevice === device.id ? (
-                  <div>
-                    <input
-                      type="text"
-                      value={editAlias}
-                      onChange={(e) => setEditAlias(e.target.value)}
-                      className="w-full px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Reception PC, HR Laptop"
-                      maxLength="255"
-                      autoFocus
-                    />
-                    {aliasError && (
-                      <p className="text-xs text-red-600 mt-1">{aliasError}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {device.device_alias || <span className="text-gray-400 italic">No alias set</span>}
-                    </div>
-                    <div className="text-xs text-gray-500 font-mono" title={device.device_fingerprint || 'N/A'}>
-                      ID: {device.device_fingerprint ? device.device_fingerprint.substring(0, 8) + '...' : 'N/A'}
-                    </div>
-                  </div>
-                )}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  device.device_type === 'Desktop' ? 'bg-blue-100 text-blue-800' :
-                  device.device_type === 'Laptop' ? 'bg-green-100 text-green-800' :
-                  device.device_type === 'Mobile' ? 'bg-purple-100 text-purple-800' :
-                  device.device_type === 'Tablet' ? 'bg-orange-100 text-orange-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {device.device_type || 'Unknown'}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {device.browser || 'N/A'}
-                {device.browser_version && (
-                  <div className="text-xs text-gray-500">v{device.browser_version}</div>
-                )}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {device.operating_system || 'N/A'}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {device.screen_resolution || 'N/A'}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                {formatDate(device.first_seen_at)}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                {formatDate(device.last_seen_at)}
-              </td>
-              <td className="px-4 py-3 text-sm">
-                {editingDevice === device.id ? (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleSaveAlias(device.id)}
-                      disabled={savingAlias}
-                      className="text-green-600 hover:text-green-800 disabled:text-gray-400"
-                      title="Save"
-                    >
-                      <FiSave className="text-lg" />
-                    </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      disabled={savingAlias}
-                      className="text-red-600 hover:text-red-800 disabled:text-gray-400"
-                      title="Cancel"
-                    >
-                      <FiX className="text-lg" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleEditAlias(device)}
-                    className="text-blue-600 hover:text-blue-800"
-                    title="Edit Alias"
-                  >
-                    <FiEdit2 className="text-lg" />
+    <table className="min-w-full">
+      <thead className="bg-slate-50 border-b border-slate-200">
+        <tr><Th>Employee</Th><Th>Device Alias</Th><Th>Type</Th><Th>Browser</Th><Th>OS</Th><Th>Screen</Th><Th>First Seen</Th><Th>Last Seen</Th><Th></Th></tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {data.length === 0 ? <EmptyState message="No device fingerprints found" /> : data.map((device, i) => (
+          <tr key={i} className="hover:bg-slate-50/70 transition-colors">
+            <Td>
+              <span className="font-medium text-slate-900 block">{device.employee_id}</span>
+              {device.employee_name && <span className="text-xs text-slate-500">{device.employee_name}</span>}
+            </Td>
+            <Td>
+              {editingDevice === device.id ? (
+                <div>
+                  <input type="text" value={editAlias} onChange={(e) => setEditAlias(e.target.value)} className="w-full px-2 py-1.5 text-sm border border-indigo-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., Reception PC" maxLength="255" autoFocus />
+                  {aliasError && <p className="text-xs text-red-600 mt-1">{aliasError}</p>}
+                </div>
+              ) : (
+                <div>
+                  <span className="block font-medium text-slate-800">{device.device_alias || <span className="text-slate-400 italic font-normal">No alias</span>}</span>
+                  <span className="text-xs text-slate-400 font-mono">{device.device_fingerprint ? device.device_fingerprint.substring(0, 8) + '…' : 'N/A'}</span>
+                </div>
+              )}
+            </Td>
+            <Td><DeviceTypePill type={device.device_type} /></Td>
+            <Td>
+              <span className="block">{device.browser || 'N/A'}</span>
+              {device.browser_version && <span className="text-xs text-slate-400">v{device.browser_version}</span>}
+            </Td>
+            <Td>{device.operating_system || 'N/A'}</Td>
+            <Td>{device.screen_resolution || 'N/A'}</Td>
+            <Td className="whitespace-nowrap text-slate-500">{formatDate(device.first_seen_at)}</Td>
+            <Td className="whitespace-nowrap text-slate-500">{formatDate(device.last_seen_at)}</Td>
+            <Td>
+              {editingDevice === device.id ? (
+                <div className="flex gap-2">
+                  <button onClick={() => handleSaveAlias(device.id)} disabled={savingAlias} className="text-emerald-600 hover:text-emerald-800 disabled:opacity-40">
+                    {savingAlias ? <Spinner size="sm" /> : <FiSave size={15} />}
                   </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {data.length === 0 && !loading && (
-        <div className="text-center py-8 text-gray-500">
-          No device fingerprints found
-        </div>
-      )}
-    </div>
+                  <button onClick={handleCancelEdit} disabled={savingAlias} className="text-red-500 hover:text-red-700 disabled:opacity-40">
+                    <FiX size={15} />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => handleEditAlias(device)} className="text-indigo-500 hover:text-indigo-700">
+                  <FiEdit2 size={14} />
+                </button>
+              )}
+            </Td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 
   const renderRateLimits = () => (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP Address</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Request Count</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Window Start</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {data.map((limit, index) => {
-            const windowStart = new Date(limit.window_start);
-            const now = new Date();
-            const isActive = (now - windowStart) < 60000; // Within 1 minute
-            
-            return (
-              <tr key={index} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                  {limit.employee_id}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {limit.ip_address}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-900 font-semibold">
-                  {limit.request_count}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                  {formatDate(limit.window_start)}
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {isActive ? 'Active' : 'Expired'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                  {formatDate(limit.created_at)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {data.length === 0 && !loading && (
-        <div className="text-center py-8 text-gray-500">
-          No rate limit records found
-        </div>
-      )}
-    </div>
+    <table className="min-w-full">
+      <thead className="bg-slate-50 border-b border-slate-200">
+        <tr><Th>Employee ID</Th><Th>IP Address</Th><Th>Request Count</Th><Th>Window Start</Th><Th>Status</Th><Th>Created</Th></tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {data.length === 0 ? <EmptyState message="No rate limit records found" /> : data.map((limit, i) => {
+          const isActive = (new Date() - new Date(limit.window_start)) < 60000;
+          return (
+            <tr key={i} className="hover:bg-slate-50/70 transition-colors">
+              <Td className="font-medium text-slate-900">{limit.employee_id}</Td>
+              <Td>{limit.ip_address}</Td>
+              <Td><span className="font-semibold text-slate-900">{limit.request_count}</span></Td>
+              <Td className="whitespace-nowrap text-slate-500">{formatDate(limit.window_start)}</Td>
+              <Td>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${isActive ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                  {isActive ? 'Active' : 'Expired'}
+                </span>
+              </Td>
+              <Td className="whitespace-nowrap text-slate-500">{formatDate(limit.created_at)}</Td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar />
-      
       <div className="flex-1 overflow-y-auto w-full lg:w-auto">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
+        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center space-x-3 mb-2">
-              <FiShield className="text-3xl text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-800">Security Logs</h1>
-            </div>
-            <p className="text-gray-600">Monitor attendance security events, devices, and rate limiting</p>
+            <h1 className="text-xl font-semibold text-slate-900">Security Logs</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Monitor attendance security events, devices, and rate limiting</p>
           </div>
 
-          {/* Tabs */}
-          <div className="bg-white rounded-lg shadow-md mb-6">
-            <div className="border-b border-gray-200">
-              <nav className="flex -mb-px">
-                <button
-                  onClick={() => setActiveTab('audit')}
-                  className={`px-6 py-4 text-sm font-medium ${
-                    activeTab === 'audit'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Audit Logs
-                </button>
-                <button
-                  onClick={() => setActiveTab('devices')}
-                  className={`px-6 py-4 text-sm font-medium ${
-                    activeTab === 'devices'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Device Fingerprints
-                </button>
-                <button
-                  onClick={() => setActiveTab('rateLimit')}
-                  className={`px-6 py-4 text-sm font-medium ${
-                    activeTab === 'rateLimit'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Rate Limits
-                </button>
-              </nav>
-            </div>
+          {/* Summary cards */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {[
+              { label: 'Total Records',    value: data.length },
+              { label: activeTab === 'devices' ? 'Unique Devices' : activeTab === 'audit' ? 'Audit Events' : 'Rate Limit Records', value: data.length },
+              { label: 'Active Rate Limits', value: activeRateCount ?? '—' },
+            ].map(({ label, value }, i) => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-4">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
+              </div>
+            ))}
+          </div>
 
-            {/* Actions Bar */}
-            <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-              <button
-                onClick={fetchData}
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400"
-              >
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
-              
-              <div className="text-sm text-gray-600">
-                Total Records: <span className="font-semibold">{data.length}</span>
+          {/* Main table card */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            {/* Tab bar */}
+            <div className="flex items-center border-b border-slate-200 px-2">
+              {TABS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === id
+                      ? 'border-indigo-600 text-indigo-700'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Icon size={14} /> {label}
+                </button>
+              ))}
+              <div className="ml-auto pr-3 pb-1">
+                <button
+                  onClick={fetchData}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                >
+                  <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                  {loading ? 'Loading…' : 'Refresh'}
+                </button>
               </div>
             </div>
 
-            {/* Content */}
-            <div className="p-4">
+            {/* Table */}
+            <div className="overflow-x-auto">
               {loading ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-600"></div>
-                </div>
+                <div className="flex justify-center py-16"><Spinner size="lg" /></div>
               ) : (
                 <>
-                  {activeTab === 'audit' && renderAuditLogs()}
-                  {activeTab === 'devices' && renderDeviceFingerprints()}
+                  {activeTab === 'audit'     && renderAuditLogs()}
+                  {activeTab === 'devices'   && renderDeviceFingerprints()}
                   {activeTab === 'rateLimit' && renderRateLimits()}
                 </>
               )}
             </div>
           </div>
-
-          {/* Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Total Audit Logs</h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {activeTab === 'audit' ? data.length : '-'}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Unique Devices</h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {activeTab === 'devices' ? data.length : '-'}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Active Rate Limits</h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {activeTab === 'rateLimit' ? data.filter(r => {
-                  const windowStart = new Date(r.window_start);
-                  const now = new Date();
-                  return (now - windowStart) < 60000;
-                }).length : '-'}
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Details Dialog */}
       <DetailsDialog
         isOpen={detailsDialog.isOpen}
         onClose={() => setDetailsDialog({ isOpen: false, title: '', details: null })}

@@ -1,69 +1,57 @@
 import React from 'react';
 import { FiCheckCircle, FiAlertCircle, FiInfo, FiX } from 'react-icons/fi';
 
+const TYPE_CONFIG = {
+  success: {
+    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
+    btn: 'bg-emerald-600 hover:bg-emerald-700',
+    Icon: FiCheckCircle,
+  },
+  error: {
+    iconBg: 'bg-red-100', iconColor: 'text-red-600',
+    btn: 'bg-red-600 hover:bg-red-700',
+    Icon: FiAlertCircle,
+  },
+  warning: {
+    iconBg: 'bg-amber-100', iconColor: 'text-amber-600',
+    btn: 'bg-amber-500 hover:bg-amber-600',
+    Icon: FiAlertCircle,
+  },
+  info: {
+    iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600',
+    btn: 'bg-indigo-600 hover:bg-indigo-700',
+    Icon: FiInfo,
+  },
+};
+
 const AlertDialog = ({ isOpen, onClose, title, message, type = 'success' }) => {
   if (!isOpen) return null;
-
-  const config = {
-    success: {
-      icon: FiCheckCircle,
-      bg: 'bg-green-100',
-      iconColor: 'text-green-600',
-      button: 'bg-green-600 hover:bg-green-700'
-    },
-    error: {
-      icon: FiAlertCircle,
-      bg: 'bg-red-100',
-      iconColor: 'text-red-600',
-      button: 'bg-red-600 hover:bg-red-700'
-    },
-    warning: {
-      icon: FiAlertCircle,
-      bg: 'bg-yellow-100',
-      iconColor: 'text-yellow-600',
-      button: 'bg-yellow-600 hover:bg-yellow-700'
-    },
-    info: {
-      icon: FiInfo,
-      bg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      button: 'bg-blue-600 hover:bg-blue-700'
-    }
-  };
-
-  const { icon: Icon, bg, iconColor, button } = config[type];
+  const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.info;
+  const { Icon } = cfg;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-md w-full animate-scale-in">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-modal w-full max-w-md animate-scale-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center space-x-3">
-            <div className={`p-3 rounded-full ${bg}`}>
-              <Icon className={`text-2xl ${iconColor}`} />
+        <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.iconBg}`}>
+              <Icon size={20} className={cfg.iconColor} />
             </div>
-            <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+            <h3 className="text-base font-bold text-slate-900 leading-tight">{title}</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <FiX className="text-2xl" />
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors ml-2 flex-shrink-0">
+            <FiX size={17} />
           </button>
         </div>
-
         {/* Body */}
-        <div className="p-6">
-          <p className="text-gray-600 text-base leading-relaxed whitespace-pre-line">{message}</p>
+        <div className="px-6 py-5">
+          <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{message}</p>
         </div>
-
         {/* Footer */}
-        <div className="flex items-center justify-end p-6 border-t bg-gray-50">
-          <button
-            onClick={onClose}
-            className={`px-6 py-2.5 ${button} text-white rounded-lg font-medium transition-colors`}
-          >
-            OK
+        <div className="flex justify-end px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+          <button onClick={onClose} className={`px-5 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors ${cfg.btn}`}>
+            Got it
           </button>
         </div>
       </div>

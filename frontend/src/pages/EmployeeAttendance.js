@@ -1,239 +1,152 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import StatusBadge from '../components/ui/StatusBadge';
+import { Spinner } from '../components/Loader';
 import { getEmployeeMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { FiCalendar, FiInfo } from 'react-icons/fi';
 
 const EmployeeAttendance = () => {
-  const [attendance, setAttendance] = useState([]);
-  const [holidays, setHolidays] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [attendance,    setAttendance]    = useState([]);
+  const [holidays,      setHolidays]      = useState([]);
+  const [loading,       setLoading]       = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear,  setSelectedYear]  = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth, selectedYear]);
+  useEffect(() => { fetchData(); }, [selectedMonth, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch attendance records (now includes holidays)
       const response = await getEmployeeMonthlyAttendance(selectedMonth, selectedYear);
-      
       if (response.data.success) {
         setAttendance(response.data.attendance);
         setHolidays(response.data.holidays || []);
       }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      alert('Error loading data');
+    } catch (e) {
+      console.error('Error fetching data:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper to check if a date is Sunday
-  const isSunday = (dateString) => {
-    const date = new Date(dateString);
-    return date.getDay() === 0;
-  };
+  const isSunday = dateString => new Date(dateString).getDay() === 0;
 
-  // Helper to get holiday info for a date
-  const getHolidayInfo = (dateString) => {
-    return holidays.find(h => {
-      const holidayDate = new Date(h.holiday_date).toISOString().split('T')[0];
-      const recordDate = new Date(dateString).toISOString().split('T')[0];
-      return holidayDate === recordDate;
-    });
-  };
+  const getHolidayInfo = dateString => holidays.find(h => {
+    const hd = new Date(h.holiday_date).toISOString().split('T')[0];
+    const rd = new Date(dateString).toISOString().split('T')[0];
+    return hd === rd;
+  });
 
-  // Determine display status with priority logic
-  const getDisplayStatus = (record) => {
-    // Priority 1: If attendance record has login_time, use actual status
-    if (record.login_time) {
-      return {
-        status: record.attendance_status,
-        type: 'attendance',
-        holiday: null
-      };
-    }
-
-    // Priority 2: Check if it's a holiday
+  const getDisplayStatus = record => {
+    if (record.login_time) return { status: record.attendance_status, type: 'attendance', holiday: null };
     const holiday = getHolidayInfo(record.attendance_date);
-    if (holiday) {
-      return {
-        status: holiday.holiday_type === 'Government Holiday' ? 'Government Holiday' : 'Office Holiday',
-        type: 'holiday',
-        holiday: holiday
-      };
-    }
-
-    // Priority 3: Check if it's Sunday
-    if (isSunday(record.attendance_date)) {
-      return {
-        status: 'Sunday',
-        type: 'sunday',
-        holiday: null
-      };
-    }
-
-    // Priority 4: Otherwise, it's Absent
-    return {
-      status: 'Absent',
-      type: 'absent',
-      holiday: null
-    };
+    if (holiday) return { status: holiday.holiday_type === 'Government Holiday' ? 'Government Holiday' : 'Office Holiday', type: 'holiday', holiday };
+    if (isSunday(record.attendance_date)) return { status: 'Sunday', type: 'sunday', holiday: null };
+    return { status: 'Absent', type: 'absent', holiday: null };
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'Present': 'bg-green-100 text-green-800',
-      'Late': 'bg-yellow-100 text-yellow-800',
-      'Half Day': 'bg-orange-100 text-orange-800',
-      'Absent': 'bg-red-100 text-red-800',
-      'Work From Home': 'bg-blue-100 text-blue-800',
-      'Government Holiday': 'bg-purple-100 text-purple-800',
-      'Office Holiday': 'bg-blue-100 text-blue-800',
-      'Sunday': 'bg-gray-100 text-gray-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar />
-      
-      <div className="flex-1 overflow-y-auto w-full lg:w-auto">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="px-5 py-6 lg:px-8 lg:py-8 pt-16 lg:pt-8">
+
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">My Attendance</h1>
-            <p className="text-gray-600 mt-1">View your attendance history</p>
+          <div className="mb-6">
+            <h1 className="text-xl font-bold text-slate-900">My Attendance</h1>
+            <p className="text-sm text-slate-500 mt-0.5">View your monthly attendance history</p>
           </div>
 
-          {/* Month/Year Selector */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <FiCalendar className="text-gray-600" />
-              <h2 className="text-lg font-semibold text-gray-800">Select Period</h2>
+          {/* Period selector */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+            <div className="flex items-center gap-2 mb-4">
+              <FiCalendar size={15} className="text-slate-400" />
+              <h2 className="text-sm font-semibold text-slate-700">Select Period</h2>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Month
-                </label>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {months.map((month, index) => (
-                    <option key={index} value={index + 1}>{month}</option>
-                  ))}
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Month</label>
+                <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+                  {months.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
                 </select>
               </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Year
-                </label>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {[2024, 2025, 2026].map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Year</label>
+                <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+                  {[2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Attendance Table */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {/* Table */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-600"></div>
-              </div>
+              <div className="flex items-center justify-center py-16"><Spinner size={32} /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Login Time</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Logout Time</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Working Hours</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">WFH</th>
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      {['Date','Login','Logout','Working Hours','Status','WFH'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody>
-                    {attendance.length > 0 ? (
-                      attendance.map((record) => {
-                        const displayInfo = getDisplayStatus(record);
-                        return (
-                          <tr key={record.id} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm">{formatDate(record.attendance_date)}</td>
-                            <td className="px-4 py-3 text-sm">
-                              {displayInfo.type === 'attendance' ? formatTime(record.login_time) : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <div className="flex flex-col gap-1">
-                                <span>{displayInfo.type === 'attendance' ? formatTime(record.logout_time) : '-'}</span>
-                                {record.is_auto_checkout && record.logout_time && (
-                                  <span className="text-xs text-orange-600 font-medium">
-                                    (Auto checkout by system)
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              {displayInfo.type === 'attendance' ? formatWorkingHours(parseFloat(record.total_working_hours)) : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(displayInfo.status)}`}>
-                                  {displayInfo.status}
-                                </span>
-                                {displayInfo.holiday && (
-                                  <div className="relative group">
-                                    <FiInfo className="text-blue-600 cursor-help" />
-                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 w-64 z-10 shadow-lg">
-                                      <div className="font-semibold mb-1">{displayInfo.holiday.holiday_title}</div>
-                                      {displayInfo.holiday.holiday_note && (
-                                        <div className="text-gray-300">{displayInfo.holiday.holiday_note}</div>
-                                      )}
-                                      <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                                    </div>
+                  <tbody className="divide-y divide-slate-100">
+                    {attendance.length > 0 ? attendance.map(record => {
+                      const d = getDisplayStatus(record);
+                      const isWeekendOrHoliday = d.type !== 'attendance' && d.type !== 'absent';
+                      return (
+                        <tr key={record.id} className={`hover:bg-slate-50/70 transition-colors ${isWeekendOrHoliday ? 'bg-slate-50/40' : ''}`}>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatDate(record.attendance_date)}</td>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{d.type === 'attendance' ? formatTime(record.login_time) : '—'}</td>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">
+                            <div>
+                              {d.type === 'attendance' ? formatTime(record.logout_time) : '—'}
+                              {record.is_auto_checkout && record.logout_time && (
+                                <span className="block text-xs text-amber-600">(Auto checkout)</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">
+                            {d.type === 'attendance' ? formatWorkingHours(parseFloat(record.total_working_hours)) : '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={d.status} />
+                              {d.holiday && (
+                                <div className="relative group">
+                                  <FiInfo size={13} className="text-indigo-400 cursor-help" />
+                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-900 text-white text-xs rounded-lg p-3 w-56 z-10 shadow-lg">
+                                    <p className="font-semibold mb-0.5">{d.holiday.holiday_title}</p>
+                                    {d.holiday.holiday_note && <p className="text-slate-300">{d.holiday.holiday_note}</p>}
+                                    <div className="absolute left-3 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900" />
                                   </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                record.is_wfh ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {record.is_wfh ? 'Yes' : 'No'}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {record.is_wfh
+                              ? <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">WFH</span>
+                              : <span className="text-xs text-slate-400">—</span>
+                            }
+                          </td>
+                        </tr>
+                      );
+                    }) : (
                       <tr>
-                        <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
-                          No attendance records found for this period
+                        <td colSpan={6} className="px-4 py-14 text-center">
+                          <div className="flex flex-col items-center gap-2 text-slate-400">
+                            <FiCalendar size={28} />
+                            <p className="text-sm font-medium">No records for this period</p>
+                          </div>
                         </td>
                       </tr>
                     )}

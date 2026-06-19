@@ -1,8 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
-import { FiMapPin, FiClock, FiSave, FiToggleLeft, FiToggleRight, FiWifi, FiShield } from 'react-icons/fi';
+import { Spinner } from '../components/Loader';
+import { FiMapPin, FiClock, FiSave, FiToggleLeft, FiToggleRight, FiWifi, FiShield, FiInfo } from 'react-icons/fi';
 import { getSettings, updateSettings } from '../services/api';
+
+const SectionCard = ({ icon: Icon, iconColor, title, children }) => (
+  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconColor}`}>
+        <Icon size={16} />
+      </div>
+      <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+    </div>
+    <div className="p-6 space-y-5">{children}</div>
+  </div>
+);
+
+const Field = ({ label, hint, children }) => (
+  <div>
+    <label className="block text-xs font-medium text-slate-600 mb-1.5">{label}</label>
+    {children}
+    {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+  </div>
+);
+
+const inputCls = "w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-slate-900 placeholder:text-slate-400";
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState({
@@ -24,22 +47,14 @@ const AdminSettings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [alertDialog, setAlertDialog] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    type: 'success'
-  });
+  const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  useEffect(() => { fetchSettings(); }, []);
 
   const fetchSettings = async () => {
     try {
       setLoading(true);
       const response = await getSettings();
-
       if (response.data.success) {
         const s = response.data.settings;
         setSettings({
@@ -62,12 +77,7 @@ const AdminSettings = () => {
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
-      setAlertDialog({
-        isOpen: true,
-        title: 'Error',
-        message: 'Failed to load settings',
-        type: 'error'
-      });
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to load settings', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -75,41 +85,23 @@ const AdminSettings = () => {
 
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setSettings({
-      ...settings,
-      [e.target.name]: value
-    });
+    setSettings({ ...settings, [e.target.name]: value });
   };
 
   const handleToggle = (field) => {
-    setSettings({
-      ...settings,
-      [field]: !settings[field]
-    });
+    setSettings({ ...settings, [field]: !settings[field] });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-
     try {
       const response = await updateSettings(settings);
-
       if (response.data.success) {
-        setAlertDialog({
-          isOpen: true,
-          title: 'Success',
-          message: 'Settings updated successfully! Changes apply immediately.',
-          type: 'success'
-        });
+        setAlertDialog({ isOpen: true, title: 'Success', message: 'Settings updated successfully! Changes apply immediately.', type: 'success' });
       }
     } catch (error) {
-      setAlertDialog({
-        isOpen: true,
-        title: 'Error',
-        message: error.response?.data?.message || 'Failed to update settings',
-        type: 'error'
-      });
+      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to update settings', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -117,428 +109,164 @@ const AdminSettings = () => {
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setAlertDialog({
-        isOpen: true,
-        title: 'Error',
-        message: 'Geolocation is not supported by your browser',
-        type: 'error'
-      });
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'Geolocation is not supported by your browser', type: 'error' });
       return;
     }
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setSettings({
-          ...settings,
-          latitude: position.coords.latitude.toFixed(6),
-          longitude: position.coords.longitude.toFixed(6)
-        });
-        setAlertDialog({
-          isOpen: true,
-          title: 'Success',
-          message: 'Current location captured successfully!',
-          type: 'success'
-        });
+        setSettings({ ...settings, latitude: position.coords.latitude.toFixed(6), longitude: position.coords.longitude.toFixed(6) });
+        setAlertDialog({ isOpen: true, title: 'Success', message: 'Current location captured successfully!', type: 'success' });
       },
-      (error) => {
-        setAlertDialog({
-          isOpen: true,
-          title: 'Error',
-          message: 'Unable to get your location. Please enable location permission.',
-          type: 'error'
-        });
+      () => {
+        setAlertDialog({ isOpen: true, title: 'Error', message: 'Unable to get your location. Please enable location permission.', type: 'error' });
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
   if (loading) {
     return (
-      <div className="flex">
+      <div className="flex h-screen bg-slate-50">
         <Sidebar />
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
+          <Spinner size="lg" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar />
-      
       <div className="flex-1 overflow-y-auto w-full lg:w-auto">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
+        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 max-w-2xl">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">System Settings</h1>
-            <p className="text-gray-600 mt-1">Configure office location and attendance rules</p>
+          <div className="mb-6">
+            <h1 className="text-xl font-semibold text-slate-900">System Settings</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Configure office location and attendance rules</p>
           </div>
 
-          {/* Settings Form */}
-          <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl">
-            <form onSubmit={handleSubmit}>
-              {/* Location Settings */}
-              <div className="mb-8">
-                <div className="flex items-center space-x-2 mb-4">
-                  <FiMapPin className="text-2xl text-blue-600" />
-                  <h2 className="text-xl font-bold text-gray-800">Office Location</h2>
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Office Location */}
+            <SectionCard icon={FiMapPin} iconColor="bg-indigo-50 text-indigo-600" title="Office Location">
+              <Field label="Latitude" hint="Range: -90 to 90">
+                <input type="number" step="0.000001" name="latitude" value={settings.latitude} onChange={handleChange} className={inputCls} placeholder="13.0827" required />
+              </Field>
+              <Field label="Longitude" hint="Range: -180 to 180">
+                <input type="number" step="0.000001" name="longitude" value={settings.longitude} onChange={handleChange} className={inputCls} placeholder="80.2707" required />
+              </Field>
+              <Field label="Allowed Radius (meters)" hint="Employees must be within this distance to check in">
+                <input type="number" name="allowedRadius" value={settings.allowedRadius} onChange={handleChange} className={inputCls} placeholder="100" required />
+              </Field>
+              <Field label="GPS Accuracy Threshold" hint="Lower values = stricter validation. 100m is recommended for most offices.">
+                <select name="gpsAccuracyThreshold" value={settings.gpsAccuracyThreshold} onChange={handleChange} className={inputCls} required>
+                  <option value="50">50m — Very High Accuracy</option>
+                  <option value="100">100m — High Accuracy (Recommended)</option>
+                  <option value="200">200m — Medium Accuracy</option>
+                  <option value="300">300m — Low Accuracy</option>
+                  <option value="500">500m — Very Low Accuracy</option>
+                </select>
+              </Field>
+              <button type="button" onClick={getCurrentLocation} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors">
+                <FiMapPin size={15} />
+                Use My Current Location
+              </button>
+            </SectionCard>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Latitude
-                    </label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      name="latitude"
-                      value={settings.latitude}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="13.0827"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Range: -90 to 90</p>
-                  </div>
+            {/* Network Validation */}
+            <SectionCard icon={FiWifi} iconColor="bg-blue-50 text-blue-600" title="Network Validation">
+              <Field label="Office Public IP" hint="Primary office public IP address for network validation">
+                <input type="text" name="officePublicIP" value={settings.officePublicIP} onChange={handleChange} className={inputCls} placeholder="122.165.45.100 (optional)" />
+              </Field>
+              <Field label="Additional Allowed IPs" hint="Multiple IPs separated by commas. Useful for offices with multiple internet connections.">
+                <textarea name="allowedIPs" value={settings.allowedIPs} onChange={handleChange} rows="3" className={`${inputCls} resize-none`} placeholder="122.165.45.101, 122.165.45.102 (optional)" />
+              </Field>
+            </SectionCard>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Longitude
-                    </label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      name="longitude"
-                      value={settings.longitude}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="80.2707"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Range: -180 to 180</p>
-                  </div>
+            {/* Security & Validation */}
+            <SectionCard icon={FiShield} iconColor="bg-purple-50 text-purple-600" title="Security & Validation">
+              <Field label="Attendance Validation Mode" hint='Choose validation strategy. "Location OR Network" is recommended for offices with both Wi-Fi and Ethernet users.'>
+                <select name="attendanceValidationMode" value={settings.attendanceValidationMode} onChange={handleChange} className={inputCls} required>
+                  <option value="location_only">Location Only — GPS validation required</option>
+                  <option value="network_only">Network Only — Office IP validation required</option>
+                  <option value="location_or_network">Location OR Network — Either passes (Recommended)</option>
+                  <option value="location_and_network">Location AND Network — Both required</option>
+                </select>
+              </Field>
+              <Field label="Attendance Rate Limit (requests per minute)" hint="Maximum check-in/check-out attempts per employee per minute. Prevents spam and abuse.">
+                <input type="number" name="attendanceRateLimit" value={settings.attendanceRateLimit} onChange={handleChange} min="1" max="20" className={inputCls} placeholder="5" required />
+              </Field>
+            </SectionCard>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Allowed Radius (meters)
-                    </label>
-                    <input
-                      type="number"
-                      name="allowedRadius"
-                      value={settings.allowedRadius}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="100"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Employees must be within this distance to check in
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      GPS Accuracy Threshold (meters)
-                    </label>
-                    <select
-                      name="gpsAccuracyThreshold"
-                      value={settings.gpsAccuracyThreshold}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="50">50m - Very High Accuracy</option>
-                      <option value="100">100m - High Accuracy (Recommended)</option>
-                      <option value="200">200m - Medium Accuracy</option>
-                      <option value="300">300m - Low Accuracy</option>
-                      <option value="500">500m - Very Low Accuracy</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Minimum GPS accuracy required for attendance check-in. Lower values = stricter validation.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={getCurrentLocation}
-                    className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <FiMapPin />
-                    <span>Use My Current Location</span>
-                  </button>
-                </div>
+            {/* Office Timing */}
+            <SectionCard icon={FiClock} iconColor="bg-amber-50 text-amber-600" title="Office Timing & Rules">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Office Start Time" hint="Employees cannot check in before this time">
+                  <input type="time" name="officeStartTime" value={settings.officeStartTime} onChange={handleChange} className={inputCls} required />
+                </Field>
+                <Field label="Late After Time" hint='Check-ins after this are marked "Late"'>
+                  <input type="time" name="lateAfterTime" value={settings.lateAfterTime} onChange={handleChange} className={inputCls} required />
+                </Field>
+                <Field label="Office End Time" hint="Employees cannot check out before this time">
+                  <input type="time" name="officeEndTime" value={settings.officeEndTime} onChange={handleChange} className={inputCls} required />
+                </Field>
+                <Field label="Auto Checkout Time" hint="System auto-checkouts employees who forget">
+                  <input type="time" name="autoCheckoutTime" value={settings.autoCheckoutTime} onChange={handleChange} className={inputCls} required />
+                </Field>
               </div>
+              <Field label="Half Day Threshold (hours)" hint='If working hours are less than this, marked as "Half Day"'>
+                <input type="number" step="0.5" name="halfDayThreshold" value={settings.halfDayThreshold} onChange={handleChange} className={inputCls} placeholder="4" required />
+              </Field>
+            </SectionCard>
 
-              {/* Network Validation Settings */}
-              <div className="mb-8">
-                <div className="flex items-center space-x-2 mb-4">
-                  <FiWifi className="text-2xl text-green-600" />
-                  <h2 className="text-xl font-bold text-gray-800">Network Validation</h2>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Office Public IP
-                    </label>
-                    <input
-                      type="text"
-                      name="officePublicIP"
-                      value={settings.officePublicIP}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="122.165.45.100 (optional)"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Primary office public IP address for network validation
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Additional Allowed IPs
-                    </label>
-                    <textarea
-                      name="allowedIPs"
-                      value={settings.allowedIPs}
-                      onChange={handleChange}
-                      rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="122.165.45.101, 122.165.45.102 (optional)"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Multiple IPs separated by commas. Useful for offices with multiple internet connections.
-                    </p>
-                  </div>
-                </div>
+            {/* Attendance Controls */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h2 className="text-sm font-semibold text-slate-800">Attendance Controls</h2>
               </div>
-
-              {/* Security & Validation Settings */}
-              <div className="mb-8">
-                <div className="flex items-center space-x-2 mb-4">
-                  <FiShield className="text-2xl text-purple-600" />
-                  <h2 className="text-xl font-bold text-gray-800">Security & Validation</h2>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Attendance Validation Mode
-                    </label>
-                    <select
-                      name="attendanceValidationMode"
-                      value={settings.attendanceValidationMode}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="location_only">Location Only - GPS validation required</option>
-                      <option value="network_only">Network Only - Office IP validation required</option>
-                      <option value="location_or_network">Location OR Network - Either validation passes (Recommended)</option>
-                      <option value="location_and_network">Location AND Network - Both validations required</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Choose validation strategy. "Location OR Network" is recommended for offices with both Wi-Fi and Ethernet users.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Attendance Rate Limit (requests per minute)
-                    </label>
-                    <input
-                      type="number"
-                      name="attendanceRateLimit"
-                      value={settings.attendanceRateLimit}
-                      onChange={handleChange}
-                      min="1"
-                      max="20"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="5"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Maximum check-in/check-out attempts per employee per minute. Prevents spam and abuse.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Time Settings */}
-              <div className="mb-8">
-                <div className="flex items-center space-x-2 mb-4">
-                  <FiClock className="text-2xl text-orange-600" />
-                  <h2 className="text-xl font-bold text-gray-800">Office Timing & Rules</h2>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Office Start Time
-                    </label>
-                    <input
-                      type="time"
-                      name="officeStartTime"
-                      value={settings.officeStartTime}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Employees cannot check in before this time
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Late After Time
-                    </label>
-                    <input
-                      type="time"
-                      name="lateAfterTime"
-                      value={settings.lateAfterTime}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Employees checking in after this time will be marked as "Late"
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Office End Time
-                    </label>
-                    <input
-                      type="time"
-                      name="officeEndTime"
-                      value={settings.officeEndTime}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Employees cannot check out before this time (unless given early checkout permission)
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Auto Checkout Time
-                    </label>
-                    <input
-                      type="time"
-                      name="autoCheckoutTime"
-                      value={settings.autoCheckoutTime}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      System will automatically checkout employees who forgot to checkout at this time
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Half Day Threshold (hours)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      name="halfDayThreshold"
-                      value={settings.halfDayThreshold}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="4"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      If working hours are less than this, it will be marked as "Half Day"
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Check-In/Check-Out Controls */}
-              <div className="mb-8">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Attendance Controls</h2>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="divide-y divide-slate-100">
+                {[
+                  { field: 'checkInEnabled', label: 'Enable Check-In', desc: 'Allow employees to check in' },
+                  { field: 'checkOutEnabled', label: 'Enable Check-Out', desc: 'Allow employees to check out' },
+                ].map(({ field, label, desc }) => (
+                  <div key={field} className="flex items-center justify-between px-6 py-4">
                     <div>
-                      <h3 className="font-semibold text-gray-800">Enable Check-In</h3>
-                      <p className="text-sm text-gray-600">Allow employees to check in</p>
+                      <p className="text-sm font-medium text-slate-800">{label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggle('checkInEnabled')}
-                      className={`text-3xl transition-colors ${
-                        settings.checkInEnabled ? 'text-green-600' : 'text-gray-400'
-                      }`}
-                    >
-                      {settings.checkInEnabled ? <FiToggleRight /> : <FiToggleLeft />}
+                    <button type="button" onClick={() => handleToggle(field)} className={`text-3xl transition-colors ${settings[field] ? 'text-emerald-500' : 'text-slate-300'}`}>
+                      {settings[field] ? <FiToggleRight /> : <FiToggleLeft />}
                     </button>
                   </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h3 className="font-semibold text-gray-800">Enable Check-Out</h3>
-                      <p className="text-sm text-gray-600">Allow employees to check out</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggle('checkOutEnabled')}
-                      className={`text-3xl transition-colors ${
-                        settings.checkOutEnabled ? 'text-green-600' : 'text-gray-400'
-                      }`}
-                    >
-                      {settings.checkOutEnabled ? <FiToggleRight /> : <FiToggleLeft />}
-                    </button>
-                  </div>
-                </div>
+                ))}
               </div>
-
-              {/* Save Button */}
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:bg-blue-400"
-                >
-                  <FiSave />
-                  <span>{saving ? 'Saving...' : 'Save Settings'}</span>
-                </button>
-              </div>
-            </form>
-
-            {/* Info Box */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-semibold text-gray-800 mb-2">ℹ️ Important Notes:</h3>
-              <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                <li>Changes apply immediately - no server restart needed!</li>
-                <li>Settings are stored in database and sync across all instances</li>
-                <li>Check-in/Check-out toggles control whether employees can use these buttons</li>
-                <li>Office timing validation applies when check-in/check-out are enabled</li>
-                <li>Give early checkout permission to specific employees from Employee Management</li>
-                <li><strong>GPS Accuracy Threshold:</strong> Lower values = stricter validation. 100m is recommended for most offices.</li>
-                <li><strong>Network Validation:</strong> Requires office public IP for Ethernet users. Use "Location OR Network" mode for flexibility.</li>
-                <li><strong>Validation Modes:</strong> Choose based on your office setup - Wi-Fi users prefer location, Ethernet users prefer network.</li>
-                <li><strong>Rate Limiting:</strong> Protects against spam and automated abuse. 5 requests/minute is recommended.</li>
-              </ul>
             </div>
-          </div>
+
+            {/* Info box */}
+            <div className="flex gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+              <FiInfo size={16} className="text-indigo-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-indigo-700 space-y-1">
+                <p className="font-semibold text-indigo-800 mb-1">Important Notes</p>
+                <p>• Changes apply immediately — no server restart needed</p>
+                <p>• Settings are stored in database and sync across all instances</p>
+                <p>• Check-in/Check-out toggles control whether employees can use these buttons</p>
+                <p>• Give early checkout permission to specific employees from Employee Management</p>
+                <p>• Use "Location OR Network" mode for offices with both Wi-Fi and Ethernet users</p>
+                <p>• Rate limit of 5 requests/minute is recommended to prevent spam</p>
+              </div>
+            </div>
+
+            {/* Save */}
+            <div className="flex justify-end pb-6">
+              <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
+                {saving ? <Spinner size="sm" color="white" /> : <FiSave size={15} />}
+                {saving ? 'Saving…' : 'Save Settings'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
-      {/* Alert Dialog */}
       <AlertDialog
         isOpen={alertDialog.isOpen}
         onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}

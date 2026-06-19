@@ -3,116 +3,64 @@ import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import LocationDialog from '../components/LocationDialog';
 import AlertDialog from '../components/AlertDialog';
-import { 
-  getTodayAttendance, 
-  checkIn, 
-  checkOut,
-  getWFHStatus,
-  getSettings
+import StatusBadge from '../components/ui/StatusBadge';
+import { Spinner } from '../components/Loader';
+import {
+  getTodayAttendance, checkIn, checkOut, getWFHStatus, getSettings,
 } from '../services/api';
 import { getCurrentLocation, getDeviceInfo, getDeviceFingerprintData, getIPAddress } from '../utils/location';
 import { formatTime, formatWorkingHours } from '../utils/formatTime';
-import { FiLogIn, FiLogOut, FiClock, FiMapPin } from 'react-icons/fi';
+import { FiLogIn, FiLogOut, FiClock, FiMapPin, FiCheckCircle, FiAlertCircle, FiInfo } from 'react-icons/fi';
 
 const EmployeeDashboard = () => {
-  const [todayAttendance, setTodayAttendance] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [wfhEnabled, setWfhEnabled] = useState(false);
-  const [checkInEnabled, setCheckInEnabled] = useState(true);
-  const [checkOutEnabled, setCheckOutEnabled] = useState(true);
-  const [settings, setSettings] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: null,
-    type: 'info'
-  });
-  const [locationDialog, setLocationDialog] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    type: 'permission',
-    onAllow: null
-  });
-  const [alertDialog, setAlertDialog] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    type: 'success'
-  });
-  const [loadingMessage, setLoadingMessage] = useState('');
+  const [todayAttendance, setTodayAttendance]   = useState(null);
+  const [loading, setLoading]                   = useState(true);
+  const [actionLoading, setActionLoading]       = useState(false);
+  const [wfhEnabled, setWfhEnabled]             = useState(false);
+  const [checkInEnabled, setCheckInEnabled]     = useState(true);
+  const [checkOutEnabled, setCheckOutEnabled]   = useState(true);
+  const [settings, setSettings]                 = useState(null);
+  const [loadingMessage, setLoadingMessage]     = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
+  const [locationDialog, setLocationDialog] = useState({ isOpen: false, title: '', message: '', type: 'permission', onAllow: null });
+  const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
       const [attendanceRes, wfhRes, settingsRes] = await Promise.all([
-        getTodayAttendance(),
-        getWFHStatus(),
-        getSettings()
+        getTodayAttendance(), getWFHStatus(), getSettings(),
       ]);
-
-      if (attendanceRes.data.success) {
-        setTodayAttendance(attendanceRes.data.attendance);
-      }
-
-      if (wfhRes.data.success) {
-        setWfhEnabled(wfhRes.data.wfh_enabled);
-      }
-
+      if (attendanceRes.data.success) setTodayAttendance(attendanceRes.data.attendance);
+      if (wfhRes.data.success) setWfhEnabled(wfhRes.data.wfh_enabled);
       if (settingsRes.data.success) {
         setSettings(settingsRes.data.settings);
         setCheckInEnabled(settingsRes.data.settings.workingHours.checkInEnabled !== undefined ? settingsRes.data.settings.workingHours.checkInEnabled : true);
         setCheckOutEnabled(settingsRes.data.settings.workingHours.checkOutEnabled !== undefined ? settingsRes.data.settings.workingHours.checkOutEnabled : true);
       } else {
-        console.error('Failed to load settings:', settingsRes.data);
-        setAlertDialog({
-          isOpen: true,
-          title: 'Error',
-          message: 'Failed to load settings. Please refresh the page.',
-          type: 'error'
-        });
+        setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to load settings. Please refresh the page.', type: 'error' });
       }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setAlertDialog({
-        isOpen: true,
-        title: 'Error',
-        message: 'Failed to load data. Please refresh the page.',
-        type: 'error'
-      });
+    } catch (e) {
+      console.error('Error fetching data:', e);
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to load data. Please refresh the page.', type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCheckIn = () => {
-    if (!settings) {
-      setAlertDialog({
-        isOpen: true,
-        title: 'Error',
-        message: 'Settings not loaded. Please refresh the page.',
-        type: 'error'
-      });
-      return;
-    }
-    
+    if (!settings) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Settings not loaded. Please refresh the page.', type: 'error' }); return; }
     setConfirmDialog({
-      isOpen: true,
-      title: 'Check In',
-      message: wfhEnabled 
+      isOpen: true, title: 'Check In', type: 'info',
+      message: wfhEnabled
         ? 'Are you sure you want to check in? Your current location will be recorded.'
-        : `Are you sure you want to check in? You must be within ${settings.companyLocation.allowedRadius} meters of the office. Your location will be verified.`,
+        : `Are you sure you want to check in? You must be within ${settings.companyLocation.allowedRadius} meters of the office.`,
       onConfirm: async () => {
         setActionLoading(true);
         setLoadingMessage('Requesting location permission...');
-        
         try {
-          // Show location permission dialog first
           setLocationDialog({
             isOpen: true,
             title: settings.messages.locationPermissionTitle,
@@ -120,157 +68,73 @@ const EmployeeDashboard = () => {
             type: 'permission',
             onAllow: async () => {
               try {
-                // Get location
                 setLoadingMessage('Getting your location...');
                 const location = await getCurrentLocation();
-                
-                // Get device info
                 setLoadingMessage('Collecting device information...');
                 const deviceInfo = getDeviceInfo();
-                
-                // Get device fingerprint data
                 const fingerprintData = getDeviceFingerprintData();
-                
-                // Get IP address
                 const ipAddress = await getIPAddress();
-
-                setLoadingMessage('Validating attendance...');
-                const data = {
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  accuracy: location.accuracy,
-                  address: 'Location captured',
-                  device_info: deviceInfo.device_info,
-                  browser_info: deviceInfo.browser_info,
-                  screenResolution: fingerprintData.screenResolution,
-                  timezone: fingerprintData.timezone,
-                  ip_address: ipAddress
-                };
-
                 setLoadingMessage('Marking attendance...');
+                const data = {
+                  latitude: location.latitude, longitude: location.longitude,
+                  accuracy: location.accuracy, address: 'Location captured',
+                  device_info: deviceInfo.device_info, browser_info: deviceInfo.browser_info,
+                  screenResolution: fingerprintData.screenResolution,
+                  timezone: fingerprintData.timezone, ip_address: ipAddress,
+                };
                 const response = await checkIn(data);
-                
-                console.log('Check-in response:', response.data);
-                
                 if (response.data.success) {
                   setLoadingMessage('');
-                  setAlertDialog({
-                    isOpen: true,
-                    title: '✅ Check-in Successful',
-                    message: 'Your attendance has been recorded successfully!',
-                    type: 'success'
-                  });
-                  // Immediately refresh data to show updated attendance
+                  setAlertDialog({ isOpen: true, title: '✅ Check-in Successful', message: 'Your attendance has been recorded successfully!', type: 'success' });
                   await fetchData();
                 } else {
                   setLoadingMessage('');
-                  setAlertDialog({
-                    isOpen: true,
-                    title: '❌ Check-in Failed',
-                    message: response.data.message || 'Check-in failed. Please try again.',
-                    type: 'error'
-                  });
+                  setAlertDialog({ isOpen: true, title: '❌ Check-in Failed', message: response.data.message || 'Check-in failed. Please try again.', type: 'error' });
                 }
               } catch (error) {
                 setLoadingMessage('');
-                console.error('Check-in error:', error);
-                console.error('Error response:', error.response?.data);
-                
-                // Show appropriate error dialog based on error type
                 if (error.type === 'denied') {
-                  setLocationDialog({
-                    isOpen: true,
-                    title: '❌ Location Permission Denied',
-                    message: settings.messages.locationDeniedMessage || 'Please enable location permissions in your device settings to continue.',
-                    type: 'error',
-                    onAllow: null
-                  });
+                  setLocationDialog({ isOpen: true, title: '❌ Location Permission Denied', message: settings.messages.locationDeniedMessage || 'Please enable location permissions.', type: 'error', onAllow: null });
                 } else if (error.type === 'unavailable') {
-                  setLocationDialog({
-                    isOpen: true,
-                    title: '❌ Location Unavailable',
-                    message: settings.messages.locationUnavailableMessage || 'Unable to retrieve your location. Please check your device settings.',
-                    type: 'error',
-                    onAllow: null
-                  });
+                  setLocationDialog({ isOpen: true, title: '❌ Location Unavailable', message: settings.messages.locationUnavailableMessage || 'Unable to retrieve your location.', type: 'error', onAllow: null });
                 } else if (error.type === 'timeout') {
-                  setLocationDialog({
-                    isOpen: true,
-                    title: '⏱️ Location Timeout',
-                    message: settings.messages.locationTimeoutMessage || 'Location request timed out. Please try again.',
-                    type: 'warning',
-                    onAllow: null
-                  });
+                  setLocationDialog({ isOpen: true, title: '⏱️ Location Timeout', message: settings.messages.locationTimeoutMessage || 'Location request timed out.', type: 'warning', onAllow: null });
                 } else if (error.response?.data?.message) {
-                  // Backend validation errors (outside radius, duplicate, etc.)
-                  let errorMessage = error.response.data.message;
-                  
-                  // Add distance if available
-                  if (error.response.data.distance) {
-                    errorMessage += `\n\n📍 Distance: ${error.response.data.distance} meters from office`;
-                  }
-                  
-                  // Add accuracy info if available
+                  let msg = error.response.data.message;
+                  if (error.response.data.distance) msg += `\n\n📍 Distance: ${error.response.data.distance} meters from office`;
                   if (error.response.data.accuracyInfo) {
                     const { accuracy, threshold } = error.response.data.accuracyInfo;
-                    errorMessage += `\n\n📡 GPS Accuracy: ${accuracy}m (Required: ${threshold}m or better)`;
+                    msg += `\n\n📡 GPS Accuracy: ${accuracy}m (Required: ${threshold}m or better)`;
                   }
-                  
-                  // Add validation mode info
                   if (error.response.data.validationMode) {
-                    const mode = error.response.data.validationMode.replace(/_/g, ' ').toUpperCase();
-                    errorMessage += `\n\n🔒 Validation Mode: ${mode}`;
+                    msg += `\n\n🔒 Validation Mode: ${error.response.data.validationMode.replace(/_/g,' ').toUpperCase()}`;
                   }
-                  
-                  setAlertDialog({
-                    isOpen: true,
-                    title: '❌ Check-in Failed',
-                    message: errorMessage,
-                    type: 'error'
-                  });
+                  setAlertDialog({ isOpen: true, title: '❌ Check-in Failed', message: msg, type: 'error' });
                 } else {
-                  setAlertDialog({
-                    isOpen: true,
-                    title: '❌ Check-in Failed',
-                    message: error.message || 'Unable to complete check-in. Please check your internet connection and try again.',
-                    type: 'error'
-                  });
+                  setAlertDialog({ isOpen: true, title: '❌ Check-in Failed', message: error.message || 'Unable to complete check-in.', type: 'error' });
                 }
               } finally {
                 setActionLoading(false);
                 setLoadingMessage('');
               }
-            }
+            },
           });
-        } catch (error) {
+        } catch (e) {
           setActionLoading(false);
           setLoadingMessage('');
         }
       },
-      type: 'info'
     });
   };
 
   const handleCheckOut = () => {
-    if (!settings) {
-      setAlertDialog({
-        isOpen: true,
-        title: 'Error',
-        message: 'Settings not loaded. Please refresh the page.',
-        type: 'error'
-      });
-      return;
-    }
-    
+    if (!settings) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Settings not loaded. Please refresh the page.', type: 'error' }); return; }
     setConfirmDialog({
-      isOpen: true,
-      title: 'Check Out',
+      isOpen: true, title: 'Check Out', type: 'warning',
       message: 'Are you sure you want to check out? Your working hours will be calculated and recorded.',
       onConfirm: async () => {
         setActionLoading(true);
-        
         try {
-          // Show location permission dialog
           setLocationDialog({
             isOpen: true,
             title: settings.messages.locationPermissionTitle,
@@ -278,215 +142,184 @@ const EmployeeDashboard = () => {
             type: 'permission',
             onAllow: async () => {
               try {
-                // Get location
                 const location = await getCurrentLocation();
-
-                const data = {
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  address: 'Location captured'
-                };
-
-                const response = await checkOut(data);
-                
+                const response = await checkOut({ latitude: location.latitude, longitude: location.longitude, address: 'Location captured' });
                 if (response.data.success) {
                   setAlertDialog({
-                    isOpen: true,
-                    title: 'Check-out Successful',
+                    isOpen: true, title: 'Check-out Successful',
                     message: 'Your check-out has been recorded successfully!\n\nWorking hours: ' + formatWorkingHours(parseFloat(response.data.attendance.total_working_hours)),
-                    type: 'success'
+                    type: 'success',
                   });
                   fetchData();
                 }
               } catch (error) {
-                console.error('Check-out error:', error);
-                
-                // Show appropriate error dialog
                 if (error.type === 'denied') {
-                  setLocationDialog({
-                    isOpen: true,
-                    title: settings.messages.locationDeniedTitle,
-                    message: settings.messages.locationDeniedMessage,
-                    type: 'error',
-                    onAllow: null
-                  });
+                  setLocationDialog({ isOpen: true, title: settings.messages.locationDeniedTitle, message: settings.messages.locationDeniedMessage, type: 'error', onAllow: null });
                 } else if (error.response?.data?.message) {
-                  setAlertDialog({
-                    isOpen: true,
-                    title: 'Check-out Failed',
-                    message: error.response.data.message,
-                    type: 'error'
-                  });
+                  setAlertDialog({ isOpen: true, title: 'Check-out Failed', message: error.response.data.message, type: 'error' });
                 } else {
-                  setAlertDialog({
-                    isOpen: true,
-                    title: 'Check-out Failed',
-                    message: error.message || 'Unable to complete check-out. Please try again.',
-                    type: 'error'
-                  });
+                  setAlertDialog({ isOpen: true, title: 'Check-out Failed', message: error.message || 'Unable to complete check-out.', type: 'error' });
                 }
               } finally {
                 setActionLoading(false);
               }
-            }
+            },
           });
-        } catch (error) {
+        } catch (e) {
           setActionLoading(false);
         }
       },
-      type: 'warning'
     });
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      'Present': 'bg-green-100 text-green-800',
-      'Late': 'bg-yellow-100 text-yellow-800',
-      'Half Day': 'bg-orange-100 text-orange-800',
-      'Absent': 'bg-red-100 text-red-800',
-      'Work From Home': 'bg-blue-100 text-blue-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
   if (loading) {
     return (
-      <div className="flex">
+      <div className="flex h-screen bg-slate-50">
         <Sidebar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
-        </div>
+        <div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div>
       </div>
     );
   }
 
-  const hasCheckedIn = todayAttendance?.login_time;
-  const hasCheckedOut = todayAttendance?.logout_time;
+  const hasCheckedIn  = !!todayAttendance?.login_time;
+  const hasCheckedOut = !!todayAttendance?.logout_time;
+  const now = new Date();
+  const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-100">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar />
-      
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4 md:p-8">
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="px-5 py-6 lg:px-8 lg:py-8">
+
           {/* Header */}
-          <div className="mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
-            <p className="text-sm md:text-base text-gray-600 mt-1">Welcome back!</p>
+          <div className="mb-7 pt-14 lg:pt-0">
+            <h1 className="text-xl font-bold text-slate-900">{greeting}! 👋</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
           </div>
 
-          {/* WFH Status */}
+          {/* WFH Banner */}
           {wfhEnabled && (
-            <div className="bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 md:px-4 md:py-3 rounded-lg mb-4 md:mb-6">
-              <div className="flex items-center text-sm md:text-base">
-                <FiMapPin className="mr-2 flex-shrink-0" />
-                <span className="font-medium">Work From Home is enabled for your account</span>
-              </div>
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl mb-5 text-sm">
+              <FiMapPin size={16} className="flex-shrink-0" />
+              <span className="font-medium">Work From Home is enabled for your account</span>
             </div>
           )}
 
-          {/* Check In/Out Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+          {/* Check In / Out */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            {/* Check In */}
             <button
               onClick={handleCheckIn}
               disabled={actionLoading || hasCheckedIn || !checkInEnabled}
-              className={`p-4 md:p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-2 md:space-y-4 transition-colors relative ${
+              className={`group relative rounded-2xl p-6 flex flex-col items-center gap-4 border-2 transition-all ${
                 hasCheckedIn || !checkInEnabled
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
+                  ? 'bg-slate-100 border-slate-200 cursor-not-allowed'
+                  : 'bg-white border-emerald-200 hover:border-emerald-400 hover:shadow-card-hover cursor-pointer'
               }`}
             >
-              {actionLoading && loadingMessage ? (
-                <>
-                  <div className="animate-spin rounded-full h-8 w-8 md:h-12 md:w-12 border-t-4 border-b-4 border-white"></div>
-                  <span className="text-sm md:text-base font-medium text-center">{loadingMessage}</span>
-                </>
-              ) : (
-                <>
-                  <FiLogIn className="text-3xl md:text-5xl" />
-                  <span className="text-lg md:text-2xl font-bold text-center">
-                    {!checkInEnabled ? 'Check-In Disabled' : (hasCheckedIn ? 'Already Checked In' : 'Check In')}
-                  </span>
-                  {!checkInEnabled && (
-                    <span className="text-xs md:text-sm">Contact admin to enable</span>
-                  )}
-                </>
-              )}
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${hasCheckedIn || !checkInEnabled ? 'bg-slate-200' : 'bg-emerald-100 group-hover:bg-emerald-200 transition-colors'}`}>
+                {actionLoading && loadingMessage
+                  ? <Spinner size={28} />
+                  : <FiLogIn size={28} className={hasCheckedIn || !checkInEnabled ? 'text-slate-400' : 'text-emerald-600'} />
+                }
+              </div>
+              <div className="text-center">
+                <p className={`text-base font-bold ${hasCheckedIn || !checkInEnabled ? 'text-slate-400' : 'text-slate-900'}`}>
+                  {!checkInEnabled ? 'Check-In Disabled' : hasCheckedIn ? 'Checked In' : 'Check In'}
+                </p>
+                <p className={`text-xs mt-0.5 ${hasCheckedIn || !checkInEnabled ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {actionLoading && loadingMessage
+                    ? loadingMessage
+                    : !checkInEnabled
+                      ? 'Contact admin to enable'
+                      : hasCheckedIn
+                        ? `at ${formatTime(todayAttendance?.login_time)}`
+                        : 'Tap to mark attendance'
+                  }
+                </p>
+              </div>
+              {hasCheckedIn && <FiCheckCircle size={18} className="absolute top-4 right-4 text-emerald-500" />}
             </button>
 
+            {/* Check Out */}
             <button
               onClick={handleCheckOut}
               disabled={actionLoading || !hasCheckedIn || hasCheckedOut || !checkOutEnabled}
-              className={`p-4 md:p-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-2 md:space-y-4 transition-colors ${
+              className={`group relative rounded-2xl p-6 flex flex-col items-center gap-4 border-2 transition-all ${
                 !hasCheckedIn || hasCheckedOut || !checkOutEnabled
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-red-600 hover:bg-red-700 text-white'
+                  ? 'bg-slate-100 border-slate-200 cursor-not-allowed'
+                  : 'bg-white border-red-200 hover:border-red-400 hover:shadow-card-hover cursor-pointer'
               }`}
             >
-              <FiLogOut className="text-3xl md:text-5xl" />
-              <span className="text-lg md:text-2xl font-bold text-center">
-                {!checkOutEnabled ? 'Check-Out Disabled' : (hasCheckedOut ? 'Already Checked Out' : 'Check Out')}
-              </span>
-              {!checkOutEnabled && (
-                <span className="text-xs md:text-sm">Contact admin to enable</span>
-              )}
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'bg-slate-200' : 'bg-red-100 group-hover:bg-red-200 transition-colors'}`}>
+                <FiLogOut size={28} className={!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'text-slate-400' : 'text-red-600'} />
+              </div>
+              <div className="text-center">
+                <p className={`text-base font-bold ${!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'text-slate-400' : 'text-slate-900'}`}>
+                  {!checkOutEnabled ? 'Check-Out Disabled' : hasCheckedOut ? 'Checked Out' : 'Check Out'}
+                </p>
+                <p className={`text-xs mt-0.5 ${!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {!checkOutEnabled
+                    ? 'Contact admin to enable'
+                    : hasCheckedOut
+                      ? `at ${formatTime(todayAttendance?.logout_time)}`
+                      : 'Tap to end your shift'
+                  }
+                </p>
+              </div>
+              {hasCheckedOut && <FiCheckCircle size={18} className="absolute top-4 right-4 text-emerald-500" />}
             </button>
           </div>
 
-          {/* Today's Attendance */}
-          <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-            <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 md:mb-6 flex items-center">
-              <FiClock className="mr-2" />
-              Today's Attendance
-            </h2>
-
+          {/* Today summary */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-5">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+              <FiClock size={16} className="text-slate-400" />
+              <h2 className="font-semibold text-slate-900 text-sm">Today's Summary</h2>
+            </div>
             {todayAttendance ? (
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-                <div className="border-l-4 border-green-500 pl-3 md:pl-4">
-                  <p className="text-xs md:text-sm text-gray-600 mb-1">Login Time</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-800">
-                    {formatTime(todayAttendance.login_time)}
-                  </p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-100">
+                <div className="px-5 py-4">
+                  <p className="text-xs text-slate-500 mb-1">Login Time</p>
+                  <p className="text-lg font-bold text-slate-900">{formatTime(todayAttendance.login_time) || '—'}</p>
                 </div>
-
-                <div className="border-l-4 border-red-500 pl-3 md:pl-4">
-                  <p className="text-xs md:text-sm text-gray-600 mb-1">Logout Time</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-800">
-                    {formatTime(todayAttendance.logout_time)}
-                  </p>
+                <div className="px-5 py-4">
+                  <p className="text-xs text-slate-500 mb-1">Logout Time</p>
+                  <p className="text-lg font-bold text-slate-900">{formatTime(todayAttendance.logout_time) || '—'}</p>
                   {todayAttendance.is_auto_checkout && todayAttendance.logout_time && (
-                    <p className="text-xs text-orange-600 font-medium mt-1">
-                      (Auto checkout by system)
-                    </p>
+                    <p className="text-xs text-amber-600 mt-0.5">Auto checkout</p>
                   )}
                 </div>
-
-                <div className="border-l-4 border-blue-500 pl-3 md:pl-4">
-                  <p className="text-xs md:text-sm text-gray-600 mb-1">Working Hours</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-800">
-                    {formatWorkingHours(parseFloat(todayAttendance.total_working_hours))}
-                  </p>
+                <div className="px-5 py-4">
+                  <p className="text-xs text-slate-500 mb-1">Working Hours</p>
+                  <p className="text-lg font-bold text-slate-900">{formatWorkingHours(parseFloat(todayAttendance.total_working_hours))}</p>
                 </div>
-
-                <div className="border-l-4 border-purple-500 pl-3 md:pl-4">
-                  <p className="text-xs md:text-sm text-gray-600 mb-1">Status</p>
-                  <span className={`inline-block px-2 md:px-4 py-1 md:py-2 rounded-full text-xs md:text-sm font-medium ${getStatusColor(todayAttendance.attendance_status)}`}>
-                    {todayAttendance.attendance_status}
-                  </span>
+                <div className="px-5 py-4">
+                  <p className="text-xs text-slate-500 mb-1">Status</p>
+                  <div className="mt-1">
+                    <StatusBadge status={todayAttendance.attendance_status} size="md" />
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-6 md:py-8 text-gray-500">
-                <p className="text-sm md:text-base">No attendance record for today</p>
-                <p className="text-xs md:text-sm mt-2">Please check in to start tracking your attendance</p>
+              <div className="px-5 py-10 text-center text-slate-400">
+                <FiAlertCircle size={28} className="mx-auto mb-2" />
+                <p className="text-sm font-medium">No attendance record for today</p>
+                <p className="text-xs mt-1">Check in to start tracking your attendance</p>
               </div>
             )}
           </div>
 
           {/* Instructions */}
-          <div className="mt-4 md:mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 md:p-6">
-            <h3 className="font-semibold text-gray-800 mb-2 text-sm md:text-base">Important Instructions:</h3>
-            <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-gray-700">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FiInfo size={15} className="text-amber-600" />
+              <h3 className="text-sm font-semibold text-amber-900">Important Instructions</h3>
+            </div>
+            <ul className="text-xs text-amber-800 space-y-1 ml-5 list-disc">
               <li>Make sure location services are enabled on your device</li>
               <li>Check in when you arrive at the office or start working from home</li>
               <li>Check out when you finish your work for the day</li>
@@ -496,34 +329,30 @@ const EmployeeDashboard = () => {
               )}
             </ul>
           </div>
+
         </div>
       </div>
 
-      {/* Confirmation Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onClose={() => setConfirmDialog(d => ({ ...d, isOpen: false }))}
         onConfirm={confirmDialog.onConfirm}
         title={confirmDialog.title}
         message={confirmDialog.message}
         type={confirmDialog.type}
         confirmText={confirmDialog.type === 'warning' ? 'Check Out' : 'Check In'}
       />
-
-      {/* Location Dialog */}
       <LocationDialog
         isOpen={locationDialog.isOpen}
-        onClose={() => setLocationDialog({ ...locationDialog, isOpen: false })}
+        onClose={() => setLocationDialog(d => ({ ...d, isOpen: false }))}
         onAllow={locationDialog.onAllow}
         title={locationDialog.title}
         message={locationDialog.message}
         type={locationDialog.type}
       />
-
-      {/* Alert Dialog */}
       <AlertDialog
         isOpen={alertDialog.isOpen}
-        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+        onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))}
         title={alertDialog.title}
         message={alertDialog.message}
         type={alertDialog.type}

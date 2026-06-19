@@ -1,103 +1,71 @@
 import React from 'react';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { FiUser, FiMail, FiPhone, FiBriefcase, FiHash } from 'react-icons/fi';
+import { FiUser, FiMail, FiPhone, FiBriefcase, FiHash, FiLayers } from 'react-icons/fi';
+
+const ProfileField = ({ icon: Icon, label, value, color = 'indigo' }) => {
+  const colors = {
+    indigo:  'bg-indigo-50 text-indigo-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    purple:  'bg-purple-50 text-purple-600',
+    amber:   'bg-amber-50 text-amber-600',
+    red:     'bg-red-50 text-red-600',
+    orange:  'bg-orange-50 text-orange-600',
+  };
+  return (
+    <div className="flex items-start gap-4">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[color]}`}>
+        <Icon size={18} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500 font-medium">{label}</p>
+        <p className="text-sm font-semibold text-slate-900 mt-0.5 break-all">{value || '—'}</p>
+      </div>
+    </div>
+  );
+};
 
 const EmployeeProfile = () => {
   const { user } = useAuth();
+  const nameStr  = user?.name || 'U';
+  const initials = nameStr.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar />
-      
-      <div className="flex-1 overflow-y-auto w-full lg:w-auto">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-4">
-          {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">My Profile</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">View your profile information</p>
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="px-5 py-6 lg:px-8 lg:py-8 pt-16 lg:pt-8">
+
+          <div className="mb-6">
+            <h1 className="text-xl font-bold text-slate-900">My Profile</h1>
+            <p className="text-sm text-slate-500 mt-0.5">View your account information</p>
           </div>
 
-          {/* Profile Card */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            {/* Header Section */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 sm:p-8">
-              <div className="flex flex-col sm:flex-row items-center sm:space-x-6 space-y-4 sm:space-y-0">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-3xl sm:text-4xl font-bold text-blue-600">
-                    {user?.name?.charAt(0) || 'U'}
-                  </span>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden max-w-2xl">
+            {/* Banner */}
+            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
+                <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center border-2 border-white/30 flex-shrink-0">
+                  <span className="text-3xl font-extrabold text-white">{initials}</span>
                 </div>
-                <div className="text-white">
-                  <h2 className="text-3xl font-bold">{user?.name}</h2>
-                  <p className="text-blue-100 mt-1">{user?.job_role}</p>
+                <div className="text-center sm:text-left">
+                  <h2 className="text-2xl font-bold text-white leading-none">{nameStr}</h2>
+                  <p className="text-indigo-200 text-sm mt-1">{user?.job_role}</p>
+                  <span className="inline-block mt-2 text-xs font-mono text-indigo-100 bg-white/10 px-2 py-0.5 rounded">
+                    {user?.employee_id}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Details Section */}
-            <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <FiHash className="text-2xl text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Employee ID</p>
-                    <p className="text-lg font-semibold text-gray-800">{user?.employee_id}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <FiUser className="text-2xl text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Full Name</p>
-                    <p className="text-lg font-semibold text-gray-800">{user?.name}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-purple-100 rounded-lg">
-                    <FiMail className="text-2xl text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="text-lg font-semibold text-gray-800">{user?.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-yellow-100 rounded-lg">
-                    <FiPhone className="text-2xl text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Mobile Number</p>
-                    <p className="text-lg font-semibold text-gray-800">{user?.mobile}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-red-100 rounded-lg">
-                    <FiBriefcase className="text-2xl text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Department</p>
-                    <p className="text-lg font-semibold text-gray-800">{user?.department}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-orange-100 rounded-lg">
-                    <FiBriefcase className="text-2xl text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Job Role</p>
-                    <p className="text-lg font-semibold text-gray-800">{user?.job_role}</p>
-                  </div>
-                </div>
-              </div>
+            {/* Fields */}
+            <div className="px-6 py-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <ProfileField icon={FiHash}     label="Employee ID"    value={user?.employee_id} color="indigo"  />
+              <ProfileField icon={FiUser}     label="Full Name"      value={user?.name}         color="emerald" />
+              <ProfileField icon={FiMail}     label="Email Address"  value={user?.email}        color="purple"  />
+              <ProfileField icon={FiPhone}    label="Mobile Number"  value={user?.mobile}       color="amber"   />
+              <ProfileField icon={FiLayers}   label="Department"     value={user?.department}   color="red"     />
+              <ProfileField icon={FiBriefcase} label="Job Role"      value={user?.job_role}     color="orange"  />
             </div>
           </div>
         </div>
