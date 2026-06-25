@@ -24,7 +24,7 @@ const Field = ({ label, hint, children }) => (
 );
 
 const AdminSettings = () => {
-  const [settings, setSettings] = useState({ latitude:'', longitude:'', allowedRadius:'', gpsAccuracyThreshold:100, lateAfterTime:'', officeStartTime:'09:00', officeEndTime:'18:00', autoCheckoutTime:'18:32', halfDayThreshold:4, checkInEnabled:true, checkOutEnabled:true, officePublicIP:'', allowedIPs:'', attendanceValidationMode:'location_or_network', attendanceRateLimit:5 });
+  const [settings, setSettings] = useState({ latitude:'', longitude:'', allowedRadius:'', gpsAccuracyThreshold:100, lateAfterTime:'', officeStartTime:'09:00', officeEndTime:'18:00', autoCheckoutTime:'18:32', halfDayThreshold:4, checkInEnabled:true, checkOutEnabled:true, officePublicIP:'', allowedIPs:'', attendanceValidationMode:'location_or_network', attendanceRateLimit:5, trustedDeviceValidationEnabled:false });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [alertDialog, setAlertDialog] = useState({ isOpen:false, title:'', message:'', type:'success' });
@@ -32,7 +32,7 @@ const AdminSettings = () => {
   useEffect(() => { fetchSettings(); }, []);
 
   const fetchSettings = async () => {
-    try { setLoading(true); const response = await getSettings(); if (response.data.success) { const s = response.data.settings; setSettings({ latitude:s.companyLocation.latitude, longitude:s.companyLocation.longitude, allowedRadius:s.companyLocation.allowedRadius, gpsAccuracyThreshold:s.companyLocation.gpsAccuracyThreshold||100, lateAfterTime:s.workingHours.lateAfterTime, officeStartTime:s.workingHours.officeStartTime||'09:00', officeEndTime:s.workingHours.officeEndTime||'18:00', autoCheckoutTime:s.workingHours.autoCheckoutTime||'18:32', halfDayThreshold:s.workingHours.halfDayThreshold||4, checkInEnabled:s.workingHours.checkInEnabled!==undefined?s.workingHours.checkInEnabled:true, checkOutEnabled:s.workingHours.checkOutEnabled!==undefined?s.workingHours.checkOutEnabled:true, officePublicIP:s.network?.officePublicIP||'', allowedIPs:s.network?.allowedIPs||'', attendanceValidationMode:s.validation?.attendanceValidationMode||'location_or_network', attendanceRateLimit:s.security?.attendanceRateLimit||5 }); } }
+    try { setLoading(true); const response = await getSettings(); if (response.data.success) { const s = response.data.settings; setSettings({ latitude:s.companyLocation.latitude, longitude:s.companyLocation.longitude, allowedRadius:s.companyLocation.allowedRadius, gpsAccuracyThreshold:s.companyLocation.gpsAccuracyThreshold||100, lateAfterTime:s.workingHours.lateAfterTime, officeStartTime:s.workingHours.officeStartTime||'09:00', officeEndTime:s.workingHours.officeEndTime||'18:00', autoCheckoutTime:s.workingHours.autoCheckoutTime||'18:32', halfDayThreshold:s.workingHours.halfDayThreshold||4, checkInEnabled:s.workingHours.checkInEnabled!==undefined?s.workingHours.checkInEnabled:true, checkOutEnabled:s.workingHours.checkOutEnabled!==undefined?s.workingHours.checkOutEnabled:true, officePublicIP:s.network?.officePublicIP||'', allowedIPs:s.network?.allowedIPs||'', attendanceValidationMode:s.validation?.attendanceValidationMode||'location_or_network', attendanceRateLimit:s.security?.attendanceRateLimit||5, trustedDeviceValidationEnabled:s.trustedDevice?.validationEnabled||false }); } }
     catch (error) { console.error(error); setAlertDialog({ isOpen:true, title:'Error', message:'Failed to load settings', type:'error' }); }
     finally { setLoading(false); }
   };
@@ -109,7 +109,7 @@ const AdminSettings = () => {
             <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
               <div className="px-6 py-4 border-b border-white/[0.06]"><h2 className="text-sm font-bold text-white">Attendance Controls</h2></div>
               <div className="divide-y divide-white/[0.04]">
-                {[{ field:'checkInEnabled', label:'Enable Check-In', desc:'Allow employees to check in' }, { field:'checkOutEnabled', label:'Enable Check-Out', desc:'Allow employees to check out' }].map(({ field, label, desc }) => (
+                {[{ field:'checkInEnabled', label:'Enable Check-In', desc:'Allow employees to check in' }, { field:'checkOutEnabled', label:'Enable Check-Out', desc:'Allow employees to check out' }, { field:'trustedDeviceValidationEnabled', label:'Trusted Device Validation', desc:'Only approved devices can mark attendance (skips GPS/IP validation)' }].map(({ field, label, desc }) => (
                   <div key={field} className="flex items-center justify-between px-6 py-4">
                     <div><p className="text-sm font-semibold text-white">{label}</p><p className="text-xs text-[#64748B] mt-0.5">{desc}</p></div>
                     <button type="button" onClick={() => handleToggle(field)} className={`text-3xl transition-colors ${settings[field] ? 'text-emerald-400' : 'text-[#334155]'}`}>
@@ -130,6 +130,7 @@ const AdminSettings = () => {
                 <p>• Check-in/Check-out toggles control whether employees can use these buttons</p>
                 <p>• Give early checkout permission to specific employees from Employee Management</p>
                 <p>• Use "Location OR Network" mode for offices with both Wi-Fi and Ethernet users</p>
+                <p>• When Trusted Device Validation is ON: only approved devices can mark attendance, GPS/IP checks are skipped</p>
               </div>
             </div>
 

@@ -1,5 +1,7 @@
 const pool = require('../config/database');
 const { clearSettingsCache } = require('../utils/settingsHelper');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const { getClientIP } = require('../services/networkValidationService');
 
 // Get current settings from database
 const getSettings = async (req, res) => {
@@ -42,6 +44,9 @@ const getSettings = async (req, res) => {
       },
       security: {
         attendanceRateLimit: dbSettings.attendance_rate_limit || 5
+      },
+      trustedDevice: {
+        validationEnabled: dbSettings.trusted_device_validation_enabled || false
       },
       messages: {
         locationPermissionTitle: "Location Permission Required",
@@ -90,7 +95,8 @@ const updateSettings = async (req, res) => {
       officePublicIP,
       allowedIPs,
       attendanceValidationMode,
-      attendanceRateLimit
+      attendanceRateLimit,
+      trustedDeviceValidationEnabled
     } = req.body;
 
     // Validation
@@ -174,6 +180,7 @@ const updateSettings = async (req, res) => {
         allowed_ips = $13,
         attendance_validation_mode = $14,
         attendance_rate_limit = $15,
+        trusted_device_validation_enabled = $16,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
       RETURNING *
@@ -194,7 +201,8 @@ const updateSettings = async (req, res) => {
       officePublicIP || null,
       allowedIPs || null,
       attendanceValidationMode || 'location_or_network',
-      attendanceRateLimit ? parseInt(attendanceRateLimit) : 5
+      attendanceRateLimit ? parseInt(attendanceRateLimit) : 5,
+      trustedDeviceValidationEnabled !== undefined ? trustedDeviceValidationEnabled : false
     ];
 
     const result = await pool.query(updateQuery, values);
@@ -208,6 +216,22 @@ const updateSettings = async (req, res) => {
 
     // Clear settings cache so next request gets fresh data
     clearSettingsCache();
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.UPDATE_SETTINGS,
+      moduleName: MODULE_NAMES.SETTINGS,
+      description: 'Updated system settings',
+      newData: { 
+        latitude, longitude, allowedRadius, officeStartTime, officeEndTime,
+        attendanceValidationMode, trustedDeviceValidationEnabled
+      },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
 
     res.json({
       success: true,
@@ -237,6 +261,9 @@ const updateSettings = async (req, res) => {
         },
         security: {
           attendanceRateLimit
+        },
+        trustedDevice: {
+          validationEnabled: trustedDeviceValidationEnabled
         }
       }
     });

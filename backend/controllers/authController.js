@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 
 // Admin Login
 const adminLogin = async (req, res) => {
@@ -61,6 +62,19 @@ const adminLogin = async (req, res) => {
           req.body.device_info || 'Unknown'
         ]
       );
+
+      // Log admin activity
+      await logAdminActivity({
+        adminId: admin.id,
+        adminName: admin.username,
+        adminEmail: admin.email,
+        actionType: ADMIN_ACTION_TYPES.ADMIN_LOGIN,
+        moduleName: MODULE_NAMES.ADMIN,
+        description: `Admin ${admin.username} logged in successfully`,
+        ipAddress: req.body.ip_address || req.ip || 'Unknown',
+        deviceInfo: req.body.device_info || 'Unknown',
+        browserInfo: req.body.browser_info || req.headers['user-agent'] || 'Unknown'
+      });
     } catch (logError) {
       console.error('Error logging admin login:', logError);
       // Continue even if logging fails

@@ -3,12 +3,14 @@ import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getDashboardStats, getAllAttendance } from '../services/api';
+import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminActivityStats } from '../services/api';
 import { formatTime, formatWorkingHours } from '../utils/formatTime';
-import { FiUsers, FiCheckCircle, FiClock, FiHome, FiXCircle, FiActivity } from 'react-icons/fi';
+import { FiUsers, FiCheckCircle, FiClock, FiHome, FiXCircle, FiActivity, FiSmartphone, FiAlertTriangle } from 'react-icons/fi';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({ totalEmployees:0, presentToday:0, lateEmployees:0, wfhEmployees:0, absentEmployees:0, currentlyWorking:0 });
+  const [deviceStats, setDeviceStats] = useState({ pendingDevices:0, approvedDevices:0, rejectedDevices:0, totalDevices:0 });
+  const [activityStats, setActivityStats] = useState({ today:0, thisWeek:0, total:0 });
   const [recentAttendance, setRecentAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,9 +20,16 @@ const AdminDashboard = () => {
     try {
       const now = new Date();
       const localDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-      const [statsRes, attendanceRes] = await Promise.all([getDashboardStats(), getAllAttendance({ date: localDate })]);
+      const [statsRes, attendanceRes, deviceStatsRes, activityStatsRes] = await Promise.all([
+        getDashboardStats(), 
+        getAllAttendance({ date: localDate }), 
+        getTrustedDeviceStats(),
+        getAdminActivityStats()
+      ]);
       if (statsRes.data.success) setStats(statsRes.data.stats);
       if (attendanceRes.data.success) setRecentAttendance(attendanceRes.data.attendance.slice(0, 10));
+      if (deviceStatsRes.data.success) setDeviceStats(deviceStatsRes.data.stats);
+      if (activityStatsRes.data.success) setActivityStats(activityStatsRes.data.stats);
     } catch (e) { console.error('Error fetching dashboard data:', e); }
     finally { setLoading(false); }
   };
@@ -55,7 +64,8 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* KPI Cards */}
+          {/* Employee Statistics */}
+          <div className="mb-4"><h2 className="text-xs font-bold text-[#94A3B8] uppercase tracking-wider px-2">Employee Statistics</h2></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <StatCard title="Total Employees"   value={stats.totalEmployees}   icon={FiUsers}       color="indigo" />
             <StatCard title="Present Today"     value={stats.presentToday}     icon={FiCheckCircle} color="green"  />
@@ -63,6 +73,23 @@ const AdminDashboard = () => {
             <StatCard title="Work From Home"    value={stats.wfhEmployees}     icon={FiHome}        color="blue"   />
             <StatCard title="Absent Today"      value={stats.absentEmployees}  icon={FiXCircle}     color="red"    />
             <StatCard title="Currently Working" value={stats.currentlyWorking} icon={FiActivity}    color="purple" />
+          </div>
+
+          {/* Trusted Device Stats */}
+          <div className="mb-4"><h2 className="text-xs font-bold text-[#94A3B8] uppercase tracking-wider px-2">Device Management</h2></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatCard title="Pending Devices"  value={deviceStats.pendingDevices}  icon={FiAlertTriangle} color="yellow" link="/admin/trusted-devices" />
+            <StatCard title="Approved Devices" value={deviceStats.approvedDevices} icon={FiCheckCircle}    color="green"  link="/admin/trusted-devices" />
+            <StatCard title="Rejected Devices" value={deviceStats.rejectedDevices} icon={FiXCircle}        color="red"    link="/admin/trusted-devices" />
+            <StatCard title="Total Devices"    value={deviceStats.totalDevices}    icon={FiSmartphone}     color="indigo" link="/admin/trusted-devices" />
+          </div>
+
+          {/* Admin Activity Stats */}
+          <div className="mb-4"><h2 className="text-xs font-bold text-[#94A3B8] uppercase tracking-wider px-2">Admin Activity</h2></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <StatCard title="Activities Today"    value={activityStats.today}    icon={FiActivity} color="blue"   link="/admin/activity-logs" />
+            <StatCard title="Activities This Week" value={activityStats.thisWeek} icon={FiActivity} color="purple" link="/admin/activity-logs" />
+            <StatCard title="Total Activities"     value={activityStats.total}    icon={FiActivity} color="gray"   link="/admin/activity-logs" />
           </div>
 
           {/* Today's attendance table */}

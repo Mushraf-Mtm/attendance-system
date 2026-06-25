@@ -1,7 +1,7 @@
 const pool = require('../config/database');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
 
-// Get audit logs
+// Get audit logs (employee activities only)
 const getAuditLogs = async (req, res) => {
   try {
     const { limit = 100, employeeId, action, status } = req.query;
@@ -12,7 +12,7 @@ const getAuditLogs = async (req, res) => {
         e.name as employee_name
       FROM audit_logs al
       LEFT JOIN employees e ON al.user_id = e.employee_id
-      WHERE 1=1
+      WHERE al.user_type = 'employee'
     `;
     const params = [];
     let paramCount = 1;

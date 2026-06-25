@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
+import ClearDataDialog from '../components/ClearDataDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, resetAttendance, deleteAttendance } from '../services/api';
+import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, resetAttendance, deleteAttendance, clearMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar } from 'react-icons/fi';
 
@@ -19,6 +20,7 @@ const AdminAttendance = () => {
   const [downloadData,   setDownloadData]   = useState({ month:'', year:'' });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'info' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [clearDialog, setClearDialog] = useState({ isOpen: false });
 
   const fetchAttendance = async () => {
     try { setLoading(true); const r = await getAllAttendance(filters); if (r.data.success) setAttendance(r.data.attendance); }
@@ -70,6 +72,20 @@ const AdminAttendance = () => {
     },
   });
 
+  const handleClearMonthlyAttendance = async (year, month) => {
+    try {
+      const response = await clearMonthlyAttendance(year, month);
+      if (response.data.success) {
+        setAlertDialog({ isOpen: true, title: 'Success', message: `Attendance records for ${month}/${year} cleared successfully`, type: 'success' });
+        fetchAttendance();
+      } else {
+        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear attendance', type: 'error' });
+      }
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to clear attendance records', type: 'error' });
+    }
+  };
+
   return (
     <div className="flex h-screen bg-[#0E1320] dark-scroll">
       <Sidebar />
@@ -83,6 +99,9 @@ const AdminAttendance = () => {
               <p className="text-sm text-[#94A3B8] mt-0.5">View and manage employee attendance</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <button onClick={() => setClearDialog({ isOpen: true })} className="inline-flex items-center gap-2 bg-red-600/90 hover:bg-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm hover:-translate-y-0.5">
+                <FiTrash2 size={15} /> Clear Attendance
+              </button>
               <button onClick={() => handleDownloadPDF('pdf')} className="inline-flex items-center gap-2 bg-red-600/90 hover:bg-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm hover:-translate-y-0.5">
                 <FiDownload size={15} /> PDF
               </button>
@@ -205,6 +224,17 @@ const AdminAttendance = () => {
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(d => ({ ...d, isOpen:false })); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
+      
+      {/* Clear Data Dialog */}
+      <ClearDataDialog
+        isOpen={clearDialog.isOpen}
+        onClose={() => setClearDialog({ isOpen: false })}
+        onConfirm={handleClearMonthlyAttendance}
+        title="Clear Monthly Attendance"
+        message="⚠️ WARNING: This will permanently delete ALL attendance records for the selected month and year. This action cannot be undone and will free up storage space."
+        confirmText="delete this month attendance"
+        type="attendance"
+      />
     </div>
   );
 };

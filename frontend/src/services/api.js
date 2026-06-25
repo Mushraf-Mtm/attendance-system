@@ -207,4 +207,55 @@ export const clearRateLimit = (employeeId) =>
 export const updateDeviceAlias = (deviceId, device_alias) => 
   api.put(`/security/device/${deviceId}/alias`, { device_alias });
 
+// Trusted Devices APIs
+export const getAllTrustedDevices = (params) => 
+  api.get('/trusted-devices', { params });
+
+export const getTrustedDeviceStats = () => 
+  api.get('/trusted-devices/stats');
+
+export const approveTrustedDevice = (deviceId) => 
+  api.post('/trusted-devices/approve', { deviceId });
+
+export const rejectTrustedDevice = (deviceId, remarks) => 
+  api.post('/trusted-devices/reject', { deviceId, remarks });
+
+export const updateTrustedDeviceAlias = (deviceId, deviceAlias) => 
+  api.put('/trusted-devices/alias', { deviceId, deviceAlias });
+
+export const removeTrustedDeviceApproval = (deviceId) => 
+  api.post('/trusted-devices/remove-approval', { deviceId });
+
+export const deleteTrustedDevice = (deviceId) => 
+  api.delete(`/trusted-devices/${deviceId}`);
+
 export default api;
+
+// Admin Activity APIs
+export const getAdminActivityLogs = (params) => 
+  api.get('/admin-activity/logs', { params });
+
+export const getAdminActivityStats = () => 
+  api.get('/admin-activity/stats');
+
+export const getAdminActivityById = (id) => 
+  api.get(`/admin-activity/logs/${id}`);
+
+export const exportAdminActivityLogs = (params) => 
+  api.get('/admin-activity/export', { params, responseType: 'blob' });
+
+export const getAdminActionTypes = () => 
+  api.get('/admin-activity/action-types');
+
+export const getAdminModuleNames = () => 
+  api.get('/admin-activity/module-names');
+
+// Clear Data APIs
+export const clearEmployeeAuditLogs = () => 
+  api.delete('/clear-data/employee-audit');
+
+export const clearAdminActivityLogs = () => 
+  api.delete('/clear-data/admin-activity');
+
+export const clearMonthlyAttendance = (year, month) => 
+  api.delete('/clear-data/monthly-attendance', { data: { year, month } });

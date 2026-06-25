@@ -1,5 +1,7 @@
 const pool = require('../config/database');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const { getClientIP } = require('../services/networkValidationService');
 
 // Get OTP settings
 const getOTPSettings = async (req, res) => {
@@ -122,6 +124,19 @@ const updateOTPSettings = async (req, res) => {
         otp_max_attempts,
         otp_requests_per_hour
       }
+    });
+
+    // Log admin activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.UPDATE_OTP_SETTINGS,
+      moduleName: MODULE_NAMES.SETTINGS,
+      description: 'Updated OTP settings',
+      newData: { otp_expiry_minutes, otp_resend_seconds, otp_max_attempts, otp_requests_per_hour },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
     });
 
     res.json({

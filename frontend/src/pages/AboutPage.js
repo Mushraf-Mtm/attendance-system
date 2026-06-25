@@ -12,10 +12,13 @@ const values = [
 const benefits = [
   { title: 'GPS-Based Verification',  desc: 'Ensure employees are at the correct location with GPS-based attendance validation and configurable accuracy thresholds.' },
   { title: 'Work From Home Support',  desc: 'Seamlessly track attendance for remote workers with dedicated WFH attendance rules and flexible validation options.' },
-  { title: 'Real-Time Reporting',     desc: 'Generate comprehensive attendance reports instantly with PDF and Excel export capabilities for easy sharing.' },
+  { title: 'Real-Time Reporting',     desc: 'Generate comprehensive attendance reports with holidays included. Export in PDF and Excel with monthly matrix view.' },
   { title: 'Automated Processes',     desc: 'Automatic late marking, absent record creation, and auto-checkout features reduce administrative overhead.' },
-  { title: 'Advanced Security',       desc: 'Device fingerprinting, OTP verification, audit logs, and rate limiting protect against unauthorized access.' },
-  { title: 'Holiday Management',      desc: 'Configure government and office holidays with automatic attendance rule adjustments for accurate tracking.' },
+  { title: 'Trusted Device System',   desc: 'Admin approval workflow for employee devices. Block unauthorized devices and approve trusted ones for secure access.' },
+  { title: 'Admin Activity Logs',     desc: 'Track all administrator actions including settings changes, approvals, and data modifications with detailed audit trails.' },
+  { title: 'Advanced Security',       desc: 'Device management, OTP verification, audit logs, and rate limiting protect against unauthorized access.' },
+  { title: 'Holiday Management',      desc: 'Configure government and office holidays with automatic attendance rule adjustments. Holidays appear in all reports.' },
+  { title: 'Data Management',         desc: 'Clear old data with GitHub-style confirmation dialogs. Free up storage by clearing audit logs and attendance records.' },
 ];
 
 const AboutPage = () => {

@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS settings (
     allowed_ips TEXT,
     attendance_validation_mode VARCHAR(30) DEFAULT 'location_or_network',
     attendance_rate_limit INTEGER DEFAULT 5,
+    trusted_device_validation_enabled BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -176,7 +177,51 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Device Fingerprints Table (with all enhancements)
+-- Create Admin Activity Logs Table
+CREATE TABLE IF NOT EXISTS admin_activity_logs (
+    id SERIAL PRIMARY KEY,
+    admin_id INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    admin_name VARCHAR(100),
+    admin_email VARCHAR(150),
+    action_type VARCHAR(100) NOT NULL,
+    module_name VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    old_data JSONB,
+    new_data JSONB,
+    ip_address VARCHAR(50),
+    device_info TEXT,
+    browser_info TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Trusted Devices Table (Device Approval System)
+CREATE TABLE IF NOT EXISTS trusted_devices (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    employee_name VARCHAR(150),
+    device_fingerprint VARCHAR(255) NOT NULL,
+    device_name VARCHAR(255),
+    device_alias VARCHAR(255),
+    browser_name VARCHAR(100),
+    browser_version VARCHAR(50),
+    operating_system VARCHAR(100),
+    device_type VARCHAR(50) DEFAULT 'Unknown' CHECK (device_type IN ('Desktop', 'Laptop', 'Mobile', 'Tablet', 'Unknown')),
+    screen_resolution VARCHAR(50),
+    platform VARCHAR(100),
+    first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    approved_status VARCHAR(20) DEFAULT 'Pending' CHECK (approved_status IN ('Pending', 'Approved', 'Rejected')),
+    approved_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    approved_at TIMESTAMP,
+    rejected_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    rejected_at TIMESTAMP,
+    remarks TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, device_fingerprint)
+);
+
+-- Create Device Fingerprints Table (Legacy - Keep for backward compatibility)
 CREATE TABLE IF NOT EXISTS device_fingerprints (
     id SERIAL PRIMARY KEY,
     employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
@@ -245,9 +290,17 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_status ON audit_logs(status);
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_admin ON admin_activity_logs(admin_id);
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_action ON admin_activity_logs(action_type);
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_module ON admin_activity_logs(module_name);
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_created ON admin_activity_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_device_fingerprints_employee ON device_fingerprints(employee_id);
 CREATE INDEX IF NOT EXISTS idx_device_fingerprints_fingerprint ON device_fingerprints(device_fingerprint);
 CREATE INDEX IF NOT EXISTS idx_device_fingerprints_alias ON device_fingerprints(device_alias);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_employee ON trusted_devices(employee_id);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_fingerprint ON trusted_devices(device_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_status ON trusted_devices(approved_status);
+CREATE INDEX IF NOT EXISTS idx_trusted_devices_last_used ON trusted_devices(last_used);
 CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_employee ON attendance_rate_limits(employee_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_window ON attendance_rate_limits(window_start);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton ON settings ((id IS NOT NULL));
@@ -263,12 +316,12 @@ INSERT INTO settings (
     auto_checkout_time, late_after_time, half_day_threshold, 
     check_in_enabled, check_out_enabled,
     otp_expiry_minutes, otp_resend_seconds, otp_max_attempts, otp_requests_per_hour,
-    office_public_ip, allowed_ips, attendance_validation_mode, attendance_rate_limit
+    office_public_ip, allowed_ips, attendance_validation_mode, attendance_rate_limit, trusted_device_validation_enabled
 ) VALUES (
     'Company Office', 13.015837, 77.721172, 100, 100,
     '09:00', '18:00', '18:32', '09:30', 4.0, true, true,
     5, 60, 3, 5,
-    NULL, NULL, 'location_or_network', 5
+    NULL, NULL, 'location_or_network', 5, FALSE
 ) ON CONFLICT DO NOTHING;
 
 -- Insert Sample Departments

@@ -1,5 +1,7 @@
 const bcrypt = require('bcrypt');
 const pool = require('../config/database');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const { getClientIP } = require('../services/networkValidationService');
 
 // Get all admins
 const getAllAdmins = async (req, res) => {
@@ -68,6 +70,19 @@ const addAdmin = async (req, res) => {
       [username, email, hashedPassword]
     );
 
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email,
+      actionType: ADMIN_ACTION_TYPES.CREATE_ADMIN,
+      moduleName: MODULE_NAMES.ADMIN,
+      description: `Created new admin account: ${username}`,
+      newData: { username, email },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
+
     res.json({
       success: true,
       message: 'Admin added successfully',
@@ -97,7 +112,7 @@ const updateAdmin = async (req, res) => {
 
     // Check if admin exists
     const adminCheck = await pool.query(
-      'SELECT id FROM admins WHERE id = $1',
+      'SELECT * FROM admins WHERE id = $1',
       [id]
     );
 
@@ -107,6 +122,8 @@ const updateAdmin = async (req, res) => {
         message: 'Admin not found'
       });
     }
+
+    const oldData = { username: adminCheck.rows[0].username, email: adminCheck.rows[0].email };
 
     // Check if username already exists (excluding current admin)
     const usernameCheck = await pool.query(
@@ -139,6 +156,20 @@ const updateAdmin = async (req, res) => {
       'UPDATE admins SET username = $1, email = $2 WHERE id = $3 RETURNING id, username, email, created_at',
       [username, email, id]
     );
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email,
+      actionType: ADMIN_ACTION_TYPES.UPDATE_ADMIN,
+      moduleName: MODULE_NAMES.ADMIN,
+      description: `Updated admin account: ${username}`,
+      oldData,
+      newData: { username, email },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
 
     res.json({
       success: true,
@@ -204,6 +235,19 @@ const deleteAdmin = async (req, res) => {
     
     // Delete admin (login logs will be deleted automatically due to CASCADE)
     await pool.query('DELETE FROM admins WHERE id = $1', [id]);
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email,
+      actionType: ADMIN_ACTION_TYPES.DELETE_ADMIN,
+      moduleName: MODULE_NAMES.ADMIN,
+      description: `Deleted admin account: ${adminCheck.rows[0].username}`,
+      oldData: { username: adminCheck.rows[0].username },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
 
     res.json({
       success: true,

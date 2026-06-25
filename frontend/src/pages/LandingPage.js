@@ -9,19 +9,22 @@ const features = [
   { icon: FiMapPin,      color: 'bg-red-50 text-red-500',          title: 'GPS Verification',         desc: 'Verify employee location with GPS-based attendance validation' },
   { icon: FiHome,        color: 'bg-purple-50 text-purple-600',    title: 'Work From Home',           desc: 'Support for remote work with WFH attendance tracking' },
   { icon: FiUsers,       color: 'bg-indigo-50 text-indigo-600',    title: 'Employee Management',      desc: 'Complete management with profiles, departments, and roles' },
-  { icon: FiCalendar,    color: 'bg-amber-50 text-amber-600',      title: 'Holiday Management',       desc: 'Manage holidays with automatic attendance rule adjustments' },
-  { icon: FiFileText,    color: 'bg-teal-50 text-teal-600',        title: 'Attendance Reports',       desc: 'Generate detailed reports with PDF and Excel export' },
+  { icon: FiCalendar,    color: 'bg-amber-50 text-amber-600',      title: 'Holiday Management',       desc: 'Manage holidays with reports showing holiday information' },
+  { icon: FiFileText,    color: 'bg-teal-50 text-teal-600',        title: 'Attendance Reports',       desc: 'Generate reports with holidays included in PDF and Excel' },
   { icon: FiLock,        color: 'bg-pink-50 text-pink-600',        title: 'OTP Verification',         desc: 'Secure password reset and authentication with OTP' },
-  { icon: FiShield,      color: 'bg-orange-50 text-orange-600',    title: 'Security Monitoring',      desc: 'Advanced security with device fingerprinting and audit logs' },
-  { icon: FiBarChart2,   color: 'bg-cyan-50 text-cyan-600',        title: 'Attendance Analytics',     desc: 'Real-time analytics and insights for attendance data' },
+  { icon: FiShield,      color: 'bg-orange-50 text-orange-600',    title: 'Device Management',        desc: 'Admin approval for trusted devices and security monitoring' },
+  { icon: FiBarChart2,   color: 'bg-cyan-50 text-cyan-600',        title: 'Admin Activity Logs',      desc: 'Track all admin actions with comprehensive audit logging' },
 ];
 
 const benefits = [
   'Real-time attendance tracking and monitoring',
   'GPS and network-based validation',
-  'Automated reports and analytics',
+  'Automated reports with holiday information',
   'Secure authentication with OTP',
+  'Trusted device approval system',
   'Work from home support',
+  'Admin activity audit logs',
+  'Data cleanup and storage management',
   'Mobile responsive design',
 ];
 

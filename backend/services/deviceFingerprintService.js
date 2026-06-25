@@ -158,9 +158,102 @@ const isDeviceApproved = async (employeeId, fingerprint) => {
   }
 };
 
+/**
+ * Register or update trusted device
+ */
+const registerTrustedDevice = async (employeeId, employeeName, req, additionalInfo = {}) => {
+  try {
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const fingerprint = generateFingerprint(req);
+    const { browser, browserVersion, os, deviceType } = parseDeviceInfo(userAgent);
+    
+    const { screenResolution, timezone } = additionalInfo;
+    const platform = req.headers['sec-ch-ua-platform'] || os;
+    
+    // Check if device exists in trusted_devices
+    const existing = await pool.query(
+      'SELECT * FROM trusted_devices WHERE employee_id = $1 AND device_fingerprint = $2',
+      [employeeId, fingerprint]
+    );
+    
+    if (existing.rows.length > 0) {
+      // Update last used
+      await pool.query(
+        `UPDATE trusted_devices 
+         SET last_used = CURRENT_TIMESTAMP,
+             employee_name = $1,
+             browser_name = $2,
+             browser_version = $3,
+             operating_system = $4,
+             device_type = $5,
+             screen_resolution = COALESCE($6, screen_resolution),
+             platform = COALESCE($7, platform)
+         WHERE id = $8`,
+        [employeeName, browser, browserVersion, os, deviceType, screenResolution, platform, existing.rows[0].id]
+      );
+      
+      return { 
+        fingerprint,
+        device: existing.rows[0],
+        isNew: false
+      };
+    } else {
+      // Insert new device with Pending status
+      const result = await pool.query(
+        `INSERT INTO trusted_devices 
+         (employee_id, employee_name, device_fingerprint, browser_name, browser_version, 
+          operating_system, device_type, screen_resolution, platform, approved_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending')
+         RETURNING *`,
+        [employeeId, employeeName, fingerprint, browser, browserVersion, os, deviceType, 
+         screenResolution || null, platform]
+      );
+      
+      return {
+        fingerprint,
+        device: result.rows[0],
+        isNew: true
+      };
+    }
+  } catch (error) {
+    console.error('Error registering trusted device:', error);
+    return null;
+  }
+};
+
+/**
+ * Check if device is approved for trusted device validation
+ */
+const isTrustedDeviceApproved = async (employeeId, fingerprint) => {
+  try {
+    const result = await pool.query(
+      'SELECT approved_status FROM trusted_devices WHERE employee_id = $1 AND device_fingerprint = $2',
+      [employeeId, fingerprint]
+    );
+    
+    if (result.rows.length === 0) {
+      // New device - not approved
+      return { approved: false, status: 'Not Found', isNew: true };
+    }
+    
+    const status = result.rows[0].approved_status;
+    return { 
+      approved: status === 'Approved', 
+      status: status,
+      isNew: false
+    };
+  } catch (error) {
+    console.error('Error checking trusted device approval:', error);
+    // Default to not approved if error
+    return { approved: false, status: 'Error', isNew: false };
+  }
+};
+
 module.exports = {
   generateFingerprint,
   parseDeviceInfo,
   logDeviceFingerprint,
-  isDeviceApproved
+  isDeviceApproved,
+  registerTrustedDevice,
+  isTrustedDeviceApproved
 };

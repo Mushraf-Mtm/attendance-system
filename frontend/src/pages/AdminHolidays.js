@@ -7,6 +7,42 @@ import { Spinner } from '../components/Loader';
 import { FiUmbrella, FiPlus, FiEdit2, FiTrash2, FiToggleLeft, FiToggleRight, FiX } from 'react-icons/fi';
 import { getAllHolidays, addHoliday, updateHoliday, deleteHoliday, toggleHolidayStatus } from '../services/api';
 
+// Modal component outside to prevent re-creation
+const HolidayModal = ({ show, onClose, onSave, title, formData, handleInput }) => {
+  if (!show) return null;
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1C2540] border border-white/[0.08] rounded-2xl shadow-clay-admin-modal w-full max-w-md animate-scale-in">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
+          <h2 className="text-base font-bold text-white">{title}</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#94A3B8] transition-colors"><FiX size={18} /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Date</label><input type="date" name="holiday_date" value={formData.holiday_date} onChange={handleInput} required className="admin-input" /></div>
+          <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Type</label>
+            <select name="holiday_type" value={formData.holiday_type} onChange={handleInput} className="admin-select">
+              <option value="Government Holiday">Government Holiday</option>
+              <option value="Office Holiday">Office Holiday</option>
+            </select>
+          </div>
+          <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Title</label><input type="text" name="holiday_title" value={formData.holiday_title} onChange={handleInput} required placeholder="e.g. Independence Day" className="admin-input" /></div>
+          <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Note <span className="text-[#475569] font-normal normal-case">(optional)</span></label>
+            <textarea name="holiday_note" value={formData.holiday_note} onChange={handleInput} rows={2} placeholder="Additional note…" className="admin-input resize-none" />
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="is_enabled" checked={formData.is_enabled} onChange={handleInput} className="w-4 h-4 rounded border-white/20 bg-white/5 accent-[#3B82F6]" />
+            <span className="text-sm text-[#CBD5E1] font-medium">Enable this holiday</span>
+          </label>
+        </div>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/[0.06] bg-[#161D2E]/60 rounded-b-2xl">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+          <button onClick={onSave} className="px-5 py-2 text-sm font-semibold bg-[#3B82F6] hover:bg-blue-500 text-white rounded-xl shadow-glow-blue-sm transition-all duration-200">Save Holiday</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminHolidays = () => {
   const [holidays,        setHolidays]        = useState([]);
   const [loading,         setLoading]         = useState(true);
@@ -50,41 +86,6 @@ const AdminHolidays = () => {
   });
   const openEdit = holiday => { setSelectedHoliday(holiday); setFormData({ holiday_date: holiday.holiday_date.split('T')[0], holiday_type: holiday.holiday_type, holiday_title: holiday.holiday_title, holiday_note: holiday.holiday_note || '', is_enabled: holiday.is_enabled }); setShowEditModal(true); };
   const formatDate = ds => new Date(ds).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
-
-  const HolidayModal = ({ show, onClose, onSave, title }) => {
-    if (!show) return null;
-    return (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-[#1C2540] border border-white/[0.08] rounded-2xl shadow-clay-admin-modal w-full max-w-md animate-scale-in">
-          <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
-            <h2 className="text-base font-bold text-white">{title}</h2>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#94A3B8] transition-colors"><FiX size={18} /></button>
-          </div>
-          <div className="px-6 py-5 space-y-4">
-            <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Date</label><input type="date" name="holiday_date" value={formData.holiday_date} onChange={handleInput} required className="admin-input" /></div>
-            <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Type</label>
-              <select name="holiday_type" value={formData.holiday_type} onChange={handleInput} className="admin-select">
-                <option value="Government Holiday">Government Holiday</option>
-                <option value="Office Holiday">Office Holiday</option>
-              </select>
-            </div>
-            <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Title</label><input type="text" name="holiday_title" value={formData.holiday_title} onChange={handleInput} required placeholder="e.g. Independence Day" className="admin-input" /></div>
-            <div><label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Note <span className="text-[#475569] font-normal normal-case">(optional)</span></label>
-              <textarea name="holiday_note" value={formData.holiday_note} onChange={handleInput} rows={2} placeholder="Additional note…" className="admin-input resize-none" />
-            </div>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" name="is_enabled" checked={formData.is_enabled} onChange={handleInput} className="w-4 h-4 rounded border-white/20 bg-white/5 accent-[#3B82F6]" />
-              <span className="text-sm text-[#CBD5E1] font-medium">Enable this holiday</span>
-            </label>
-          </div>
-          <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/[0.06] bg-[#161D2E]/60 rounded-b-2xl">
-            <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
-            <button onClick={onSave} className="px-5 py-2 text-sm font-semibold bg-[#3B82F6] hover:bg-blue-500 text-white rounded-xl shadow-glow-blue-sm transition-all duration-200">Save Holiday</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="flex h-screen bg-[#0E1320] dark-scroll">
@@ -138,8 +139,8 @@ const AdminHolidays = () => {
           </div>
         </div>
       </div>
-      <HolidayModal show={showAddModal}  onClose={() => setShowAddModal(false)}  onSave={handleAdd}  title="Add Holiday" />
-      <HolidayModal show={showEditModal} onClose={() => setShowEditModal(false)} onSave={handleEdit} title="Edit Holiday" />
+      <HolidayModal key="add" show={showAddModal}  onClose={() => setShowAddModal(false)}  onSave={handleAdd}  title="Add Holiday" formData={formData} handleInput={handleInput} />
+      <HolidayModal key="edit" show={showEditModal} onClose={() => setShowEditModal(false)} onSave={handleEdit} title="Edit Holiday" formData={formData} handleInput={handleInput} />
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText="Delete" />
       <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
     </div>

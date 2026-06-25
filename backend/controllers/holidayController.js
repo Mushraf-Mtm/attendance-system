@@ -1,4 +1,6 @@
 const pool = require('../config/database');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const { getClientIP } = require('../services/networkValidationService');
 
 // Helper function to get local date in YYYY-MM-DD format
 const getLocalDateString = () => {
@@ -125,6 +127,19 @@ const addHoliday = async (req, res) => {
        RETURNING *`,
       [holiday_date, holiday_type, holiday_title, holiday_note || null, is_enabled !== undefined ? is_enabled : true, adminId]
     );
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.CREATE_HOLIDAY,
+      moduleName: MODULE_NAMES.HOLIDAY,
+      description: `Created holiday: ${holiday_title} on ${holiday_date}`,
+      newData: { holiday_date, holiday_type, holiday_title, holiday_note, is_enabled },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
     
     res.json({
       success: true,
@@ -178,6 +193,19 @@ const updateHoliday = async (req, res) => {
         message: 'Holiday not found'
       });
     }
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.UPDATE_HOLIDAY,
+      moduleName: MODULE_NAMES.HOLIDAY,
+      description: `Updated holiday: ${holiday_title}`,
+      newData: { holiday_type, holiday_title, holiday_note, is_enabled },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
     
     res.json({
       success: true,
@@ -220,6 +248,19 @@ const toggleHolidayStatus = async (req, res) => {
         message: 'Holiday not found'
       });
     }
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.TOGGLE_HOLIDAY,
+      moduleName: MODULE_NAMES.HOLIDAY,
+      description: `${is_enabled ? 'Enabled' : 'Disabled'} holiday: ${result.rows[0].holiday_title}`,
+      newData: { holiday_title: result.rows[0].holiday_title, is_enabled },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
     
     res.json({
       success: true,
@@ -251,6 +292,19 @@ const deleteHoliday = async (req, res) => {
         message: 'Holiday not found'
       });
     }
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.DELETE_HOLIDAY,
+      moduleName: MODULE_NAMES.HOLIDAY,
+      description: `Deleted holiday: ${result.rows[0].holiday_title}`,
+      oldData: { holiday_title: result.rows[0].holiday_title, holiday_date: result.rows[0].holiday_date },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
     
     res.json({
       success: true,

@@ -1,4 +1,6 @@
 const pool = require('../config/database');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const { getClientIP } = require('../services/networkValidationService');
 
 // Enable WFH for employee
 const enableWFH = async (req, res) => {
@@ -15,7 +17,7 @@ const enableWFH = async (req, res) => {
 
     // Check if employee exists (using employee_id code, not database id)
     const employeeResult = await pool.query(
-      'SELECT employee_id FROM employees WHERE employee_id = $1',
+      'SELECT employee_id, name FROM employees WHERE employee_id = $1',
       [employee_id]
     );
 
@@ -25,6 +27,8 @@ const enableWFH = async (req, res) => {
         message: 'Employee not found'
       });
     }
+
+    const employeeName = employeeResult.rows[0].name;
 
     // Check if WFH permission already exists
     const existingPermission = await pool.query(
@@ -51,6 +55,19 @@ const enableWFH = async (req, res) => {
         [employee_id, adminId]
       );
     }
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.GRANT_WFH_PERMISSION,
+      moduleName: MODULE_NAMES.PERMISSIONS,
+      description: `Granted WFH permission to ${employee_id} - ${employeeName}`,
+      newData: { employee_id, employeeName, is_enabled: true },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
 
     res.json({
       success: true,
@@ -79,6 +96,13 @@ const disableWFH = async (req, res) => {
       });
     }
 
+    // Get employee name
+    const employeeResult = await pool.query(
+      'SELECT name FROM employees WHERE employee_id = $1',
+      [employee_id]
+    );
+    const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : '';
+
     const result = await pool.query(
       `UPDATE wfh_permissions 
        SET is_enabled = false
@@ -93,6 +117,19 @@ const disableWFH = async (req, res) => {
         message: 'WFH permission not found'
       });
     }
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.REVOKE_WFH_PERMISSION,
+      moduleName: MODULE_NAMES.PERMISSIONS,
+      description: `Revoked WFH permission from ${employee_id} - ${employeeName}`,
+      newData: { employee_id, employeeName, is_enabled: false },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
 
     res.json({
       success: true,

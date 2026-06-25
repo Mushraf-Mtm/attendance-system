@@ -202,6 +202,74 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
         currentY += rowHeight;
       });
 
+      // Add Holidays Table at the bottom
+      if (holidaysResult.rows.length > 0) {
+        // Check if we need a new page for the holidays table
+        const holidaysTableHeight = 80 + (holidaysResult.rows.length * 20);
+        if (currentY + holidaysTableHeight > 550) {
+          doc.addPage({ size: 'A3', layout: 'landscape', margin: 20 });
+          currentY = 50;
+        } else {
+          currentY += 30; // Add spacing before holidays table
+        }
+
+        // Holidays Table Title
+        doc.fontSize(14)
+           .font('Helvetica-Bold')
+           .fillColor('#000000')
+           .text(`Holidays for ${getMonthName(month)} ${year}`, startX, currentY, { align: 'left' });
+        
+        currentY += 25;
+
+        // Holidays Table Header
+        const holidayTableWidth = 700;
+        const dateColW = 80;
+        const typeColW = 150;
+        const titleColW = 250;
+        const noteColW = 220;
+
+        doc.rect(startX, currentY, holidayTableWidth, 20)
+           .fill('#1F2937');
+
+        doc.fontSize(9)
+           .font('Helvetica-Bold')
+           .fillColor('#FFFFFF')
+           .text('Date', startX + 5, currentY + 5, { width: dateColW - 10 })
+           .text('Holiday Type', startX + dateColW + 5, currentY + 5, { width: typeColW - 10 })
+           .text('Title', startX + dateColW + typeColW + 5, currentY + 5, { width: titleColW - 10 })
+           .text('Remarks', startX + dateColW + typeColW + titleColW + 5, currentY + 5, { width: noteColW - 10 });
+
+        currentY += 20;
+
+        // Holidays Table Rows
+        holidaysResult.rows.forEach((holiday, index) => {
+          const holidayDate = new Date(holiday.holiday_date);
+          const formattedDate = `${holidayDate.getDate()} ${getMonthName(holidayDate.getMonth() + 1).substring(0, 3)} ${holidayDate.getFullYear()}`;
+
+          // Alternate row background
+          if (index % 2 === 0) {
+            doc.rect(startX, currentY, holidayTableWidth, 20)
+               .fill('#F9FAFB');
+          }
+
+          doc.fontSize(8)
+             .font('Helvetica')
+             .fillColor('#000000')
+             .text(formattedDate, startX + 5, currentY + 5, { width: dateColW - 10 })
+             .text(holiday.holiday_type, startX + dateColW + 5, currentY + 5, { width: typeColW - 10 })
+             .text(holiday.holiday_title, startX + dateColW + typeColW + 5, currentY + 5, { width: titleColW - 10 })
+             .text(holiday.holiday_note || '-', startX + dateColW + typeColW + titleColW + 5, currentY + 5, { width: noteColW - 10 });
+
+          // Draw cell borders
+          doc.rect(startX, currentY, dateColW, 20).stroke('#E5E7EB');
+          doc.rect(startX + dateColW, currentY, typeColW, 20).stroke('#E5E7EB');
+          doc.rect(startX + dateColW + typeColW, currentY, titleColW, 20).stroke('#E5E7EB');
+          doc.rect(startX + dateColW + typeColW + titleColW, currentY, noteColW, 20).stroke('#E5E7EB');
+
+          currentY += 20;
+        });
+      }
+
       // Footer
       const pageCount = doc.bufferedPageRange().count;
       for (let i = 0; i < pageCount; i++) {
@@ -441,17 +509,100 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
       row.height = 18;
     });
 
-    // Hide all columns after maxDay + 1 (to remove blank space)
-    const lastColumn = maxDay + 1;
-    const maxExcelColumns = 100; // Hide up to column 100
-    for (let col = lastColumn + 1; col <= maxExcelColumns; col++) {
-      worksheet.getColumn(col).hidden = true;
-    }
+    // Add Holidays Table below the attendance matrix
+    if (holidaysResult.rows.length > 0) {
+      const holidaysStartRow = 6 + employees.length + 3; // 3 rows gap after attendance matrix
 
-    // Set print area (only includes actual data)
-    const lastRow = 6 + employees.length - 1;
-    const lastColLetter = String.fromCharCode(65 + maxDay); // Convert to Excel column letter
-    worksheet.pageSetup.printArea = `A1:${lastColLetter}${lastRow}`;
+      // Holidays Table Title - span across 4 columns (A to D)
+      worksheet.mergeCells(`A${holidaysStartRow}`, `D${holidaysStartRow}`);
+      const titleCell = worksheet.getCell(`A${holidaysStartRow}`);
+      titleCell.value = `Holidays for ${getMonthName(month)} ${year}`;
+      titleCell.font = { bold: true, size: 14 };
+      titleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+      worksheet.getRow(holidaysStartRow).height = 22;
+
+      // Holidays Table Header
+      const headerRow = worksheet.getRow(holidaysStartRow + 1);
+      
+      // Date column
+      const dateCell = headerRow.getCell(1);
+      dateCell.value = 'Date';
+      dateCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      dateCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      dateCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      
+      // Holiday Type column
+      const typeCell = headerRow.getCell(2);
+      typeCell.value = 'Holiday Type';
+      typeCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      typeCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      typeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      typeCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      
+      // Title column
+      const titleColCell = headerRow.getCell(3);
+      titleColCell.value = 'Title';
+      titleColCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      titleColCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      titleColCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      titleColCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      
+      // Remarks column
+      const remarksCell = headerRow.getCell(4);
+      remarksCell.value = 'Remarks';
+      remarksCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      remarksCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      remarksCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      remarksCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      
+      headerRow.height = 20;
+
+      // Holidays Table Data Rows
+      holidaysResult.rows.forEach((holiday, index) => {
+        const dataRow = worksheet.getRow(holidaysStartRow + 2 + index);
+        const holidayDate = new Date(holiday.holiday_date);
+        
+        // Format date to match PDF: "15 Jun 2026" (not "15-Jun-2026")
+        const day = holidayDate.getDate();
+        const monthName = getMonthName(holidayDate.getMonth() + 1).substring(0, 3);
+        const year = holidayDate.getFullYear();
+        const formattedDate = `${day} ${monthName} ${year}`;
+        
+        // Date
+        const dateCellData = dataRow.getCell(1);
+        dateCellData.value = formattedDate;
+        dateCellData.alignment = { horizontal: 'center', vertical: 'middle' };
+        dateCellData.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        
+        // Holiday Type
+        const typeCellData = dataRow.getCell(2);
+        typeCellData.value = holiday.holiday_type;
+        typeCellData.alignment = { horizontal: 'left', vertical: 'middle' };
+        typeCellData.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        
+        // Color code the type cell
+        if (holiday.holiday_type === 'Government Holiday') {
+          typeCellData.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3E0' } }; // Light orange
+        } else {
+          typeCellData.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E5F5' } }; // Light purple
+        }
+        
+        // Title
+        const titleCellData = dataRow.getCell(3);
+        titleCellData.value = holiday.holiday_title;
+        titleCellData.alignment = { horizontal: 'left', vertical: 'middle' };
+        titleCellData.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        
+        // Remarks
+        const remarksCellData = dataRow.getCell(4);
+        remarksCellData.value = holiday.holiday_note || '-';
+        remarksCellData.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        remarksCellData.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        
+        dataRow.height = 18;
+      });
+    }
 
     // Configure page setup for printing
     worksheet.pageSetup.paperSize = 9; // A4
@@ -467,12 +618,39 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
         maxNameLength = Math.min(emp.name.length, 35); // max 35 chars
       }
     });
-    worksheet.getColumn(1).width = maxNameLength;
-
-    // Ensure date columns are properly sized
-    for (let day = 1; day <= maxDay; day++) {
-      worksheet.getColumn(day + 1).width = 5;
+    
+    // Set column widths based on whether holidays table exists
+    if (holidaysResult.rows.length > 0) {
+      // Holidays table exists - set widths for attendance matrix first
+      worksheet.getColumn(1).width = maxNameLength; // Employee Name
+      
+      // Set date columns for attendance matrix
+      for (let day = 1; day <= maxDay; day++) {
+        worksheet.getColumn(day + 1).width = 5;
+      }
+      
+      // Note: Holidays table uses columns A-D starting from a different row
+      // So we don't override the attendance matrix columns
+    } else {
+      // No holidays table - use employee name width and date columns
+      worksheet.getColumn(1).width = maxNameLength;
+      // Ensure date columns are properly sized
+      for (let day = 1; day <= maxDay; day++) {
+        worksheet.getColumn(day + 1).width = 5;
+      }
     }
+
+    // Hide columns only after the attendance matrix ends
+    const hideStartCol = maxDay + 2; // Hide columns after the last date column
+    const maxExcelColumns = 100;
+    for (let col = hideStartCol; col <= maxExcelColumns; col++) {
+      worksheet.getColumn(col).hidden = true;
+    }
+
+    // Set print area - attendance matrix uses full width, holidays table below uses columns A-D
+    const lastRow = 6 + employees.length - 1 + (holidaysResult.rows.length > 0 ? (3 + holidaysResult.rows.length + 1) : 0);
+    const lastColLetter = String.fromCharCode(65 + maxDay); // Attendance matrix width
+    worksheet.pageSetup.printArea = `A1:${lastColLetter}${lastRow}`;
 
     // Define worksheet dimensions and freeze panes
     const lastCol = maxDay + 1;

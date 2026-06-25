@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import DetailsDialog from '../components/DetailsDialog';
+import ClearDataDialog from '../components/ClearDataDialog';
+import AlertDialog from '../components/AlertDialog';
 import { Spinner } from '../components/Loader';
-import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle } from 'react-icons/fi';
+import { FiShield, FiEye, FiEdit2, FiSave, FiX, FiRefreshCw, FiMonitor, FiList, FiAlertCircle, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
-import { updateDeviceAlias } from '../services/api';
+import { updateDeviceAlias, clearEmployeeAuditLogs } from '../services/api';
 
 const TABS = [
   { id:'audit',     label:'Audit Logs',         icon:FiList        },
@@ -50,6 +52,8 @@ const AdminSecurityLogs = () => {
   const [savingAlias, setSavingAlias] = useState(false);
   const [aliasError, setAliasError] = useState('');
   const [detailsDialog, setDetailsDialog] = useState({ isOpen:false, title:'', details:null });
+  const [clearDialog, setClearDialog] = useState({ isOpen: false });
+  const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
   useEffect(() => { fetchData(); }, [activeTab]); // eslint-disable-line
 
@@ -83,6 +87,20 @@ const AdminSecurityLogs = () => {
       } else { setAliasError(response.data.message || 'Failed to update alias'); }
     } catch (error) { setAliasError(error.response?.data?.message || 'Failed to update device alias'); }
     finally { setSavingAlias(false); }
+  };
+
+  const handleClearAuditLogs = async () => {
+    try {
+      const response = await clearEmployeeAuditLogs();
+      if (response.data.success) {
+        setAlertDialog({ isOpen: true, title: 'Success', message: 'Employee audit logs cleared successfully', type: 'success' });
+        fetchData();
+      } else {
+        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear logs', type: 'error' });
+      }
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to clear audit logs', type: 'error' });
+    }
   };
 
   const activeRateCount = activeTab === 'rateLimit' ? data.filter(r => (new Date() - new Date(r.window_start)) < 60000).length : null;
@@ -212,7 +230,14 @@ const AdminSecurityLogs = () => {
                   <Icon size={14} /> {label}
                 </button>
               ))}
-              <div className="ml-auto pr-3">
+              <div className="ml-auto pr-3 flex gap-2">
+                {activeTab === 'audit' && data.length > 0 && (
+                  <button onClick={() => setClearDialog({ isOpen: true })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors">
+                    <FiTrash2 size={12} />
+                    Clear Table
+                  </button>
+                )}
                 <button onClick={fetchData} disabled={loading}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#94A3B8] bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 disabled:opacity-50 transition-colors">
                   <FiRefreshCw size={12} className={loading ? 'animate-spin' : ''} />
@@ -238,6 +263,24 @@ const AdminSecurityLogs = () => {
       </div>
 
       <DetailsDialog isOpen={detailsDialog.isOpen} onClose={() => setDetailsDialog({ isOpen:false, title:'', details:null })} title={detailsDialog.title} details={detailsDialog.details} />
+      
+      <ClearDataDialog
+        isOpen={clearDialog.isOpen}
+        onClose={() => setClearDialog({ isOpen: false })}
+        onConfirm={handleClearAuditLogs}
+        title="Clear Employee Audit Logs"
+        message="⚠️ WARNING: This will permanently delete ALL employee audit log records from the database. This action cannot be undone and will free up storage space."
+        confirmText="delete"
+        type="audit"
+      />
+
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+      />
     </div>
   );
 };

@@ -1,5 +1,7 @@
 const bcrypt = require('bcrypt');
 const pool = require('../config/database');
+const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const { getClientIP } = require('../services/networkValidationService');
 
 // Get all employees
 const getAllEmployees = async (req, res) => {
@@ -113,6 +115,19 @@ const addEmployee = async (req, res) => {
       [employee_id, name, department_id, job_role, mobile, email, hashedPassword]
     );
 
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.CREATE_EMPLOYEE,
+      moduleName: MODULE_NAMES.EMPLOYEE,
+      description: `Created employee ${employee_id} - ${name}`,
+      newData: { employee_id, name, job_role, email, mobile, department_id },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
+
     res.status(201).json({
       success: true,
       message: 'Employee added successfully',
@@ -155,6 +170,15 @@ const updateEmployee = async (req, res) => {
       });
     }
 
+    const oldData = { 
+      name: checkResult.rows[0].name, 
+      email: checkResult.rows[0].email, 
+      job_role: checkResult.rows[0].job_role,
+      mobile: checkResult.rows[0].mobile,
+      department_id: checkResult.rows[0].department_id,
+      status: checkResult.rows[0].status
+    };
+
     let query;
     let values;
 
@@ -179,6 +203,20 @@ const updateEmployee = async (req, res) => {
     }
 
     const result = await pool.query(query, values);
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.UPDATE_EMPLOYEE,
+      moduleName: MODULE_NAMES.EMPLOYEE,
+      description: `Updated employee ${checkResult.rows[0].employee_id} - ${name}`,
+      oldData,
+      newData: { name, email, job_role, mobile, department_id, status, passwordChanged: !!password },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
 
     res.json({
       success: true,
@@ -211,6 +249,19 @@ const deleteEmployee = async (req, res) => {
         message: 'Employee not found' 
       });
     }
+
+    // Log activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.DELETE_EMPLOYEE,
+      moduleName: MODULE_NAMES.EMPLOYEE,
+      description: `Deleted employee ${result.rows[0].employee_id} - ${result.rows[0].name}`,
+      oldData: { employee_id: result.rows[0].employee_id, name: result.rows[0].name, email: result.rows[0].email },
+      ipAddress: getClientIP(req),
+      browserInfo: req.headers['user-agent']
+    });
 
     res.json({
       success: true,

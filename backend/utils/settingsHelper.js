@@ -49,6 +49,9 @@ async function getSettingsFromDB() {
       },
       security: {
         attendanceRateLimit: dbSettings.attendance_rate_limit || 5
+      },
+      trustedDevice: {
+        validationEnabled: dbSettings.trusted_device_validation_enabled || false
       }
     };
 
