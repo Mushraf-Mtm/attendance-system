@@ -4,50 +4,20 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import {
-  getAllEmployees, getAllDepartments, addEmployee, updateEmployee,
-  deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout,
-} from '../services/api';
-import {
-  FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers,
-} from 'react-icons/fi';
-
-const InputField = ({ label, ...props }) => (
-  <div>
-    <label className="block text-xs font-medium text-slate-600 mb-1.5">{label}</label>
-    <input
-      {...props}
-      className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-400 disabled:bg-slate-50 disabled:text-slate-400 transition-all"
-    />
-  </div>
-);
-
-const SelectField = ({ label, children, ...props }) => (
-  <div>
-    <label className="block text-xs font-medium text-slate-600 mb-1.5">{label}</label>
-    <select
-      {...props}
-      className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-    >
-      {children}
-    </select>
-  </div>
-);
+import { getAllEmployees, getAllDepartments, addEmployee, updateEmployee, deleteEmployee, enableWFH, disableWFH, toggleEarlyCheckout } from '../services/api';
+import { FiPlus, FiEdit, FiTrash2, FiSearch, FiHome, FiClock, FiEye, FiEyeOff, FiX, FiUsers } from 'react-icons/fi';
 
 const AdminEmployees = () => {
-  const [employees,   setEmployees]   = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [showModal,   setShowModal]   = useState(false);
-  const [editMode,    setEditMode]    = useState(false);
-  const [searchTerm,  setSearchTerm]  = useState('');
+  const [employees,    setEmployees]    = useState([]);
+  const [departments,  setDepartments]  = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [showModal,    setShowModal]    = useState(false);
+  const [editMode,     setEditMode]     = useState(false);
+  const [searchTerm,   setSearchTerm]   = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
-  const [alertDialog,   setAlertDialog]   = useState({ isOpen: false, title: '', message: '', type: 'success' });
-  const [formData, setFormData] = useState({
-    id: '', employee_id: '', name: '', department_id: '',
-    job_role: '', mobile: '', email: '', password: '', status: 'Active',
-  });
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
+  const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
+  const [formData, setFormData] = useState({ id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active' });
 
   useEffect(() => { fetchData(); }, []);
 
@@ -56,11 +26,8 @@ const AdminEmployees = () => {
       const [empRes, deptRes] = await Promise.all([getAllEmployees(), getAllDepartments()]);
       if (empRes.data.success)  setEmployees(empRes.data.employees);
       if (deptRes.data.success) setDepartments(deptRes.data.departments);
-    } catch (e) {
-      console.error('Error fetching data:', e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
   const handleInputChange = e => setFormData(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -68,52 +35,36 @@ const AdminEmployees = () => {
   const handleSubmit = async e => {
     e.preventDefault();
     try {
-      const response = editMode
-        ? await updateEmployee(formData.id, formData)
-        : await addEmployee(formData);
+      const response = editMode ? await updateEmployee(formData.id, formData) : await addEmployee(formData);
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: editMode ? 'Employee updated successfully!' : 'Employee added successfully!', type: 'success' });
+        setAlertDialog({ isOpen:true, title:'Success', message: editMode ? 'Employee updated successfully!' : 'Employee added successfully!', type:'success' });
         fetchData(); closeModal();
       }
-    } catch (error) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Operation failed. Please try again.', type: 'error' });
-    }
+    } catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
   };
 
   const handleEdit = emp => {
-    setFormData({ id: emp.id, employee_id: emp.employee_id, name: emp.name, department_id: emp.department_id, job_role: emp.job_role, mobile: emp.mobile, email: emp.email, password: '', status: emp.status });
+    setFormData({ id:emp.id, employee_id:emp.employee_id, name:emp.name, department_id:emp.department_id, job_role:emp.job_role, mobile:emp.mobile, email:emp.email, password:'', status:emp.status });
     setEditMode(true); setShowModal(true);
   };
 
-  const handleDelete = emp => {
-    setConfirmDialog({
-      isOpen: true, title: 'Delete Employee', type: 'danger',
-      message: `Are you sure you want to delete "${emp.name}"? This action cannot be undone and will remove all attendance records.`,
-      onConfirm: async () => {
-        try {
-          const r = await deleteEmployee(emp.id);
-          if (r.data.success) { setAlertDialog({ isOpen: true, title: 'Success', message: 'Employee deleted successfully!', type: 'success' }); fetchData(); }
-        } catch (error) {
-          setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Delete failed.', type: 'error' });
-        }
-      },
-    });
-  };
+  const handleDelete = emp => setConfirmDialog({
+    isOpen:true, title:'Delete Employee', type:'danger',
+    message:`Are you sure you want to delete "${emp.name}"? This cannot be undone.`,
+    onConfirm: async () => {
+      try { const r = await deleteEmployee(emp.id); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:'Employee deleted successfully!', type:'success' }); fetchData(); } }
+      catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Delete failed.', type:'error' }); }
+    },
+  });
 
   const handleWFHToggle = emp => {
     const action = emp.wfh_enabled ? 'disable' : 'enable';
     setConfirmDialog({
-      isOpen: true, title: `${action === 'disable' ? 'Disable' : 'Enable'} Work From Home`,
-      type: emp.wfh_enabled ? 'warning' : 'info',
-      message: `Are you sure you want to ${action} WFH access for "${emp.name}"?`,
+      isOpen:true, title:`${action === 'disable' ? 'Disable' : 'Enable'} Work From Home`, type: emp.wfh_enabled ? 'warning' : 'info',
+      message:`Are you sure you want to ${action} WFH access for "${emp.name}"?`,
       onConfirm: async () => {
-        try {
-          emp.wfh_enabled ? await disableWFH(emp.employee_id) : await enableWFH(emp.employee_id);
-          setAlertDialog({ isOpen: true, title: 'Success', message: `WFH access ${action}d successfully!`, type: 'success' });
-          fetchData();
-        } catch (error) {
-          setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Operation failed.', type: 'error' });
-        }
+        try { emp.wfh_enabled ? await disableWFH(emp.employee_id) : await enableWFH(emp.employee_id); setAlertDialog({ isOpen:true, title:'Success', message:`WFH access ${action}d successfully!`, type:'success' }); fetchData(); }
+        catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
       },
     });
   };
@@ -121,25 +72,16 @@ const AdminEmployees = () => {
   const handleEarlyCheckoutToggle = emp => {
     const action = emp.early_checkout_enabled ? 'disable' : 'enable';
     setConfirmDialog({
-      isOpen: true, title: `${action === 'disable' ? 'Disable' : 'Enable'} Early Checkout`,
-      type: emp.early_checkout_enabled ? 'warning' : 'info',
-      message: `Are you sure you want to ${action} early checkout for "${emp.name}"?`,
+      isOpen:true, title:`${action === 'disable' ? 'Disable' : 'Enable'} Early Checkout`, type: emp.early_checkout_enabled ? 'warning' : 'info',
+      message:`Are you sure you want to ${action} early checkout for "${emp.name}"?`,
       onConfirm: async () => {
-        try {
-          const r = await toggleEarlyCheckout(emp.employee_id, !emp.early_checkout_enabled);
-          if (r.data.success) { setAlertDialog({ isOpen: true, title: 'Success', message: r.data.message, type: 'success' }); fetchData(); }
-          else throw new Error(r.data.message);
-        } catch (error) {
-          setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Operation failed.', type: 'error' });
-        }
+        try { const r = await toggleEarlyCheckout(emp.employee_id, !emp.early_checkout_enabled); if (r.data.success) { setAlertDialog({ isOpen:true, title:'Success', message:r.data.message, type:'success' }); fetchData(); } else throw new Error(r.data.message); }
+        catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Operation failed.', type:'error' }); }
       },
     });
   };
 
-  const closeModal = () => {
-    setShowModal(false); setEditMode(false); setShowPassword(false);
-    setFormData({ id: '', employee_id: '', name: '', department_id: '', job_role: '', mobile: '', email: '', password: '', status: 'Active' });
-  };
+  const closeModal = () => { setShowModal(false); setEditMode(false); setShowPassword(false); setFormData({ id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active' }); };
 
   const filteredEmployees = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,110 +89,79 @@ const AdminEmployees = () => {
     emp.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
-    return (
-      <div className="flex h-screen bg-slate-50">
-        <Sidebar />
-        <div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex h-screen bg-[#0E1320]"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
+  );
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-[#0E1320] dark-scroll">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto min-w-0">
+      <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
         <div className="px-5 py-6 lg:px-8 lg:py-8">
 
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Employee Management</h1>
-              <p className="text-sm text-slate-500 mt-0.5">{employees.length} total employees</p>
+              <h1 className="text-xl font-bold text-white">Employee Management</h1>
+              <p className="text-sm text-[#94A3B8] mt-0.5">{employees.length} total employees</p>
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
-            >
+            <button onClick={() => setShowModal(true)}
+              className="inline-flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-glow-blue-sm hover:shadow-glow-blue hover:-translate-y-0.5">
               <FiPlus size={16} /> Add Employee
             </button>
           </div>
 
           {/* Search */}
           <div className="relative mb-5">
-            <FiSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by name, ID, or email…"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-            />
+            <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+            <input type="text" placeholder="Search by name, ID, or email…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 text-white rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-[#64748B] focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
+          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
+            <div className="overflow-x-auto dark-scroll">
+              <table className="min-w-full divide-y divide-white/[0.04]">
+                <thead className="bg-[#0E1320]/50">
                   <tr>
                     {['Emp ID','Name','Department','Job Role','Mobile','Email','Status','WFH','Early CO','Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-                        {h}
-                      </th>
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-white/[0.04]">
                   {filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
-                    <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-4 py-3 text-sm text-slate-500 font-mono whitespace-nowrap">{emp.employee_id}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">{emp.name}</td>
-                      <td className="hidden md:table-cell px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{emp.department_name}</td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{emp.job_role}</td>
-                      <td className="hidden xl:table-cell px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{emp.mobile}</td>
-                      <td className="hidden xl:table-cell px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{emp.email}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge status={emp.status} />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <button
-                          onClick={() => handleWFHToggle(emp)}
-                          title={emp.wfh_enabled ? 'WFH Enabled — click to disable' : 'WFH Disabled — click to enable'}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.wfh_enabled ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
-                        >
+                    <tr key={emp.id} className="admin-table-row">
+                      <td className="px-4 py-3.5 text-sm text-[#94A3B8] font-mono whitespace-nowrap">{emp.employee_id}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-white whitespace-nowrap">{emp.name}</td>
+                      <td className="hidden md:table-cell px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{emp.department_name}</td>
+                      <td className="hidden lg:table-cell px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{emp.job_role}</td>
+                      <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{emp.mobile}</td>
+                      <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{emp.email}</td>
+                      <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={emp.status} dark /></td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <button onClick={() => handleWFHToggle(emp)} title={emp.wfh_enabled ? 'WFH Enabled' : 'WFH Disabled'}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.wfh_enabled ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-white/5 text-[#64748B] hover:bg-white/10'}`}>
                           <FiHome size={14} />
                         </button>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <button
-                          onClick={() => handleEarlyCheckoutToggle(emp)}
-                          title={emp.early_checkout_enabled ? 'Early CO Enabled — click to disable' : 'Early CO Disabled — click to enable'}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.early_checkout_enabled ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
-                        >
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <button onClick={() => handleEarlyCheckoutToggle(emp)} title={emp.early_checkout_enabled ? 'Early CO Enabled' : 'Early CO Disabled'}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${emp.early_checkout_enabled ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-white/5 text-[#64748B] hover:bg-white/10'}`}>
                           <FiClock size={14} />
                         </button>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => handleEdit(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-indigo-600 hover:bg-indigo-50 transition-colors" title="Edit">
-                            <FiEdit size={14} />
-                          </button>
-                          <button onClick={() => handleDelete(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50 transition-colors" title="Delete">
-                            <FiTrash2 size={14} />
-                          </button>
+                          <button onClick={() => handleEdit(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors" title="Edit"><FiEdit size={14} /></button>
+                          <button onClick={() => handleDelete(emp)} className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" title="Delete"><FiTrash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>
                   )) : (
-                    <tr>
-                      <td colSpan={10} className="px-4 py-14 text-center">
-                        <div className="flex flex-col items-center gap-2 text-slate-400">
-                          <FiUsers size={28} />
-                          <p className="text-sm font-medium">{searchTerm ? 'No employees match your search' : 'No employees yet'}</p>
-                        </div>
-                      </td>
-                    </tr>
+                    <tr><td colSpan={10} className="px-4 py-16 text-center">
+                      <div className="flex flex-col items-center gap-3"><FiUsers size={28} className="text-[#475569]" /><p className="text-sm font-medium text-[#64748B]">{searchTerm ? 'No employees match your search' : 'No employees yet'}</p></div>
+                    </td></tr>
                   )}
                 </tbody>
               </table>
@@ -259,68 +170,66 @@ const AdminEmployees = () => {
         </div>
       </div>
 
-      {/* Dialogs */}
-      <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen: false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
-      <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen: false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
+      <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
 
-      {/* Add / Edit Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-modal w-full max-w-2xl max-h-[92vh] flex flex-col animate-scale-in">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1C2540] border border-white/[0.08] rounded-2xl shadow-clay-admin-modal w-full max-w-2xl max-h-[92vh] flex flex-col animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">{editMode ? 'Edit Employee' : 'Add New Employee'}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{editMode ? 'Update employee information' : 'Fill in the details to create a new employee'}</p>
+                <h2 className="text-base font-bold text-white">{editMode ? 'Edit Employee' : 'Add New Employee'}</h2>
+                <p className="text-xs text-[#64748B] mt-0.5">{editMode ? 'Update employee information' : 'Fill in the details to create a new employee'}</p>
               </div>
-              <button onClick={closeModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
-                <FiX size={18} />
-              </button>
+              <button onClick={closeModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#94A3B8] transition-colors"><FiX size={18} /></button>
             </div>
-
-            {/* Modal Body */}
-            <div className="overflow-y-auto flex-1 px-6 py-5">
+            <div className="overflow-y-auto flex-1 px-6 py-5 dark-scroll">
               <form onSubmit={handleSubmit} id="employee-form" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InputField label="Employee ID" type="text" name="employee_id" value={formData.employee_id} onChange={handleInputChange} disabled={editMode} required />
-                <InputField label="Full Name" type="text" name="name" value={formData.name} onChange={handleInputChange} required />
-                <SelectField label="Department" name="department_id" value={formData.department_id} onChange={handleInputChange} required>
-                  <option value="">Select Department</option>
-                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </SelectField>
-                <InputField label="Job Role" type="text" name="job_role" value={formData.job_role} onChange={handleInputChange} required />
-                <InputField label="Mobile" type="tel" name="mobile" value={formData.mobile} onChange={handleInputChange} required />
-                <InputField label="Email" type="email" name="email" value={formData.email} onChange={handleInputChange} required />
+                {[
+                  { label:'Employee ID', name:'employee_id', type:'text', disabled:editMode },
+                  { label:'Full Name',   name:'name',        type:'text' },
+                  { label:'Job Role',    name:'job_role',    type:'text' },
+                  { label:'Mobile',      name:'mobile',      type:'tel'  },
+                  { label:'Email',       name:'email',       type:'email'},
+                ].map(({ label, name, type, disabled }) => (
+                  <div key={name}>
+                    <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">{label}</label>
+                    <input type={type} name={name} value={formData[name]} onChange={handleInputChange} required disabled={disabled}
+                      className="admin-input" />
+                  </div>
+                ))}
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Password {editMode && <span className="text-slate-400 font-normal">(leave blank to keep current)</span>}
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Department</label>
+                  <select name="department_id" value={formData.department_id} onChange={handleInputChange} required className="admin-select">
+                    <option value="">Select Department</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">
+                    Password {editMode && <span className="text-[#475569] font-normal normal-case">(leave blank to keep current)</span>}
                   </label>
                   <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required={!editMode}
-                      className="w-full px-3 pr-10 py-2.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                    />
-                    <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                      {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                    <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleInputChange} required={!editMode}
+                      className="admin-input pr-10" />
+                    <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#94A3B8]">
+                      {showPassword ? <FiEyeOff size={15} /> : <FiEye size={15} />}
                     </button>
                   </div>
                 </div>
-                <SelectField label="Status" name="status" value={formData.status} onChange={handleInputChange} required>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </SelectField>
+                <div>
+                  <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Status</label>
+                  <select name="status" value={formData.status} onChange={handleInputChange} required className="admin-select">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
               </form>
             </div>
-
-            {/* Modal Footer */}
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
-              <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
-                Cancel
-              </button>
-              <button type="submit" form="employee-form" className="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/[0.06] bg-[#161D2E]/60 rounded-b-2xl">
+              <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-semibold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
+              <button type="submit" form="employee-form" className="px-5 py-2 text-sm font-semibold bg-[#3B82F6] hover:bg-blue-500 text-white rounded-xl shadow-glow-blue-sm transition-all duration-200">
                 {editMode ? 'Save Changes' : 'Add Employee'}
               </button>
             </div>
@@ -330,5 +239,4 @@ const AdminEmployees = () => {
     </div>
   );
 };
-
 export default AdminEmployees;

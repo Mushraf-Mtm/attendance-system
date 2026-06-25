@@ -1,366 +1,241 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiCheckCircle, FiHelpCircle, FiBook, FiSettings, FiAlertCircle, FiMapPin, FiLock, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import {
+  FiCheckCircle, FiHelpCircle, FiBook, FiSettings,
+  FiAlertCircle, FiMapPin, FiLock, FiChevronDown, FiChevronUp,
+  FiMessageSquare, FiArrowRight
+} from 'react-icons/fi';
+import PublicLayout from '../components/PublicLayout';
+
+const GuideContent = ({ guide }) => (
+  <div className="space-y-4">
+    {guide.contentItems.map((item, i) => {
+      if (item.type === 'intro') return <p key={i} className="text-sm text-[#475569] leading-relaxed">{item.text}</p>;
+      if (item.type === 'steps') return (
+        <ol key={i} className="space-y-2 ml-2">
+          {item.items.map((s, j) => (
+            <li key={j} className="flex items-start gap-3 text-sm text-[#475569]">
+              <span className="w-6 h-6 rounded-full bg-[#2563EB]/10 text-[#2563EB] text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{j + 1}</span>
+              <span dangerouslySetInnerHTML={{ __html: s }} />
+            </li>
+          ))}
+        </ol>
+      );
+      if (item.type === 'list') return (
+        <div key={i}>
+          {item.title && <p className="text-sm font-bold text-[#0F172A] mb-2">{item.title}</p>}
+          <ul className="space-y-1.5 ml-2">
+            {item.items.map((s, j) => (
+              <li key={j} className="flex items-start gap-2 text-sm text-[#475569]">
+                <span className="text-[#2563EB] mt-1 flex-shrink-0">•</span>
+                <span dangerouslySetInnerHTML={{ __html: s }} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+      if (item.type === 'info') return (
+        <div key={i} className={`p-3 rounded-xl border text-sm ${item.variant === 'blue' ? 'bg-[#2563EB]/8 border-[#2563EB]/15 text-[#2563EB]' : item.variant === 'yellow' ? 'bg-amber-50 border-amber-200 text-amber-800' : item.variant === 'green' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#475569]'}`}>
+          {item.title && <p className="font-bold mb-1">{item.title}</p>}
+          <p dangerouslySetInnerHTML={{ __html: item.text }} />
+        </div>
+      );
+      if (item.type === 'errors') return (
+        <div key={i} className="space-y-3">
+          {item.items.map((err, j) => (
+            <div key={j} className={`p-3 rounded-xl border-l-4 ${err.color}`}>
+              <p className="text-sm font-bold mb-1">{err.title}</p>
+              <p className="text-sm opacity-90">{err.text}</p>
+            </div>
+          ))}
+        </div>
+      );
+      return null;
+    })}
+  </div>
+);
 
 const SupportPage = () => {
   const navigate = useNavigate();
   const [openGuide, setOpenGuide] = useState(null);
 
   useEffect(() => {
-    document.title = 'Support & Help Center - Attendance Management System | Documentation';
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) {
-      metaDescription.setAttribute('content', 'Get help with the Attendance Management System. Find troubleshooting guides, how-to documentation, common issues, and step-by-step instructions for employees and administrators.');
-    }
+    document.title = 'Support & Help Center - AttendNest | Documentation';
+    const m = document.querySelector('meta[name="description"]');
+    if (m) m.setAttribute('content', 'Get help with AttendNest. Find troubleshooting guides, how-to documentation, and step-by-step instructions for employees and administrators.');
   }, []);
 
-  const toggleGuide = (index) => {
-    setOpenGuide(openGuide === index ? null : index);
-  };
+  const toggleGuide = (index) => setOpenGuide(openGuide === index ? null : index);
 
   const guides = [
     {
-      icon: <FiCheckCircle className="text-3xl text-green-600" />,
-      title: 'How to Mark Attendance',
+      iconColor: 'bg-emerald-50 text-emerald-600',
+      Icon: FiCheckCircle,
       category: 'Getting Started',
-      content: (
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">Step-by-Step Guide:</h4>
-          <ol className="list-decimal list-inside text-gray-700 space-y-3 ml-4">
-            <li>
-              <strong>Login:</strong> Go to the employee login page and enter your Employee ID and password.
-            </li>
-            <li>
-              <strong>Allow Location Permissions:</strong> When prompted, click "Allow" to grant location access. 
-              This is required for GPS verification.
-            </li>
-            <li>
-              <strong>Check GPS Accuracy:</strong> The system will show your current GPS accuracy. Wait for 
-              it to be within acceptable limits (usually 50-300 meters).
-            </li>
-            <li>
-              <strong>Check In:</strong> Once at the office location with good GPS accuracy, click the "Check In" button.
-            </li>
-            <li>
-              <strong>Wait for Confirmation:</strong> The system will verify your location and device, then confirm 
-              your attendance with a success message.
-            </li>
-            <li>
-              <strong>Check Out:</strong> When leaving, click the "Check Out" button to complete your attendance 
-              for the day.
-            </li>
-          </ol>
-          <div className="bg-blue-50 p-4 rounded-lg mt-4">
-            <p className="text-sm text-blue-800">
-              <strong>Tip:</strong> Make sure you're connected to a stable internet connection and have good GPS 
-              signal (preferably near windows or outdoors) for best results.
-            </p>
-          </div>
-        </div>
-      )
+      title: 'How to Mark Attendance',
+      contentItems: [
+        { type: 'steps', items: [
+          '<strong class="text-[#0F172A]">Login:</strong> Go to the employee login page and enter your Employee ID and password.',
+          '<strong class="text-[#0F172A]">Allow Location Permissions:</strong> When prompted, click "Allow" to grant location access — required for GPS verification.',
+          '<strong class="text-[#0F172A]">Check GPS Accuracy:</strong> The system shows your current GPS accuracy. Wait for it to be within acceptable limits (usually 50–300 meters).',
+          '<strong class="text-[#0F172A]">Check In:</strong> Once at the office with good GPS accuracy, click the "Check In" button.',
+          '<strong class="text-[#0F172A]">Wait for Confirmation:</strong> The system verifies your location and device, then confirms with a success message.',
+          '<strong class="text-[#0F172A]">Check Out:</strong> When leaving, click "Check Out" to complete your attendance for the day.',
+        ]},
+        { type: 'info', variant: 'blue', title: 'Tip', text: 'Make sure you\'re on a stable internet connection and have good GPS signal (near windows or outdoors) for best results.' },
+      ]
     },
     {
-      icon: <FiMapPin className="text-3xl text-blue-600" />,
+      iconColor: 'bg-blue-50 text-[#2563EB]',
+      Icon: FiMapPin,
+      category: 'Troubleshooting',
       title: 'Troubleshooting GPS Issues',
-      category: 'Troubleshooting',
-      content: (
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">Common GPS Problems and Solutions:</h4>
-          
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-            <h5 className="font-semibold text-yellow-900 mb-2">Problem: GPS accuracy too low</h5>
-            <p className="text-yellow-800 mb-2">Solutions:</p>
-            <ul className="list-disc list-inside text-yellow-800 space-y-1 ml-4">
-              <li>Move near a window or go outdoors</li>
-              <li>Wait a few moments for GPS to stabilize</li>
-              <li>Ensure location services are enabled in your device settings</li>
-              <li>Try refreshing the page</li>
-            </ul>
-          </div>
-
-          <div className="bg-red-50 border-l-4 border-red-400 p-4">
-            <h5 className="font-semibold text-red-900 mb-2">Problem: Location too far from office</h5>
-            <p className="text-red-800 mb-2">Solutions:</p>
-            <ul className="list-disc list-inside text-red-800 space-y-1 ml-4">
-              <li>Ensure you are physically at the office location</li>
-              <li>Your GPS may be inaccurate - improve GPS signal quality</li>
-              <li>If you are at the office but getting this error, contact your administrator</li>
-              <li>Check if you're supposed to mark WFH (Work From Home) instead</li>
-            </ul>
-          </div>
-
-          <div className="bg-green-50 border-l-4 border-green-400 p-4">
-            <h5 className="font-semibold text-green-900 mb-2">Problem: Location permission denied</h5>
-            <p className="text-green-800 mb-2">Solutions:</p>
-            <ul className="list-disc list-inside text-green-800 space-y-1 ml-4">
-              <li>Click the location icon in your browser's address bar</li>
-              <li>Change the setting from "Block" to "Allow"</li>
-              <li>Refresh the page and try again</li>
-              <li>Check your browser's privacy settings</li>
-            </ul>
-          </div>
-        </div>
-      )
+      contentItems: [
+        { type: 'errors', items: [
+          { color: 'border-amber-400 bg-amber-50 text-amber-900', title: '⚠ GPS accuracy too low', text: 'Move near a window or go outdoors. Wait a few moments for GPS to stabilize. Ensure location services are enabled in your device settings and try refreshing the page.' },
+          { color: 'border-red-400 bg-red-50 text-red-900', title: '📍 Location too far from office', text: 'Ensure you are physically at the office location. If GPS is inaccurate, improve signal quality. If you\'re at the office but still see this error, contact your administrator.' },
+          { color: 'border-emerald-400 bg-emerald-50 text-emerald-900', title: '🔒 Location permission denied', text: 'Click the location icon in your browser\'s address bar, change from "Block" to "Allow", then refresh the page and try again.' },
+        ]}
+      ]
     },
     {
-      icon: <FiLock className="text-3xl text-purple-600" />,
-      title: 'Password Reset Guide',
+      iconColor: 'bg-purple-50 text-purple-600',
+      Icon: FiLock,
       category: 'Account Management',
-      content: (
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">How to Reset Your Password:</h4>
-          <ol className="list-decimal list-inside text-gray-700 space-y-3 ml-4">
-            <li>Go to the employee login page and click "Forgot Password"</li>
-            <li>Enter your Employee ID and registered email address</li>
-            <li>Click "Send OTP" to receive a one-time password via email</li>
-            <li>Check your email inbox (and spam folder) for the OTP</li>
-            <li>Enter the 6-digit OTP in the verification field</li>
-            <li>Create a new strong password (minimum 8 characters)</li>
-            <li>Confirm your new password and click "Reset Password"</li>
-          </ol>
-          
-          <div className="bg-blue-50 p-4 rounded-lg mt-4">
-            <h5 className="font-semibold text-blue-900 mb-2">Password Requirements:</h5>
-            <ul className="list-disc list-inside text-blue-800 space-y-1 ml-4">
-              <li>Minimum 8 characters long</li>
-              <li>Use a mix of letters, numbers, and symbols</li>
-              <li>Don't reuse old passwords</li>
-              <li>Don't share your password with anyone</li>
-            </ul>
-          </div>
-
-          <div className="bg-yellow-50 p-4 rounded-lg mt-4">
-            <p className="text-sm text-yellow-800">
-              <strong>OTP not received?</strong> Check your spam folder, verify your email address is correct, 
-              and wait a few minutes. OTPs are valid for 10 minutes.
-            </p>
-          </div>
-        </div>
-      )
+      title: 'Password Reset Guide',
+      contentItems: [
+        { type: 'steps', items: [
+          'Go to the employee login page and click "Forgot Password"',
+          'Enter your Employee ID and registered email address',
+          'Click "Send OTP" to receive a one-time password via email',
+          'Check your email inbox (and spam folder) for the OTP',
+          'Enter the 6-digit OTP in the verification field',
+          'Create a new strong password (minimum 8 characters)',
+          'Confirm your new password and click "Reset Password"',
+        ]},
+        { type: 'list', title: 'Password Requirements:', items: ['Minimum 8 characters long', 'Mix of letters, numbers, and symbols', 'Don\'t reuse old passwords', 'Never share your password with anyone'] },
+        { type: 'info', variant: 'yellow', title: 'OTP not received?', text: 'Check your spam folder, verify your email is correct, and wait a few minutes. OTPs are valid for 10 minutes.' },
+      ]
     },
     {
-      icon: <FiAlertCircle className="text-3xl text-red-600" />,
-      title: 'Common Error Messages',
+      iconColor: 'bg-red-50 text-red-500',
+      Icon: FiAlertCircle,
       category: 'Troubleshooting',
-      content: (
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">Understanding Error Messages:</h4>
-          
-          <div className="space-y-4">
-            <div className="border-l-4 border-red-400 bg-red-50 p-4">
-              <h5 className="font-semibold text-red-900">❌ "Already checked in today"</h5>
-              <p className="text-red-800 mt-2">
-                You've already marked your check-in for today. You can only check in once per day.
-              </p>
-            </div>
-
-            <div className="border-l-4 border-yellow-400 bg-yellow-50 p-4">
-              <h5 className="font-semibold text-yellow-900">⏱️ "Too early to check in"</h5>
-              <p className="text-yellow-800 mt-2">
-                You're trying to check in before the allowed time window. Wait until the configured check-in time.
-              </p>
-            </div>
-
-            <div className="border-l-4 border-blue-400 bg-blue-50 p-4">
-              <h5 className="font-semibold text-blue-900">📍 "GPS accuracy too low"</h5>
-              <p className="text-blue-800 mt-2">
-                Your device's GPS accuracy doesn't meet requirements. Move to a location with better GPS signal.
-              </p>
-            </div>
-
-            <div className="border-l-4 border-purple-400 bg-purple-50 p-4">
-              <h5 className="font-semibold text-purple-900">📡 "Network validation failed"</h5>
-              <p className="text-purple-800 mt-2">
-                You're not connected to the office network. Connect to the office Wi-Fi or check with your admin.
-              </p>
-            </div>
-
-            <div className="border-l-4 border-pink-400 bg-pink-50 p-4">
-              <h5 className="font-semibold text-pink-900">🔒 "Device not recognized"</h5>
-              <p className="text-pink-800 mt-2">
-                This is a new or unrecognized device. The system will register it. Contact admin if you see this repeatedly.
-              </p>
-            </div>
-          </div>
-        </div>
-      )
+      title: 'Common Error Messages',
+      contentItems: [
+        { type: 'errors', items: [
+          { color: 'border-red-400 bg-red-50 text-red-900', title: '❌ "Already checked in today"', text: 'You\'ve already marked check-in for today. You can only check in once per day.' },
+          { color: 'border-amber-400 bg-amber-50 text-amber-900', title: '⏱ "Too early to check in"', text: 'You\'re trying to check in before the allowed time window. Wait until the configured check-in time.' },
+          { color: 'border-blue-400 bg-blue-50 text-blue-900', title: '📍 "GPS accuracy too low"', text: 'Your device\'s GPS accuracy doesn\'t meet requirements. Move to a location with better GPS signal.' },
+          { color: 'border-indigo-400 bg-indigo-50 text-indigo-900', title: '📡 "Network validation failed"', text: 'You\'re not on the office network. Connect to the office Wi-Fi or check with your administrator.' },
+          { color: 'border-purple-400 bg-purple-50 text-purple-900', title: '🔒 "Device not recognized"', text: 'This is a new or unrecognized device. The system will register it. Contact your admin if you see this repeatedly.' },
+        ]}
+      ]
     },
     {
-      icon: <FiSettings className="text-3xl text-indigo-600" />,
+      iconColor: 'bg-indigo-50 text-indigo-600',
+      Icon: FiSettings,
+      category: 'Features',
       title: 'Work From Home (WFH) Attendance',
-      category: 'Features',
-      content: (
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">How to Mark WFH Attendance:</h4>
-          <p className="text-gray-700">
-            If your organization has enabled Work From Home attendance tracking:
-          </p>
-          <ol className="list-decimal list-inside text-gray-700 space-y-3 ml-4">
-            <li>Login to your employee dashboard</li>
-            <li>Look for the "Mark WFH Attendance" button or option</li>
-            <li>Click the WFH attendance button</li>
-            <li>The system may have relaxed location requirements for WFH</li>
-            <li>Confirm your WFH attendance</li>
-          </ol>
-          
-          <div className="bg-blue-50 p-4 rounded-lg mt-4">
-            <h5 className="font-semibold text-blue-900 mb-2">WFH vs Office Attendance:</h5>
-            <ul className="list-disc list-inside text-blue-800 space-y-1 ml-4">
-              <li>WFH attendance may have different validation rules</li>
-              <li>GPS requirements may be more flexible</li>
-              <li>Network validation may not be required</li>
-              <li>WFH days are tracked separately in reports</li>
-            </ul>
-          </div>
-
-          <div className="bg-yellow-50 p-4 rounded-lg mt-4">
-            <p className="text-sm text-yellow-800">
-              <strong>Note:</strong> WFH attendance policies vary by organization. Check with your 
-              administrator for specific WFH rules and requirements.
-            </p>
-          </div>
-        </div>
-      )
+      contentItems: [
+        { type: 'intro', text: 'If your organization has enabled Work From Home attendance tracking:' },
+        { type: 'steps', items: [
+          'Login to your employee dashboard',
+          'Look for the "Mark WFH Attendance" button or option',
+          'Click the WFH attendance button',
+          'The system may have relaxed location requirements for WFH',
+          'Confirm your WFH attendance',
+        ]},
+        { type: 'list', title: 'WFH vs Office Attendance:', items: ['WFH attendance may have different validation rules', 'GPS requirements may be more flexible', 'Network validation may not be required', 'WFH days are tracked separately in reports'] },
+        { type: 'info', variant: 'yellow', title: 'Note', text: 'WFH attendance policies vary by organization. Check with your administrator for specific WFH rules and requirements.' },
+      ]
     },
     {
-      icon: <FiBook className="text-3xl text-teal-600" />,
-      title: 'Viewing Attendance History',
+      iconColor: 'bg-teal-50 text-teal-600',
+      Icon: FiBook,
       category: 'Features',
-      content: (
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">How to View Your Attendance Records:</h4>
-          <ol className="list-decimal list-inside text-gray-700 space-y-3 ml-4">
-            <li>Login to your employee dashboard</li>
-            <li>Click on "Attendance" or "Attendance History" in the navigation menu</li>
-            <li>You'll see a table with your complete attendance history</li>
-            <li>Use filters to view specific date ranges or attendance status</li>
-            <li>Check your attendance statistics and summaries</li>
-          </ol>
-          
-          <div className="bg-blue-50 p-4 rounded-lg mt-4">
-            <h5 className="font-semibold text-blue-900 mb-2">Attendance Status Types:</h5>
-            <ul className="list-disc list-inside text-blue-800 space-y-1 ml-4">
-              <li><strong>Present:</strong> You checked in on time</li>
-              <li><strong>Late:</strong> You checked in after the grace period</li>
-              <li><strong>Absent:</strong> No attendance was marked</li>
-              <li><strong>WFH:</strong> Work from home attendance</li>
-              <li><strong>Holiday:</strong> Government or office holiday</li>
-            </ul>
-          </div>
-
-          <div className="bg-green-50 p-4 rounded-lg mt-4">
-            <p className="text-sm text-green-800">
-              <strong>Need a Report?</strong> If you need an official attendance report, contact your 
-              administrator. They can generate detailed PDF or Excel reports for you.
-            </p>
-          </div>
-        </div>
-      )
-    }
+      title: 'Viewing Attendance History',
+      contentItems: [
+        { type: 'steps', items: [
+          'Login to your employee dashboard',
+          'Click "Attendance" or "Attendance History" in the navigation menu',
+          'You\'ll see a table with your complete attendance history',
+          'Use filters to view specific months or attendance statuses',
+          'Check your attendance statistics and summaries',
+        ]},
+        { type: 'list', title: 'Attendance Status Types:', items: [
+          '<strong class="text-[#0F172A]">Present:</strong> You checked in on time',
+          '<strong class="text-[#0F172A]">Late:</strong> You checked in after the grace period',
+          '<strong class="text-[#0F172A]">Absent:</strong> No attendance was marked',
+          '<strong class="text-[#0F172A]">WFH:</strong> Work from home attendance',
+          '<strong class="text-[#0F172A]">Holiday:</strong> Government or office holiday',
+        ]},
+        { type: 'info', variant: 'green', title: 'Need a Report?', text: 'Contact your administrator to generate detailed attendance reports for official or HR purposes.' },
+      ]
+    },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-              <FiCheckCircle className="text-3xl text-blue-600 mr-2" />
-              <span className="text-xl font-bold text-gray-800">AttendNest</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button onClick={() => navigate('/')} className="text-gray-700 hover:text-blue-600 font-medium">Home</button>
-              <button onClick={() => navigate('/about')} className="text-gray-700 hover:text-blue-600 font-medium">About</button>
-              <button onClick={() => navigate('/features')} className="text-gray-700 hover:text-blue-600 font-medium">Features</button>
-              <button onClick={() => navigate('/faq')} className="text-gray-700 hover:text-blue-600 font-medium">FAQ</button>
-              <button onClick={() => navigate('/contact')} className="text-gray-700 hover:text-blue-600 font-medium">Contact</button>
-              <button
-                onClick={() => navigate('/employee/login')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-              >
-                Login
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto text-center">
-          <FiHelpCircle className="text-6xl text-blue-600 mx-auto mb-6" />
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Support & Help Center
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Find answers, troubleshooting guides, and step-by-step documentation
-          </p>
+    <PublicLayout>
+      {/* Hero */}
+      <section className="py-14 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#F8FAFC] to-[#EFF6FF]">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="w-14 h-14 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto mb-4"><FiHelpCircle size={26} /></div>
+          <h1 className="text-4xl font-extrabold text-[#0F172A] mb-3">Support & Help Center</h1>
+          <p className="text-[#475569] max-w-xl mx-auto">Find answers, troubleshooting guides, and step-by-step documentation for using AttendNest.</p>
         </div>
       </section>
 
-      {/* Quick Links */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Quick Access</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <button
-              onClick={() => navigate('/faq')}
-              className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg hover:shadow-lg transition-shadow text-left"
-            >
-              <FiHelpCircle className="text-4xl text-blue-600 mb-3" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">FAQ</h3>
-              <p className="text-gray-700">Frequently asked questions and quick answers</p>
-            </button>
-            <button
-              onClick={() => navigate('/contact')}
-              className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg hover:shadow-lg transition-shadow text-left"
-            >
-              <FiCheckCircle className="text-4xl text-green-600 mb-3" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Contact Support</h3>
-              <p className="text-gray-700">Get help from our support team</p>
-            </button>
-            <button
-              onClick={() => navigate('/employee/login')}
-              className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg hover:shadow-lg transition-shadow text-left"
-            >
-              <FiLock className="text-4xl text-purple-600 mb-3" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Login</h3>
-              <p className="text-gray-700">Access your employee account</p>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Guides and Documentation */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
+      {/* Quick Access */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white border-b border-[#E2E8F0]">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">Documentation & Guides</h2>
-          <div className="space-y-4">
+          <h2 className="text-xl font-bold text-[#0F172A] mb-6 text-center">Quick Access</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { Icon: FiHelpCircle, color: 'bg-[#2563EB]/10 text-[#2563EB]', title: 'FAQ', desc: 'Frequently asked questions and quick answers', route: '/faq' },
+              { Icon: FiMessageSquare, color: 'bg-emerald-50 text-emerald-600', title: 'Contact Support', desc: 'Get direct help from our support team', route: '/contact' },
+              { Icon: FiLock, color: 'bg-purple-50 text-purple-600', title: 'Employee Login', desc: 'Access your employee dashboard', route: '/employee/login' },
+            ].map(({ Icon, color, title, desc, route }) => (
+              <button key={route} onClick={() => navigate(route)}
+                className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-5 text-left clay-card-hover shadow-clay flex flex-col gap-3 group">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}><Icon size={18} /></div>
+                <div>
+                  <p className="text-sm font-bold text-[#0F172A] mb-1">{title}</p>
+                  <p className="text-xs text-[#475569]">{desc}</p>
+                </div>
+                <FiArrowRight size={14} className="text-[#94A3B8] group-hover:text-[#2563EB] transition-colors self-end" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Guides */}
+      <section className="py-14 px-4 sm:px-6 lg:px-8 bg-[#F8FAFC]">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-2xl font-extrabold text-[#0F172A] mb-2 text-center">Documentation & Guides</h2>
+          <p className="text-sm text-[#475569] text-center mb-8">Click any guide below to expand step-by-step instructions</p>
+          <div className="space-y-3">
             {guides.map((guide, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md overflow-hidden">
-                <button
-                  onClick={() => toggleGuide(index)}
-                  className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center">
-                    <div className="mr-4">{guide.icon}</div>
+              <div key={index} className={`bg-white rounded-2xl border overflow-hidden shadow-clay transition-all duration-200 ${openGuide === index ? 'border-[#2563EB]/30' : 'border-[#E2E8F0]'}`}>
+                <button onClick={() => toggleGuide(index)}
+                  className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-[#F8FAFC] transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${guide.iconColor}`}>
+                      <guide.Icon size={18} />
+                    </div>
                     <div>
-                      <div className="text-sm text-blue-600 font-semibold mb-1">{guide.category}</div>
-                      <h3 className="text-xl font-bold text-gray-900">{guide.title}</h3>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] mb-0.5">{guide.category}</p>
+                      <h3 className="text-sm font-bold text-[#0F172A]">{guide.title}</h3>
                     </div>
                   </div>
-                  {openGuide === index ? (
-                    <FiChevronUp className="text-2xl text-blue-600 flex-shrink-0" />
-                  ) : (
-                    <FiChevronDown className="text-2xl text-gray-400 flex-shrink-0" />
-                  )}
+                  {openGuide === index
+                    ? <FiChevronUp size={18} className="text-[#2563EB] flex-shrink-0" />
+                    : <FiChevronDown size={18} className="text-[#94A3B8] flex-shrink-0" />}
                 </button>
                 {openGuide === index && (
-                  <div className="px-6 pb-6 border-t border-gray-200">
-                    <div className="pt-6">
-                      {guide.content}
-                    </div>
+                  <div className="px-6 pb-6 border-t border-[#E2E8F0]">
+                    <div className="pt-5"><GuideContent guide={guide} /></div>
                   </div>
                 )}
               </div>
@@ -369,76 +244,24 @@ const SupportPage = () => {
         </div>
       </section>
 
-      {/* Still Need Help */}
-      <section className="py-16 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Still Need Help?
-          </h2>
-          <p className="text-lg text-gray-600 mb-8">
-            Can't find what you're looking for? Our support team is here to help.
-          </p>
+      {/* CTA */}
+      <section className="py-14 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-[#2563EB] to-[#7C3AED]">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl font-extrabold text-white mb-3">Still Need Help?</h2>
+          <p className="text-blue-100 mb-8 text-sm">Can't find what you're looking for? Our support team is ready to assist you.</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <button
-              onClick={() => navigate('/contact')}
-              className="px-8 py-3 bg-blue-600 text-white text-lg rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg"
-            >
+            <button onClick={() => navigate('/contact')}
+              className="px-7 py-3 bg-white text-[#2563EB] text-sm font-bold rounded-xl shadow-clay hover:-translate-y-0.5 transition-transform">
               Contact Support
             </button>
-            <button
-              onClick={() => navigate('/faq')}
-              className="px-8 py-3 bg-white text-blue-600 text-lg rounded-lg hover:bg-gray-50 transition-colors font-semibold shadow-lg border-2 border-blue-600"
-            >
+            <button onClick={() => navigate('/faq')}
+              className="px-7 py-3 bg-white/10 border border-white/30 text-white text-sm font-bold rounded-xl hover:bg-white/20 transition-colors">
               View FAQ
             </button>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center mb-4">
-                <FiCheckCircle className="text-2xl text-blue-400 mr-2" />
-                <span className="text-xl font-bold">AttendNest</span>
-              </div>
-              <p className="text-gray-400">
-                Modern attendance management for modern organizations.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Pages</h3>
-              <ul className="space-y-2">
-                <li><button onClick={() => navigate('/')} className="text-gray-400 hover:text-white transition-colors">Home</button></li>
-                <li><button onClick={() => navigate('/about')} className="text-gray-400 hover:text-white transition-colors">About</button></li>
-                <li><button onClick={() => navigate('/features')} className="text-gray-400 hover:text-white transition-colors">Features</button></li>
-                <li><button onClick={() => navigate('/faq')} className="text-gray-400 hover:text-white transition-colors">FAQ</button></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Support</h3>
-              <ul className="space-y-2">
-                <li><button onClick={() => navigate('/contact')} className="text-gray-400 hover:text-white transition-colors">Contact</button></li>
-                <li><button onClick={() => navigate('/support')} className="text-gray-400 hover:text-white transition-colors">Help Center</button></li>
-                <li><button onClick={() => navigate('/employee/login')} className="text-gray-400 hover:text-white transition-colors">Login</button></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Legal</h3>
-              <ul className="space-y-2">
-                <li><button onClick={() => navigate('/privacy-policy')} className="text-gray-400 hover:text-white transition-colors">Privacy Policy</button></li>
-                <li><button onClick={() => navigate('/terms-and-conditions')} className="text-gray-400 hover:text-white transition-colors">Terms of Service</button></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} AttendNest. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </PublicLayout>
   );
 };
 

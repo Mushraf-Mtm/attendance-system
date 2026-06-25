@@ -1,301 +1,108 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiCheckCircle, FiShield, FiLock, FiMapPin, FiDatabase } from 'react-icons/fi';
+import PublicLayout from '../components/PublicLayout';
+import { FiShield, FiLock, FiMapPin, FiDatabase } from 'react-icons/fi';
+
+const Section = ({ icon: Icon, color, title, children }) => (
+  <div className="mb-10">
+    {Icon && (
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}><Icon size={17} /></div>
+        <h2 className="text-lg font-bold text-[#0F172A]">{title}</h2>
+      </div>
+    )}
+    {!Icon && <h2 className="text-lg font-bold text-[#0F172A] mb-4">{title}</h2>}
+    {children}
+  </div>
+);
+const Sub = ({ title, children }) => (<div className="mt-5"><h3 className="text-sm font-bold text-[#0F172A] mb-2">{title}</h3>{children}</div>);
+const P = ({ children }) => <p className="text-sm text-[#475569] leading-relaxed mb-3">{children}</p>;
+const Ul = ({ items }) => <ul className="space-y-1.5 ml-4">{items.map((item,i) => <li key={i} className="flex items-start gap-2 text-sm text-[#475569]"><span className="text-[#2563EB] mt-1 flex-shrink-0">•</span>{item}</li>)}</ul>;
 
 const PrivacyPolicyPage = () => {
   const navigate = useNavigate();
-
   useEffect(() => {
-    document.title = 'Privacy Policy - Attendance Management System | Data Protection';
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) {
-      metaDescription.setAttribute('content', 'Read our Privacy Policy to understand how we collect, use, and protect your data in our Attendance Management System. Learn about location data, security measures, and your rights.');
-    }
+    document.title = 'Privacy Policy - AttendNest | Data Protection';
+    const m = document.querySelector('meta[name="description"]');
+    if (m) m.setAttribute('content', 'Read our Privacy Policy to understand how we collect, use, and protect your data in our Attendance Management System.');
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-              <FiCheckCircle className="text-3xl text-blue-600 mr-2" />
-              <span className="text-xl font-bold text-gray-800">AttendNest</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button onClick={() => navigate('/')} className="text-gray-700 hover:text-blue-600 font-medium">Home</button>
-              <button
-                onClick={() => navigate('/employee/login')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-              >
-                Login
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
+    <PublicLayout>
+      {/* Hero */}
+      <section className="py-14 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#F8FAFC] to-[#EFF6FF]">
         <div className="max-w-4xl mx-auto text-center">
-          <FiShield className="text-6xl text-blue-600 mx-auto mb-6" />
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Privacy Policy
-          </h1>
-          <p className="text-xl text-gray-600">
-            Your privacy and data security are our top priorities
-          </p>
-          <p className="text-sm text-gray-500 mt-4">Last Updated: {new Date().toLocaleDateString()}</p>
+          <div className="w-14 h-14 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto mb-4"><FiShield size={26} /></div>
+          <h1 className="text-4xl font-extrabold text-[#0F172A] mb-3">Privacy Policy</h1>
+          <p className="text-[#475569]">Your privacy and data security are our top priorities</p>
+          <p className="text-xs text-[#94A3B8] mt-3">Last Updated: {new Date().toLocaleDateString()}</p>
         </div>
       </section>
 
       {/* Content */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8 md:p-12">
-          
-          {/* Introduction */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Introduction</h2>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              This Privacy Policy describes how our Attendance Management System ("we," "us," or "our") collects, 
-              uses, and protects the personal information of employees and administrators who use our system. 
-              By using our system, you agree to the collection and use of information in accordance with this policy.
-            </p>
-          </div>
+      <section className="py-14 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-3xl mx-auto bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl p-8 md:p-10 shadow-clay">
+          <Section title="Introduction">
+            <P>This Privacy Policy describes how AttendNest ("we," "us," or "our") collects, uses, and protects the personal information of employees and administrators who use our system. By using our system, you agree to the collection and use of information in accordance with this policy.</P>
+          </Section>
 
-          {/* Information We Collect */}
-          <div className="mb-12">
-            <div className="flex items-center mb-4">
-              <FiDatabase className="text-3xl text-blue-600 mr-3" />
-              <h2 className="text-3xl font-bold text-gray-900">Information We Collect</h2>
-            </div>
-            
-            <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-6">1. Personal Information</h3>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We collect the following personal information when your organization registers you as an employee:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Employee ID, name, email address, and phone number</li>
-              <li>Department and job role information</li>
-              <li>Login credentials (passwords are encrypted and never stored in plain text)</li>
-            </ul>
+          <Section icon={FiDatabase} color="bg-[#2563EB]/10 text-[#2563EB]" title="Information We Collect">
+            <Sub title="1. Personal Information">
+              <P>We collect the following when your organization registers you:</P>
+              <Ul items={['Employee ID, name, email address, and phone number','Department and job role information','Login credentials (passwords are encrypted and never stored in plain text)']} />
+            </Sub>
+            <Sub title="2. Location Data">
+              <P>When you mark attendance, we collect GPS location data including latitude/longitude coordinates, GPS accuracy measurements, and timestamp of location capture.</P>
+              <div className="mt-3 p-3 bg-[#2563EB]/8 border border-[#2563EB]/15 rounded-xl text-xs text-[#2563EB] font-semibold">⚠ Location data is only collected when you actively mark attendance. We do not track your location continuously.</div>
+            </Sub>
+            <Sub title="3. Device Information">
+              <P>For security purposes, we collect device fingerprint information including:</P>
+              <Ul items={['Browser type and version','Operating system','Screen resolution','Device characteristics (unique device identifier)','IP address']} />
+            </Sub>
+            <Sub title="4. Attendance Records">
+              <Ul items={['Check-in and check-out timestamps','Attendance status (Present, Late, Absent, WFH)','Working hours calculations','Attendance history and statistics']} />
+            </Sub>
+          </Section>
 
-            <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-6">2. Location Data</h3>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              When you mark attendance, we collect your GPS location data including:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Latitude and longitude coordinates</li>
-              <li>GPS accuracy measurements</li>
-              <li>Timestamp of location capture</li>
-            </ul>
-            <p className="text-gray-700 leading-relaxed mt-4">
-              <strong>Important:</strong> Location data is only collected when you actively mark attendance 
-              (check-in or check-out). We do not track your location continuously or in the background.
-            </p>
+          <Section icon={FiLock} color="bg-purple-50 text-purple-600" title="How We Use Your Information">
+            <Ul items={['Attendance Tracking: To record and verify employee attendance','Location Verification: To ensure employees are at the correct work location','Security: To prevent unauthorized access and fraudulent attendance marking','Reporting: To generate attendance reports and analytics for management','Communication: To send notifications, OTPs, and system updates','Compliance: To comply with organizational attendance policies and labor regulations']} />
+          </Section>
 
-            <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-6">3. Device Information</h3>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              For security purposes, we collect device fingerprint information including:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Browser type and version</li>
-              <li>Operating system</li>
-              <li>Screen resolution</li>
-              <li>Device characteristics (for creating a unique device identifier)</li>
-              <li>IP address</li>
-            </ul>
+          <Section icon={FiShield} color="bg-emerald-50 text-emerald-600" title="Data Protection and Security">
+            <Ul items={['Encryption: All passwords are hashed using bcrypt encryption','Secure Communication: Data is encrypted using HTTPS','Access Control: Role-based access ensures only authorized personnel can view your information','Audit Logs: All system activities are logged for security monitoring','Rate Limiting: Protection against brute-force attacks and abuse','Device Fingerprinting: Prevents unauthorized device access']} />
+          </Section>
 
-            <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-6">4. Attendance Records</h3>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We maintain records of your attendance including:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Check-in and check-out timestamps</li>
-              <li>Attendance status (Present, Late, Absent, WFH)</li>
-              <li>Working hours calculations</li>
-              <li>Attendance history and statistics</li>
-            </ul>
-          </div>
+          <Section icon={FiMapPin} color="bg-red-50 text-red-500" title="Location Data Usage Policy">
+            <Ul items={['Location data is only accessed when you actively click check-in or check-out','We do not track your location continuously or when the app is not in use','Location data is used solely for verifying you are at the correct work location','Your location data is only accessible to authorized administrators within your organization','Location data is retained as part of attendance records for reporting and compliance']} />
+          </Section>
 
-          {/* How We Use Your Information */}
-          <div className="mb-12">
-            <div className="flex items-center mb-4">
-              <FiLock className="text-3xl text-blue-600 mr-3" />
-              <h2 className="text-3xl font-bold text-gray-900">How We Use Your Information</h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We use the collected information for the following purposes:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li><strong>Attendance Tracking:</strong> To record and verify employee attendance</li>
-              <li><strong>Location Verification:</strong> To ensure employees are at the correct work location when marking attendance</li>
-              <li><strong>Security:</strong> To prevent unauthorized access and fraudulent attendance marking</li>
-              <li><strong>Reporting:</strong> To generate attendance reports and analytics for management</li>
-              <li><strong>Communication:</strong> To send notifications, password reset OTPs, and system updates</li>
-              <li><strong>Compliance:</strong> To comply with organizational attendance policies and labor regulations</li>
-            </ul>
-          </div>
+          <Section title="Data Sharing and Disclosure">
+            <P>We do not sell, trade, or rent your personal information to third parties. Your data may be shared only within your organization (with authorized administrators and HR personnel), if required by law, or to investigate security incidents.</P>
+          </Section>
 
-          {/* Data Protection */}
-          <div className="mb-12">
-            <div className="flex items-center mb-4">
-              <FiShield className="text-3xl text-blue-600 mr-3" />
-              <h2 className="text-3xl font-bold text-gray-900">Data Protection and Security</h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We implement industry-standard security measures to protect your data:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li><strong>Encryption:</strong> All passwords are hashed using bcrypt encryption</li>
-              <li><strong>Secure Communication:</strong> Data transmitted between your device and our servers is encrypted using HTTPS</li>
-              <li><strong>Access Control:</strong> Role-based access ensures only authorized personnel can view your information</li>
-              <li><strong>Audit Logs:</strong> All system activities are logged for security monitoring</li>
-              <li><strong>Rate Limiting:</strong> Protection against brute-force attacks and abuse</li>
-              <li><strong>Device Fingerprinting:</strong> Prevents unauthorized device access</li>
-            </ul>
-          </div>
+          <Section title="Data Retention">
+            <Ul items={['Active employee data is retained while you are employed by the organization','Attendance records are retained according to organizational policies and legal requirements','Audit logs and security records are retained for security monitoring purposes','Upon account deactivation, your data may be archived or deleted according to organizational data retention policies']} />
+          </Section>
 
-          {/* Location Data Usage */}
-          <div className="mb-12">
-            <div className="flex items-center mb-4">
-              <FiMapPin className="text-3xl text-blue-600 mr-3" />
-              <h2 className="text-3xl font-bold text-gray-900">Location Data Usage Policy</h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              Our use of location data is strictly limited and transparent:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Location data is only accessed when you actively click the check-in or check-out button</li>
-              <li>We do not track your location continuously or when the app is not in use</li>
-              <li>Location data is used solely for verifying you are at the correct work location</li>
-              <li>Your location data is only accessible to authorized administrators within your organization</li>
-              <li>Location data is retained as part of attendance records for reporting and compliance purposes</li>
-            </ul>
-          </div>
+          <Section title="Your Rights">
+            <Ul items={['Access: View your attendance history and profile information through your employee dashboard','Correction: Update your profile information (contact administrators for other changes)','Password Management: Change your password or reset it using the forgot password feature','Data Deletion: Contact your organization\'s administrator to request data deletion (subject to legal retention requirements)']} />
+          </Section>
 
-          {/* Data Sharing */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Data Sharing and Disclosure</h2>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We do not sell, trade, or rent your personal information to third parties. Your data may be shared only in the following circumstances:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li><strong>Within Your Organization:</strong> Authorized administrators and HR personnel can access your attendance data</li>
-              <li><strong>Legal Compliance:</strong> If required by law, court order, or government regulations</li>
-              <li><strong>Security:</strong> To investigate or prevent security incidents or fraudulent activities</li>
-            </ul>
-          </div>
+          <Section title="Cookies and Tracking">
+            <P>We use session cookies to maintain your login state and improve system functionality. We do not use third-party tracking cookies or analytics that track your behavior across other websites.</P>
+          </Section>
 
-          {/* Data Retention */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Data Retention</h2>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We retain your data for as long as necessary to provide our services and comply with legal obligations:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Active employee data is retained while you are employed by the organization</li>
-              <li>Attendance records are retained according to organizational policies and legal requirements</li>
-              <li>Audit logs and security records are retained for security monitoring purposes</li>
-              <li>Upon account deactivation, your data may be archived or deleted according to organizational data retention policies</li>
-            </ul>
-          </div>
+          <Section title="Changes to This Policy">
+            <P>We may update this Privacy Policy from time to time. We will notify users of any material changes by updating the "Last Updated" date. Continued use of the system after changes constitutes acceptance of the updated policy.</P>
+          </Section>
 
-          {/* Your Rights */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Your Rights</h2>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              You have the following rights regarding your personal data:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li><strong>Access:</strong> You can view your attendance history and profile information through your employee dashboard</li>
-              <li><strong>Correction:</strong> You can update your profile information (contact administrators for other changes)</li>
-              <li><strong>Password Management:</strong> You can change your password or reset it using the forgot password feature</li>
-              <li><strong>Data Deletion:</strong> Contact your organization's administrator to request data deletion (subject to legal retention requirements)</li>
-            </ul>
-          </div>
-
-          {/* Cookies */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Cookies and Tracking</h2>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We use session cookies to maintain your login state and improve system functionality. These cookies are essential 
-              for the system to work properly. We do not use third-party tracking cookies or analytics that track your behavior 
-              across other websites.
-            </p>
-          </div>
-
-          {/* Changes to Policy */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Changes to This Policy</h2>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              We may update this Privacy Policy from time to time. We will notify users of any material changes by updating 
-              the "Last Updated" date at the top of this policy. Continued use of the system after changes constitutes 
-              acceptance of the updated policy.
-            </p>
-          </div>
-
-          {/* Contact */}
-          <div className="bg-blue-50 p-6 rounded-lg">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Questions or Concerns?</h2>
-            <p className="text-gray-700 leading-relaxed mb-4">
-              If you have questions about this Privacy Policy or how we handle your data, please contact:
-            </p>
-            <ul className="text-gray-700 space-y-2">
-              <li><strong>Your Organization's Administrator</strong> for data access or correction requests</li>
-              <li><strong>Email:</strong> privacy@attendancesystem.com</li>
-              <li><button onClick={() => navigate('/contact')} className="text-blue-600 hover:text-blue-700 font-semibold">Contact Support</button></li>
-            </ul>
+          <div className="mt-8 p-6 bg-[#2563EB]/8 border border-[#2563EB]/15 rounded-2xl">
+            <h2 className="text-sm font-bold text-[#0F172A] mb-3">Questions or Concerns?</h2>
+            <P>If you have questions about this Privacy Policy or how we handle your data, please contact your Organization's Administrator for data access requests, email us at <span className="font-semibold text-[#2563EB]">privacy@attendancesystem.com</span>, or{' '}<button onClick={() => navigate('/contact')} className="text-[#2563EB] font-semibold hover:text-blue-700">Contact Support</button>.</P>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center mb-4">
-                <FiCheckCircle className="text-2xl text-blue-400 mr-2" />
-                <span className="text-xl font-bold">AttendNest</span>
-              </div>
-              <p className="text-gray-400">
-                Modern attendance management for modern organizations.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Pages</h3>
-              <ul className="space-y-2">
-                <li><button onClick={() => navigate('/')} className="text-gray-400 hover:text-white transition-colors">Home</button></li>
-                <li><button onClick={() => navigate('/about')} className="text-gray-400 hover:text-white transition-colors">About</button></li>
-                <li><button onClick={() => navigate('/features')} className="text-gray-400 hover:text-white transition-colors">Features</button></li>
-                <li><button onClick={() => navigate('/faq')} className="text-gray-400 hover:text-white transition-colors">FAQ</button></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Support</h3>
-              <ul className="space-y-2">
-                <li><button onClick={() => navigate('/contact')} className="text-gray-400 hover:text-white transition-colors">Contact</button></li>
-                <li><button onClick={() => navigate('/support')} className="text-gray-400 hover:text-white transition-colors">Help Center</button></li>
-                <li><button onClick={() => navigate('/employee/login')} className="text-gray-400 hover:text-white transition-colors">Login</button></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Legal</h3>
-              <ul className="space-y-2">
-                <li><button onClick={() => navigate('/privacy-policy')} className="text-gray-400 hover:text-white transition-colors">Privacy Policy</button></li>
-                <li><button onClick={() => navigate('/terms-and-conditions')} className="text-gray-400 hover:text-white transition-colors">Terms of Service</button></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} AttendNest. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </PublicLayout>
   );
 };
-
 export default PrivacyPolicyPage;

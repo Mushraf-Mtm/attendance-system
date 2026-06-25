@@ -2,194 +2,92 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { adminLogin } from '../services/api';
-import { FiShield, FiLock, FiEye, FiEyeOff, FiLogIn, FiUsers } from 'react-icons/fi';
+import { FiShield, FiLock, FiEye, FiEyeOff, FiLogIn, FiUser } from 'react-icons/fi';
 
 const AdminLogin = () => {
-  const [formData, setFormData] = useState({
-    username: '',
-    password: ''
-  });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [formData, setFormData]       = useState({ username: '', password: '' });
+  const [error, setError]             = useState('');
+  const [loading, setLoading]         = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    setError('');
-  };
+  const handleChange = e => { setFormData(f => ({ ...f, [e.target.name]: e.target.value })); setError(''); };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
+  const handleSubmit = async e => {
+    e.preventDefault(); setError(''); setLoading(true);
     try {
-      const response = await adminLogin({
-        username: formData.username,
-        password: formData.password
-      });
-
-      if (response.data.success) {
-        // Call context login with user data and token
-        login(response.data.user, response.data.token);
-        navigate('/admin/dashboard');
-      } else {
-        setError(response.data.message || 'Invalid credentials. Please try again.');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      const response = await adminLogin({ username: formData.username, password: formData.password });
+      if (response.data.success) { login(response.data.user, response.data.token); navigate('/admin/dashboard'); }
+      else setError(response.data.message || 'Invalid credentials. Please try again.');
+    } catch (err) { setError(err.response?.data?.message || 'Invalid credentials. Please try again.'); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-4">
-      {/* Background Decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
+    <div className="min-h-screen bg-[#0E1320] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Ambient glow blobs */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#3B82F6]/8 rounded-full filter blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#6366f1]/8 rounded-full filter blur-3xl pointer-events-none" />
 
-      {/* Login Card */}
       <div className="w-full max-w-md relative z-10">
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header Section */}
-          <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-4 sm:px-8 py-6 sm:py-10 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-full shadow-lg mb-3 sm:mb-4">
-              <FiShield className="text-3xl sm:text-4xl text-purple-600" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Admin Portal</h1>
-            <p className="text-sm sm:text-base text-purple-100">Secure administrative access</p>
+        {/* Logo area */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#3B82F6] to-[#6366f1] shadow-glow-blue mb-4">
+            <FiShield size={28} className="text-white" />
           </div>
-
-          {/* Form Section */}
-          <div className="px-4 sm:px-8 py-6 sm:py-8">
-            {error && (
-              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Username Input */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Username
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <FiUsers className="text-gray-400 text-xl" />
-                  </div>
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleChange}
-                    placeholder="Enter admin username"
-                    required
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <FiLock className="text-gray-400 text-xl" />
-                  </div>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Enter admin password"
-                    required
-                    className="w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <FiEyeOff className="text-xl" /> : <FiEye className="text-xl" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <FiLogIn className="text-xl" />
-                    <span>Sign In</span>
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          {/* Footer */}
-          <div className="px-4 sm:px-8 py-4 sm:py-6 bg-gray-50 border-t border-gray-100">
-            <p className="text-center text-xs sm:text-sm text-gray-600">
-              🔒 Secure administrative access only
-            </p>
-          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Admin Portal</h1>
+          <p className="text-sm text-[#94A3B8] mt-1">Secure administrative access</p>
         </div>
 
-        {/* Copyright */}
-        <p className="text-center text-sm text-gray-500 mt-6">
-          © {new Date().getFullYear()} AttendNest. All rights reserved.
-        </p>
-      </div>
+        {/* Card */}
+        <div className="bg-[#161D2E] border border-white/[0.08] rounded-2xl shadow-clay-admin p-8">
+          {error && (
+            <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 flex items-start gap-3">
+              <FiShield size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-300">{error}</p>
+            </div>
+          )}
 
-      <style jsx>{`
-        @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(20px, -50px) scale(1.1); }
-          50% { transform: translate(-20px, 20px) scale(0.9); }
-          75% { transform: translate(50px, 50px) scale(1.05); }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Username</label>
+              <div className="relative">
+                <FiUser size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                <input type="text" name="username" value={formData.username} onChange={handleChange} placeholder="Enter admin username" required
+                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-[#64748B] focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Password</label>
+              <div className="relative">
+                <FiLock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B] pointer-events-none" />
+                <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange} placeholder="Enter admin password" required
+                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl py-3 pl-12 pr-12 text-sm placeholder:text-[#64748B] focus:outline-none focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/15 transition-all" />
+                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#94A3B8] transition-colors">
+                  {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#3B82F6] to-[#6366f1] text-white py-3 px-6 rounded-xl font-semibold text-sm shadow-glow-blue hover:shadow-[0_0_28px_rgba(59,130,246,0.55)] transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mt-2">
+              {loading
+                ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Signing in…</span></>
+                : <><FiLogIn size={16} /><span>Sign In</span></>
+              }
+            </button>
+          </form>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <FiLock size={12} className="text-[#475569]" />
+          <p className="text-xs text-[#475569]">Secure administrative access only</p>
+        </div>
+        <p className="text-center text-xs text-[#374151] mt-2">© {new Date().getFullYear()} AttendNest. All rights reserved.</p>
+      </div>
     </div>
   );
 };
-
 export default AdminLogin;
