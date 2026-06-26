@@ -6,7 +6,7 @@ import { Spinner } from '../components/Loader';
 
 const PwReq = ({ met, label }) => (
   <div className="flex items-center gap-2 text-xs">
-    <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${met ? 'bg-emerald-100 text-emerald-600' : 'bg-[#F1F5F9] text-[#CBD5E1]'}`}>
+    <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${met ? 'bg-emerald-100 text-emerald-600' : 'bg-[#0E1320] text-[#CBD5E1]'}`}>
       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </span>
     <span className={met ? 'text-emerald-700 font-medium' : 'text-[#94A3B8]'}>{label}</span>
@@ -97,7 +97,7 @@ const ForgotPassword = () => {
   const stepLabels = ['', 'Enter Email', 'Verify OTP', 'New Password'];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#050816] flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-[480px] h-[480px] bg-[#2563EB]/6 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/4 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[480px] h-[480px] bg-purple-500/5 rounded-full blur-3xl translate-x-1/4 translate-y-1/4 pointer-events-none" />
 
@@ -107,7 +107,7 @@ const ForgotPassword = () => {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#2563EB] shadow-[0_8px_32px_rgba(37,99,235,0.35)] mb-4">
             <FiKey size={24} className="text-white" />
           </div>
-          <h1 className="text-2xl font-extrabold text-[#0F172A]">{step === 4 ? 'Password Reset!' : 'Reset Password'}</h1>
+          <h1 className="text-2xl font-extrabold text-white">{step === 4 ? 'Password Reset!' : 'Reset Password'}</h1>
           <p className="text-sm text-[#475569] mt-1">
             {step === 1 && 'Enter your email to receive OTP'}
             {step === 2 && 'Enter the OTP sent to your email'}
@@ -122,7 +122,7 @@ const ForgotPassword = () => {
             {[1,2,3].map((s, i) => (
               <React.Fragment key={s}>
                 <div className={`flex items-center gap-1.5 ${step >= s ? 'text-[#2563EB]' : 'text-[#CBD5E1]'}`}>
-                  <div className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center border-2 ${step > s ? 'bg-[#2563EB] border-[#2563EB] text-white' : step === s ? 'border-[#2563EB] text-[#2563EB]' : 'border-[#E2E8F0] text-[#CBD5E1]'}`}>
+                  <div className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center border-2 ${step > s ? 'bg-[#2563EB] border-[#2563EB] text-white' : step === s ? 'border-[#2563EB] text-[#2563EB]' : 'border-white/[0.05] text-[#CBD5E1]'}`}>
                     {step > s ? '✓' : s}
                   </div>
                   <span className="text-[10px] font-semibold hidden sm:block">{stepLabels[s]}</span>
@@ -133,10 +133,10 @@ const ForgotPassword = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-clay-modal overflow-hidden">
+        <div className="bg-[#0B1120] rounded-2xl border border-white/[0.05] shadow-clay-modal overflow-hidden">
           {/* Header stripe */}
           <div className="bg-gradient-to-br from-[#2563EB] to-[#7C3AED] px-6 py-5 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center"><FiShield size={18} className="text-white" /></div>
+            <div className="w-9 h-9 rounded-xl bg-[#0B1120]/20 flex items-center justify-center"><FiShield size={18} className="text-white" /></div>
             <div>
               <p className="text-sm font-bold text-white">Secure Password Reset</p>
               <p className="text-xs text-blue-200 mt-0.5">
@@ -158,7 +158,7 @@ const ForgotPassword = () => {
                   <div className="relative">
                     <FiMail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none" />
                     <input type="email" name="email" value={formData.email} onChange={handleChange} 
-                      className="w-full bg-white border border-[#E2E8F0] text-[#0F172A] rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-[#94A3B8] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 transition-all" 
+                      className="w-full bg-[#0B1120] border border-white/[0.05] text-white rounded-xl py-3 pl-12 pr-4 text-sm placeholder:text-[#94A3B8] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 transition-all" 
                       placeholder="Enter your registered email" required autoFocus />
                   </div>
                 </div>
@@ -174,7 +174,7 @@ const ForgotPassword = () => {
               <form onSubmit={handleVerifyOTP} className="space-y-5">
                 <div className="flex items-start gap-3 bg-[#2563EB]/8 border border-[#2563EB]/20 rounded-xl p-4">
                   <FiMail size={15} className="text-[#2563EB] flex-shrink-0 mt-0.5" />
-                  <div><p className="text-xs font-semibold text-[#0F172A]">OTP sent to:</p><p className="text-sm font-bold text-[#2563EB]">{maskedEmail}</p><p className="text-xs text-[#64748B] mt-0.5">Valid for {expiryMinutes} minutes</p></div>
+                  <div><p className="text-xs font-semibold text-white">OTP sent to:</p><p className="text-sm font-bold text-[#2563EB]">{maskedEmail}</p><p className="text-xs text-[#64748B] mt-0.5">Valid for {expiryMinutes} minutes</p></div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wider mb-2">Enter OTP</label>
@@ -186,7 +186,7 @@ const ForgotPassword = () => {
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => setStep(1)} className="flex-1 py-3 text-sm font-semibold text-[#475569] bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl hover:bg-[#E2E8F0] transition-colors">Back</button>
+                  <button type="button" onClick={() => setStep(1)} className="flex-1 py-3 text-sm font-semibold text-[#475569] bg-[#0E1320] border border-white/[0.05] rounded-xl hover:bg-[#E2E8F0] transition-colors">Back</button>
                   <button type="submit" disabled={loading} className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#2563EB] hover:bg-blue-700 text-white font-bold rounded-xl disabled:opacity-50 transition-all">
                     {loading ? <><Spinner size="sm" color="white" /> Verifying…</> : <><FiKey size={14} /> Verify OTP</>}
                   </button>
@@ -203,7 +203,7 @@ const ForgotPassword = () => {
                     <div className="relative">
                       <FiLock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none" />
                       <input type={showPasswords[field] ? 'text' : 'password'} name={field === 'new' ? 'newPassword' : 'confirmNewPassword'} value={field === 'new' ? formData.newPassword : formData.confirmNewPassword} onChange={handleChange} 
-                        className="w-full bg-white border border-[#E2E8F0] text-[#0F172A] rounded-xl py-3 pl-12 pr-12 text-sm placeholder:text-[#94A3B8] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 transition-all" 
+                        className="w-full bg-[#0B1120] border border-white/[0.05] text-white rounded-xl py-3 pl-12 pr-12 text-sm placeholder:text-[#94A3B8] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 transition-all" 
                         placeholder={field === 'new' ? 'Enter new password' : 'Confirm new password'} required autoFocus={field === 'new'} />
                       <button type="button" onClick={() => toggleShow(field)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#475569] transition-colors">
                         {showPasswords[field] ? <FiEyeOff size={18} /> : <FiEye size={18} />}
@@ -212,12 +212,12 @@ const ForgotPassword = () => {
                     {field === 'new' && formData.newPassword && (
                       <div className="mt-1.5">
                         <div className="flex justify-between text-xs mb-1"><span className="text-[#94A3B8]">Strength:</span><span className={`font-semibold ${pwStrength.textColor}`}>{pwStrength.label}</span></div>
-                        <div className="w-full bg-[#F1F5F9] rounded-full h-1.5"><div className={`${pwStrength.color} h-1.5 rounded-full transition-all duration-300`} style={{ width:`${pwStrength.pct}%` }} /></div>
+                        <div className="w-full bg-[#0E1320] rounded-full h-1.5"><div className={`${pwStrength.color} h-1.5 rounded-full transition-all duration-300`} style={{ width:`${pwStrength.pct}%` }} /></div>
                       </div>
                     )}
                   </div>
                 ))}
-                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 space-y-2">
+                <div className="bg-[#050816] border border-white/[0.05] rounded-xl p-4 space-y-2">
                   <p className="text-xs font-bold text-[#475569] mb-2">Password requirements:</p>
                   <PwReq met={formData.newPassword.length >= 8}         label="At least 8 characters"  />
                   <PwReq met={/[A-Z]/.test(formData.newPassword)}       label="One uppercase letter"   />
@@ -236,7 +236,7 @@ const ForgotPassword = () => {
               <div className="text-center py-6 space-y-5">
                 <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto"><FiCheckCircle size={32} /></div>
                 <div>
-                  <h3 className="text-lg font-bold text-[#0F172A] mb-1">Password Reset Successfully!</h3>
+                  <h3 className="text-lg font-bold text-white mb-1">Password Reset Successfully!</h3>
                   <p className="text-sm text-[#475569]">You can now login with your new password.</p>
                 </div>
                 <button onClick={() => navigate('/employee/login')} className="w-full flex items-center justify-center gap-2 py-3 bg-[#2563EB] hover:bg-blue-700 text-white font-bold rounded-xl shadow-[0_4px_16px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 transition-all">

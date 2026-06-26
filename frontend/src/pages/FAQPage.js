@@ -67,7 +67,7 @@ const FAQPage = () => {
         <div className="max-w-3xl mx-auto space-y-10">
           {faqs.map((cat, ci) => (
             <div key={ci}>
-              <h2 className="text-sm font-bold text-[#94A3B8] uppercase tracking-widest mb-4">{cat.category}</h2>
+              <h2 className="text-sm font-bold text-[#64748B] uppercase tracking-widest mb-4">{cat.category}</h2>
               <div className="space-y-2">
                 {cat.questions.map((faq, qi) => {
                   const key = `${ci}-${qi}`;
@@ -76,7 +76,7 @@ const FAQPage = () => {
                     <div key={qi} className={`bg-[#F8FAFC] border rounded-2xl overflow-hidden transition-all duration-200 ${isOpen ? 'border-[#2563EB]/30 shadow-clay' : 'border-[#E2E8F0]'}`}>
                       <button onClick={() => toggle(ci, qi)} className="w-full px-5 py-4 text-left flex justify-between items-center gap-4">
                         <span className={`text-sm font-semibold ${isOpen ? 'text-[#2563EB]' : 'text-[#0F172A]'}`}>{faq.q}</span>
-                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${isOpen ? 'bg-[#2563EB]/10 text-[#2563EB]' : 'bg-[#E2E8F0] text-[#94A3B8]'}`}>
+                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${isOpen ? 'bg-[#2563EB]/10 text-[#2563EB]' : 'bg-[#E2E8F0] text-[#64748B]'}`}>
                           {isOpen ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
                         </span>
                       </button>
@@ -100,7 +100,7 @@ const FAQPage = () => {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl font-extrabold text-[#0F172A] mb-3">Still Have Questions?</h2>
           <p className="text-[#475569] mb-6">Can't find the answer you're looking for? Contact our support team.</p>
-          <button onClick={() => navigate('/contact')} className="px-8 py-3.5 bg-[#2563EB] text-white font-bold rounded-2xl hover:bg-blue-700 shadow-[0_4px_16px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 transition-all">Contact Support</button>
+          <button onClick={() => navigate('/contact')} className="px-8 py-3.5 bg-[#2563EB] text-[#0F172A] font-bold rounded-2xl hover:bg-blue-700 shadow-[0_4px_16px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 transition-all">Contact Support</button>
         </div>
       </section>
     </PublicLayout>

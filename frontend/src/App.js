@@ -297,7 +297,7 @@ function App() {
 
           {/* 404 Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
       </Router>
     </AuthProvider>
   );

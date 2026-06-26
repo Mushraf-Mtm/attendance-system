@@ -84,22 +84,22 @@ export const PublicFooter = () => {
               <div className="w-7 h-7 rounded-lg bg-[#2563EB] flex items-center justify-center">
                 <FiClock size={14} className="text-white" />
               </div>
-              <span className="text-base font-extrabold">AttendNest</span>
+              <span className="text-base font-extrabold text-white">AttendNest</span>
             </div>
-            <p className="text-[#94A3B8] text-sm leading-relaxed">Modern attendance management for modern organizations.</p>
+            <p className="text-slate-400 text-sm leading-relaxed">Modern attendance management for modern organizations.</p>
           </div>
           {Object.entries(FOOTER_LINKS).map(([section, links]) => (
             <div key={section}>
-              <h3 className="text-xs font-bold text-[#94A3B8] uppercase tracking-widest mb-4">{section}</h3>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{section}</h3>
               <ul className="space-y-2.5">
                 {links.map(([label, path]) => (
-                  <li key={path}><button onClick={() => navigate(path)} className="text-sm text-[#64748B] hover:text-white transition-colors">{label}</button></li>
+                  <li key={path}><button onClick={() => navigate(path)} className="text-sm text-slate-400 hover:text-white transition-colors">{label}</button></li>
                 ))}
               </ul>
             </div>
           ))}
         </div>
-        <div className="border-t border-white/[0.06] mt-10 pt-8 text-center text-sm text-[#475569]">
+        <div className="border-t border-white/10 mt-10 pt-8 text-center text-sm text-slate-400">
           &copy; {new Date().getFullYear()} AttendNest. All rights reserved.
         </div>
       </div>

@@ -43,6 +43,14 @@ module.exports = {
           800: '#1e40af',
           900: '#1e3a8a',
         },
+        // Claymorphism palette
+        clay: {
+          bg:      '#F5F7FB',
+          card:    '#FFFFFF',
+          border:  '#E7EBF2',
+          blue:    '#4F6CE1',
+          blueLt:  '#7B93F5',
+        },
       },
       boxShadow: {
         // Clay admin dark
@@ -57,6 +65,11 @@ module.exports = {
         'clay-hover':       '0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)',
         'clay-modal':       '0 20px 64px rgba(0,0,0,0.18), 0 6px 20px rgba(0,0,0,0.1)',
         'clay-lg':          '0 12px 40px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.06)',
+        // Claymorphism Soft UI shadows
+        'clay-soft':        '0 4px 24px rgba(149,163,187,0.10), 0 1px 4px rgba(149,163,187,0.06), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 3px rgba(149,163,187,0.04)',
+        'clay-soft-hover':  '0 8px 40px rgba(149,163,187,0.16), 0 2px 8px rgba(149,163,187,0.08), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 3px rgba(149,163,187,0.06)',
+        'clay-soft-lg':     '0 12px 48px rgba(149,163,187,0.14), 0 4px 12px rgba(149,163,187,0.08), inset 0 1px 0 rgba(255,255,255,1), inset 0 -2px 4px rgba(149,163,187,0.05)',
+        'clay-inset':       'inset 0 2px 6px rgba(149,163,187,0.12), inset 0 1px 2px rgba(149,163,187,0.08)',
         // Legacy
         'card':             '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
         'card-hover':       '0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06)',
@@ -75,6 +88,13 @@ module.exports = {
         'glow-pulse': 'glowPulse 2s ease-in-out infinite',
         'skeleton':   'skeleton 1.5s ease-in-out infinite',
         'shimmer':    'shimmer 1.4s ease-in-out infinite',
+        // Claymorphism animations
+        'fadeInUp':      'fadeInUp 0.5s ease-out forwards',
+        'progressFill':  'progressFill 1.2s ease-out forwards',
+        'barGrow':       'barGrow 0.8s ease-out forwards',
+        'livePulse':     'livePulse 2s ease-in-out infinite',
+        'countUp':       'countUp 0.6s ease-out',
+        'slideInRight':  'slideInRight 0.4s ease-out forwards',
       },
       keyframes: {
         fadeIn: {
@@ -104,6 +124,31 @@ module.exports = {
         shimmer: {
           '0%':   { backgroundPosition: '-400px 0' },
           '100%': { backgroundPosition: '400px 0' },
+        },
+        // Claymorphism keyframes
+        fadeInUp: {
+          '0%':   { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        progressFill: {
+          '0%':   { strokeDashoffset: '327' },
+          '100%': { strokeDashoffset: 'var(--progress-offset, 0)' },
+        },
+        barGrow: {
+          '0%':   { transform: 'scaleY(0)', opacity: '0' },
+          '100%': { transform: 'scaleY(1)', opacity: '1' },
+        },
+        livePulse: {
+          '0%, 100%': { opacity: '1' },
+          '50%':      { opacity: '0.5' },
+        },
+        countUp: {
+          '0%':   { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideInRight: {
+          '0%':   { opacity: '0', transform: 'translateX(-12px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
         },
       },
     },

@@ -2,17 +2,17 @@ import React from 'react';
 
 /* ── Admin dark table wrappers ── */
 export const AdminTableWrapper = ({ children, className = '' }) => (
-  <div className={`bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin ${className}`}>
+  <div className={`bg-[#F8FAFC] border border-white/[0.07] rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] ${className}`}>
     <div className="overflow-x-auto dark-scroll">
       <table className="min-w-full divide-y divide-white/[0.05]">{children}</table>
     </div>
   </div>
 );
 export const AdminTableHead = ({ children }) => (
-  <thead className="bg-[#0E1320]/60">{children}</thead>
+  <thead className="bg-[#F1F5F9]/60">{children}</thead>
 );
 export const AdminTh = ({ children, className = '' }) => (
-  <th className={`px-4 py-3 text-left text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest whitespace-nowrap ${className}`}>{children}</th>
+  <th className={`px-4 py-3 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap ${className}`}>{children}</th>
 );
 export const AdminTableBody = ({ children }) => (
   <tbody className="divide-y divide-white/[0.04]">{children}</tbody>
@@ -21,7 +21,7 @@ export const AdminTableRow = ({ children, className = '' }) => (
   <tr className={`admin-table-row transition-colors ${className}`}>{children}</tr>
 );
 export const AdminTd = ({ children, className = '' }) => (
-  <td className={`px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap ${className}`}>{children}</td>
+  <td className={`px-4 py-3.5 text-sm text-[#475569] whitespace-nowrap ${className}`}>{children}</td>
 );
 export const AdminEmptyRow = ({ cols, message = 'No records found', icon }) => (
   <tr>
@@ -60,7 +60,7 @@ export const Td = ({ children, className = '' }) => (
 export const EmptyRow = ({ cols, message = 'No records found', icon }) => (
   <tr>
     <td colSpan={cols} className="px-4 py-16 text-center">
-      <div className="flex flex-col items-center gap-3 text-[#94A3B8]">
+      <div className="flex flex-col items-center gap-3 text-[#64748B]">
         {icon && <span className="text-3xl">{icon}</span>}
         <p className="text-sm font-medium">{message}</p>
       </div>

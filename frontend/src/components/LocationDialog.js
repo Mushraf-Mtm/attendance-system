@@ -21,7 +21,7 @@ const LocationDialog = ({ isOpen, onClose, onAllow, title, message, type = 'perm
             </div>
             <h3 className="text-base font-bold text-[#0F172A] leading-tight">{title}</h3>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#94A3B8] hover:bg-[#F1F5F9] transition-colors ml-2 flex-shrink-0">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-[#F1F5F9] transition-colors ml-2 flex-shrink-0">
             <FiX size={17} />
           </button>
         </div>
@@ -50,12 +50,12 @@ const LocationDialog = ({ isOpen, onClose, onAllow, title, message, type = 'perm
           {type === 'permission' ? (
             <>
               <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[#475569] border border-[#E2E8F0] rounded-xl hover:bg-[#F1F5F9] transition-colors">Cancel</button>
-              <button onClick={() => { onAllow(); onClose(); }} className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-colors ${cfg.btn}`}>
+              <button onClick={() => { onAllow(); onClose(); }} className={`px-5 py-2 text-sm font-semibold text-[#0F172A] rounded-xl shadow-sm transition-colors ${cfg.btn}`}>
                 Allow Location
               </button>
             </>
           ) : (
-            <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-colors ${cfg.btn}`}>OK</button>
+            <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-[#0F172A] rounded-xl shadow-sm transition-colors ${cfg.btn}`}>OK</button>
           )}
         </div>
       </div>

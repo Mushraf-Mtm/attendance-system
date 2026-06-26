@@ -203,7 +203,7 @@ const SupportPage = () => {
                   <p className="text-sm font-bold text-[#0F172A] mb-1">{title}</p>
                   <p className="text-xs text-[#475569]">{desc}</p>
                 </div>
-                <FiArrowRight size={14} className="text-[#94A3B8] group-hover:text-[#2563EB] transition-colors self-end" />
+                <FiArrowRight size={14} className="text-[#64748B] group-hover:text-[#2563EB] transition-colors self-end" />
               </button>
             ))}
           </div>
@@ -225,13 +225,13 @@ const SupportPage = () => {
                       <guide.Icon size={18} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] mb-0.5">{guide.category}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] mb-0.5">{guide.category}</p>
                       <h3 className="text-sm font-bold text-[#0F172A]">{guide.title}</h3>
                     </div>
                   </div>
                   {openGuide === index
                     ? <FiChevronUp size={18} className="text-[#2563EB] flex-shrink-0" />
-                    : <FiChevronDown size={18} className="text-[#94A3B8] flex-shrink-0" />}
+                    : <FiChevronDown size={18} className="text-[#64748B] flex-shrink-0" />}
                 </button>
                 {openGuide === index && (
                   <div className="px-6 pb-6 border-t border-[#E2E8F0]">
@@ -247,7 +247,7 @@ const SupportPage = () => {
       {/* CTA */}
       <section className="py-14 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-[#2563EB] to-[#7C3AED]">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-2xl font-extrabold text-white mb-3">Still Need Help?</h2>
+          <h2 className="text-2xl font-extrabold text-[#0F172A] mb-3">Still Need Help?</h2>
           <p className="text-blue-100 mb-8 text-sm">Can't find what you're looking for? Our support team is ready to assist you.</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button onClick={() => navigate('/contact')}
@@ -255,7 +255,7 @@ const SupportPage = () => {
               Contact Support
             </button>
             <button onClick={() => navigate('/faq')}
-              className="px-7 py-3 bg-white/10 border border-white/30 text-white text-sm font-bold rounded-xl hover:bg-white/20 transition-colors">
+              className="px-7 py-3 bg-white/10 border border-white/30 text-[#0F172A] text-sm font-bold rounded-xl hover:bg-white/20 transition-colors">
               View FAQ
             </button>
           </div>

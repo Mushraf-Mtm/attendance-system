@@ -96,7 +96,7 @@ const AboutPage = () => {
       {/* CTA */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2563EB] to-[#7C3AED]">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-extrabold text-white mb-4">Ready to Transform Your Attendance Management?</h2>
+          <h2 className="text-3xl font-extrabold text-[#0F172A] mb-4">Ready to Transform Your Attendance Management?</h2>
           <p className="text-blue-200 mb-8">Join organizations that trust our system for accurate, secure, and efficient employee attendance tracking</p>
           <button onClick={() => navigate('/employee/login')} className="px-8 py-3.5 bg-white text-[#2563EB] font-bold rounded-2xl hover:bg-blue-50 shadow-[0_8px_24px_rgba(0,0,0,0.2)] hover:-translate-y-0.5 transition-all">Get Started Today</button>
         </div>

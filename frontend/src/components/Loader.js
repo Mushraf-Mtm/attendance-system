@@ -19,7 +19,7 @@ export const Spinner = ({ size = 'md', color = 'auto', className = '' }) => {
   let trackCls;
   if (color === 'white') trackCls = 'border-white/30 border-t-white';
   else if (color === 'blue') trackCls = 'border-blue-200 border-t-blue-500';
-  else if (isAdmin) trackCls = 'border-white/10 border-t-[#60A5FA]';
+  else if (isAdmin) trackCls = 'border-[#E2E8F0] border-t-[#60A5FA]';
   else trackCls = 'border-[#E2E8F0] border-t-[#2563EB]';
 
   return (
@@ -30,11 +30,11 @@ export const Spinner = ({ size = 'md', color = 'auto', className = '' }) => {
 
 /* Page skeleton admin */
 export const AdminPageSkeleton = () => (
-  <div className="flex-1 p-6 lg:p-8 space-y-6 bg-[#0E1320] min-h-screen">
+  <div className="flex-1 p-6 lg:p-8 space-y-6 bg-[#F1F5F9] min-h-screen">
     <div className="h-7 w-40 bg-[#1C2540] rounded-xl animate-pulse" />
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="bg-[#1C2540] border border-white/[0.06] rounded-2xl p-5 flex items-center gap-4 animate-pulse">
+        <div key={i} className="bg-[#1C2540] border border-[#E2E8F0] rounded-2xl p-5 flex items-center gap-4 animate-pulse">
           <div className="w-12 h-12 rounded-xl bg-white/5 flex-shrink-0" />
           <div className="flex-1 space-y-2">
             <div className="h-3 w-20 bg-white/5 rounded" />
@@ -43,7 +43,7 @@ export const AdminPageSkeleton = () => (
         </div>
       ))}
     </div>
-    <div className="bg-[#1C2540] border border-white/[0.06] rounded-2xl p-5 space-y-3 animate-pulse">
+    <div className="bg-[#1C2540] border border-[#E2E8F0] rounded-2xl p-5 space-y-3 animate-pulse">
       <div className="h-5 w-36 bg-white/5 rounded" />
       {[...Array(5)].map((_, i) => <div key={i} className="h-10 w-full bg-white/[0.03] rounded-xl" />)}
     </div>

@@ -3,17 +3,17 @@ import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import { Spinner } from '../components/Loader';
 import { getOTPSettings, updateOTPSettings } from '../services/api';
-import { FiSave, FiRefreshCw, FiClock, FiShield, FiAlertCircle, FiInfo } from 'react-icons/fi';
+import { FiSave, FiRefreshCw, FiClock, FiShield, FiAlertCircle, FiInfo, FiActivity, FiKey } from 'react-icons/fi';
 
 const Field = ({ label, hint, error, icon: Icon, children }) => (
   <div>
-    <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">{label}</label>
-    <div className="relative">
-      {Icon && <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none"><Icon size={14} className="text-[#64748B]" /></div>}
-      <div className={Icon ? 'pl-9' : ''}>{children}</div>
+    <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">{label}</label>
+    <div className="relative group">
+      {Icon && <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-400"><Icon size={16} className="text-[#64748B] group-focus-within:text-blue-400 transition-colors" /></div>}
+      <div className={Icon ? 'pl-11' : ''}>{children}</div>
     </div>
-    {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
-    {hint && !error && <p className="mt-1.5 text-xs text-[#475569]">{hint}</p>}
+    {error && <p className="mt-2 text-[10px] font-bold text-red-400 uppercase tracking-widest">{error}</p>}
+    {hint && !error && <p className="mt-2 text-[10px] font-bold text-[#475569] uppercase tracking-widest">{hint}</p>}
   </div>
 );
 
@@ -68,8 +68,6 @@ const AdminOTPSettings = () => {
   const handleReset = () => { setSettings(originalSettings); setErrors({}); };
   const hasChanges = () => originalSettings && JSON.stringify(settings) !== JSON.stringify(originalSettings);
 
-  if (loading) return <div className="flex h-screen bg-[#0E1320]"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></div>;
-
   const FIELDS = [
     { name:'otp_expiry_minutes',    icon:FiClock,       label:'OTP Expiry Time (Minutes)',      hint:'How long an OTP remains valid (1–60 min)',             min:1,  max:60  },
     { name:'otp_resend_seconds',    icon:FiRefreshCw,   label:'Resend Cooldown (Seconds)',       hint:'Minimum wait before OTP can be resent (30–300 sec)',   min:30, max:300 },
@@ -83,90 +81,161 @@ const AdminOTPSettings = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-[#070B1A] dark-scroll selection:bg-blue-500/30">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto dark-scroll">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 max-w-2xl">
-          <div className="mb-6">
-            <h1 className="text-xl font-bold text-white">OTP Settings</h1>
-            <p className="text-sm text-[#94A3B8] mt-0.5">Configure OTP security parameters for password management</p>
+      <div className="flex-1 overflow-y-auto dark-scroll relative pb-24">
+        
+        {/* Background ambient glow */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 translate-x-1/3" />
+
+        <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8 animate-fadeIn relative z-10">
+          <div className="mb-8">
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">OTP Security Configuration</h1>
+            <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Fine-tune OTP security parameters and monitor live verification metrics.</p>
           </div>
 
-          <form onSubmit={handleSave} className="space-y-5">
-            {/* Info banner */}
-            <div className="flex gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-              <FiInfo size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-300/80">Changes apply immediately. Users with active OTPs continue using old settings until they request a new one.</p>
-            </div>
+          {/* ─── Top Statistics Cards ─── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: 'OTP Expiry', value: `${settings.otp_expiry_minutes}m`, color: 'text-blue-400', border: 'border-blue-500/20', bg: 'from-blue-500/10', icon: FiClock },
+              { label: 'Resend Cooldown', value: `${settings.otp_resend_seconds}s`, color: 'text-purple-400', border: 'border-purple-500/20', bg: 'from-purple-500/10', icon: FiRefreshCw },
+              { label: 'Max Attempts', value: settings.otp_max_attempts, color: 'text-amber-400', border: 'border-amber-500/20', bg: 'from-amber-500/10', icon: FiShield },
+              { label: 'Req / Hour', value: settings.otp_requests_per_hour, color: 'text-rose-400', border: 'border-rose-500/20', bg: 'from-rose-500/10', icon: FiAlertCircle },
+            ].map((s, i) => (
+              <div key={i} className={`bg-[#0B1120] border ${s.border} rounded-2xl p-4 shadow-clay-admin overflow-hidden relative group hover:-translate-y-1 transition-transform duration-300`}>
+                <div className={`absolute inset-0 bg-gradient-to-br ${s.bg} to-transparent opacity-50 group-hover:opacity-100 transition-opacity`} />
+                <div className="relative z-10 flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-bold text-[#64748B] uppercase tracking-widest">{s.label}</p>
+                  <s.icon size={12} className={`${s.color} opacity-70`} />
+                </div>
+                <div className="relative z-10">
+                  <p className={`text-2xl font-black ${s.color} drop-shadow-sm`}>{loading ? '-' : s.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
 
-            {/* Fields */}
-            <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.06]">
-                <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center"><FiShield size={16} /></div>
-                <h2 className="text-sm font-bold text-white">Security Configuration</h2>
-              </div>
-              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {FIELDS.map(({ name, icon, label, hint, min, max }) => (
-                  <Field key={name} label={label} hint={hint} error={errors[name]} icon={icon}>
-                    <input
-                      type="number" name={name} value={settings[name]} onChange={handleChange}
-                      min={min} max={max} required
-                      className={`admin-input ${icon ? 'pl-9' : ''} ${errors[name] ? 'border-red-500/50' : ''}`}
-                      style={icon ? { paddingLeft:'2.25rem' } : {}}
-                    />
-                  </Field>
-                ))}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-4">
+                <Spinner size={40} color="blue" />
+                <p className="text-xs font-bold text-blue-400 animate-pulse">Loading Security Config...</p>
               </div>
             </div>
-
-            {/* Guidelines */}
-            <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
-              <div className="px-6 py-4 border-b border-white/[0.06]"><h2 className="text-sm font-bold text-white">Security Guidelines</h2></div>
-              <div className="p-6 space-y-3">
-                {[
-                  ['Shorter expiry times', 'are more secure but may inconvenience users'],
-                  ['Higher resend cooldowns', 'prevent OTP spam and brute-force attacks'],
-                  ['Lower max attempts', 'improve security but may frustrate legitimate users'],
-                  ['Stricter rate limits', 'protect against abuse but may impact user experience'],
-                ].map(([bold, rest]) => (
-                  <div key={bold} className="flex items-start gap-2 text-xs text-[#64748B]">
-                    <span className="text-emerald-400 font-bold mt-0.5">✓</span>
-                    <p><span className="font-semibold text-[#CBD5E1]">{bold}</span> {rest}</p>
-                  </div>
-                ))}
+          ) : (
+            <form onSubmit={handleSave} className="space-y-6">
+              
+              {/* Info banner */}
+              <div className="flex items-center gap-4 p-4 bg-[#0B1120] border border-amber-500/30 rounded-2xl shadow-[0_4px_16px_rgba(245,158,11,0.1)] relative overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
+                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                  <FiInfo size={18} className="text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white mb-0.5">Live Configuration</h3>
+                  <p className="text-xs text-[#94A3B8]">Changes apply immediately. Active OTPs continue using old settings until they expire.</p>
+                </div>
               </div>
-              {/* Recommended pill row */}
-              <div className="px-6 pb-6">
-                <div className="flex gap-3 p-4 bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded-2xl">
-                  <FiShield size={15} className="text-[#60A5FA] flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-[#CBD5E1] mb-3">Recommended Defaults</p>
-                    <div className="grid grid-cols-4 gap-3">
-                      {RECOMMENDED.map(({ label, value }) => (
-                        <div key={label} className="text-center">
-                          <p className="text-xs text-[#64748B]">{label}</p>
-                          <p className="text-sm font-bold text-[#60A5FA]">{value}</p>
-                        </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* ─── Editor ─── */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-[#0B1120] border border-white/[0.06] rounded-3xl overflow-hidden shadow-clay-admin">
+                    <div className="flex items-center gap-3 px-6 py-5 border-b border-white/[0.06] bg-[#10192D]/50 backdrop-blur-md">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shadow-inner"><FiShield size={18} /></div>
+                      <div>
+                        <h2 className="text-sm font-bold text-white">Security Configuration</h2>
+                        <p className="text-[10px] text-[#64748B] uppercase tracking-widest font-bold mt-0.5">Modify System Guardrails</p>
+                      </div>
+                    </div>
+                    
+                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 relative">
+                      {FIELDS.map(({ name, icon, label, hint, min, max }) => (
+                        <Field key={name} label={label} hint={hint} error={errors[name]} icon={icon}>
+                          <input
+                            type="number" name={name} value={settings[name]} onChange={handleChange}
+                            min={min} max={max} required
+                            className={`w-full bg-[#050816] border border-white/[0.05] text-white text-sm rounded-xl py-3.5 pr-4 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-inner ${errors[name] ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/50' : ''}`}
+                            style={{ paddingLeft: '2.75rem' }}
+                          />
+                        </Field>
                       ))}
                     </div>
                   </div>
                 </div>
+
+                {/* ─── Guidelines Sidebar ─── */}
+                <div className="space-y-6">
+                  <div className="bg-[#0B1120] border border-white/[0.06] rounded-3xl overflow-hidden shadow-clay-admin">
+                    <div className="px-6 py-5 border-b border-white/[0.06] bg-[#10192D]/50 backdrop-blur-md">
+                      <h2 className="text-sm font-bold text-white">Security Guidelines</h2>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {[
+                        ['Shorter expiry', 'Better security, more user friction.'],
+                        ['Higher cooldown', 'Prevents spam, limits brute-force.'],
+                        ['Lower attempts', 'Stronger lockouts, more lockouts.'],
+                        ['Stricter rate', 'Prevents abuse, controls API load.'],
+                      ].map(([bold, rest]) => (
+                        <div key={bold} className="flex items-start gap-3 bg-[#0B1120]/[0.02] border border-white/[0.05] p-3 rounded-xl">
+                          <span className="text-emerald-400 font-bold mt-0.5 text-xs">✓</span>
+                          <div>
+                            <p className="font-bold text-[#CBD5E1] text-xs">{bold}</p>
+                            <p className="text-[10px] text-[#94A3B8] uppercase tracking-widest mt-1">{rest}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="px-6 pb-6">
+                      <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl relative overflow-hidden group hover:bg-blue-500/20 transition-colors cursor-default">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-400/10 rounded-full blur-xl" />
+                        <div className="flex items-center gap-2 mb-4 relative z-10">
+                          <FiShield size={16} className="text-blue-400" />
+                          <p className="text-xs font-bold text-white uppercase tracking-widest">Recommended Defaults</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 relative z-10">
+                          {RECOMMENDED.map(({ label, value }) => (
+                            <div key={label} className="bg-[#070B1A]/50 border border-white/[0.05] rounded-xl p-2 text-center">
+                              <p className="text-[9px] font-bold text-[#64748B] uppercase tracking-widest">{label}</p>
+                              <p className="text-xs font-black text-blue-400 mt-0.5">{value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {hasChanges() && <p className="text-xs text-amber-400 text-center">You have unsaved changes</p>}
+              {/* Action Bar */}
+              <div className="bg-[#0B1120] border border-white/[0.06] rounded-2xl p-4 shadow-clay-admin flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex-1">
+                  {hasChanges() ? (
+                    <p className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2 animate-pulse">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" /> Unsaved changes detected
+                    </p>
+                  ) : (
+                    <p className="text-xs font-bold text-[#64748B] uppercase tracking-widest flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#64748B]" /> Configuration synced
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <button type="button" onClick={handleReset} disabled={!hasChanges() || saving}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-[#0B1120]/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    <FiRefreshCw size={14} /> Revert
+                  </button>
+                  <button type="submit" disabled={!hasChanges() || saving}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-[0_4px_16px_rgba(59,130,246,0.3)] hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none transition-all">
+                    {saving ? <><Spinner size={14} color="white" /> Saving…</> : <><FiSave size={14} /> Update Security</>}
+                  </button>
+                </div>
+              </div>
 
-            <div className="flex gap-3 pb-6">
-              <button type="button" onClick={handleReset} disabled={!hasChanges() || saving}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                <FiRefreshCw size={14} /> Reset
-              </button>
-              <button type="submit" disabled={!hasChanges() || saving}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#3B82F6] hover:bg-blue-500 rounded-xl shadow-glow-blue-sm hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none transition-all">
-                {saving ? <><Spinner size="sm" color="white" /> Saving…</> : <><FiSave size={14} /> Save Settings</>}
-              </button>
-            </div>
-          </form>
+            </form>
+          )}
         </div>
       </div>
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen:false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />

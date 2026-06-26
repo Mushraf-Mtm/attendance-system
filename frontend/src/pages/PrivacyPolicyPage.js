@@ -35,7 +35,7 @@ const PrivacyPolicyPage = () => {
           <div className="w-14 h-14 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto mb-4"><FiShield size={26} /></div>
           <h1 className="text-4xl font-extrabold text-[#0F172A] mb-3">Privacy Policy</h1>
           <p className="text-[#475569]">Your privacy and data security are our top priorities</p>
-          <p className="text-xs text-[#94A3B8] mt-3">Last Updated: {new Date().toLocaleDateString()}</p>
+          <p className="text-xs text-[#64748B] mt-3">Last Updated: {new Date().toLocaleDateString()}</p>
         </div>
       </section>
 

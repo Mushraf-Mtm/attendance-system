@@ -230,8 +230,8 @@ const deleteAdmin = async (req, res) => {
     // 2. Update early_checkout_permissions
     await pool.query('UPDATE early_checkout_permissions SET enabled_by = NULL WHERE enabled_by = $1', [id]);
     
-    // 3. Check if there are any other tables with foreign keys to admins
-    // Add more updates here if needed for other tables
+    // 3. Update holidays
+    await pool.query('UPDATE holidays SET created_by = NULL WHERE created_by = $1', [id]);
     
     // Delete admin (login logs will be deleted automatically due to CASCADE)
     await pool.query('DELETE FROM admins WHERE id = $1', [id]);

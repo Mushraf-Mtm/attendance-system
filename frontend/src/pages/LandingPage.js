@@ -43,11 +43,7 @@ const LandingPage = () => {
       <section className="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-white to-[#EFF6FF] py-20 px-4 sm:px-6 lg:px-8">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#2563EB]/5 rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/5 rounded-full translate-y-1/2 -translate-x-1/4 pointer-events-none" />
-        <div className="max-w-7xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-[#2563EB]/10 border border-[#2563EB]/20 text-[#2563EB] text-xs font-bold px-3 py-1.5 rounded-full mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse" />
-            Modern HRMS Platform
-          </div>
+        <div className="max-w-7xl mx-auto text-center relative z-10 pt-4">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#0F172A] mb-6 leading-tight">
             Employee Attendance<br /><span className="text-[#2563EB]">Management System</span>
           </h1>
@@ -121,9 +117,9 @@ const LandingPage = () => {
               <div key={title} className="rounded-2xl overflow-hidden border border-[#E2E8F0] shadow-clay clay-card-hover hover:shadow-clay-hover hover:-translate-y-1 transition-all duration-200">
                 <img src={src} alt={title} className="w-full h-auto" onError={(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='flex'; }} />
                 <div className={`bg-gradient-to-br ${gradient} p-8 h-52 flex-col items-center justify-center hidden`}>
-                  <Icon size={44} className="text-white mb-3 opacity-90" />
-                  <h3 className="text-lg font-bold text-white">{title}</h3>
-                  <p className="text-white/80 text-sm text-center mt-1">{desc}</p>
+                  <Icon size={44} className="text-[#0F172A] mb-3 opacity-90" />
+                  <h3 className="text-lg font-bold text-[#0F172A]">{title}</h3>
+                  <p className="text-[#0F172A]/80 text-sm text-center mt-1">{desc}</p>
                 </div>
               </div>
             ))}

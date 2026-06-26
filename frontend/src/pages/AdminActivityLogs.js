@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { FiActivity, FiDownload, FiFilter, FiSearch, FiX, FiEye, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
+import { FiActivity, FiDownload, FiFilter, FiSearch, FiX, FiEye, FiRefreshCw, FiTrash2, FiSettings, FiCalendar, FiLogIn, FiAlertTriangle } from 'react-icons/fi';
 import Sidebar from '../components/Sidebar';
 import AlertDialog from '../components/AlertDialog';
 import ClearDataDialog from '../components/ClearDataDialog';
+import { Spinner } from '../components/Loader';
 import { 
   getAdminActivityLogs, 
   exportAdminActivityLogs,
   getAdminActionTypes,
   getAdminModuleNames,
-  clearAdminActivityLogs 
+  clearAdminActivityLogs,
+  getAdminActivityStats
 } from '../services/api';
-
-const Spinner = ({ size = 'md' }) => {
-  const sizeClasses = { sm: 'w-4 h-4', md: 'w-8 h-8', lg: 'w-12 h-12' };
-  return <div className={`${sizeClasses[size]} border-3 border-white/20 border-t-white rounded-full animate-spin`} />;
-};
+import { formatTime, formatDate } from '../utils/formatTime';
 
 const AdminActivityLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -22,17 +20,10 @@ const AdminActivityLogs = () => {
   const [exporting, setExporting] = useState(false);
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'info' });
   const [detailsDialog, setDetailsDialog] = useState({ isOpen: false, log: null });
+  const [stats, setStats] = useState({ today: 0, thisWeek: 0, total: 0 });
   
-  // Filters
   const [filters, setFilters] = useState({
-    search: '',
-    actionType: '',
-    moduleName: '',
-    startDate: '',
-    endDate: '',
-    sortOrder: 'desc',
-    page: 1,
-    limit: 50
+    search: '', actionType: '', moduleName: '', startDate: '', endDate: '', sortOrder: 'desc', page: 1, limit: 50
   });
 
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 0 });
@@ -45,7 +36,15 @@ const AdminActivityLogs = () => {
     fetchLogs();
     fetchActionTypes();
     fetchModuleNames();
+    fetchStats();
   }, [filters.page, filters.sortOrder]);
+
+  const fetchStats = async () => {
+    try {
+      const res = await getAdminActivityStats();
+      if (res.data.success) setStats(res.data.stats);
+    } catch (e) { console.error('Stats error:', e); }
+  };
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -55,52 +54,22 @@ const AdminActivityLogs = () => {
         setLogs(response.data.logs);
         setPagination(response.data.pagination);
       }
-    } catch (error) {
-      console.error(error);
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to load activity logs', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to load activity logs', type: 'error' }); } 
+    finally { setLoading(false); }
   };
 
   const fetchActionTypes = async () => {
-    try {
-      const response = await getAdminActionTypes();
-      if (response.data.success) {
-        setActionTypes(response.data.actionTypes);
-      }
-    } catch (error) {
-      console.error(error);
-    }
+    try { const response = await getAdminActionTypes(); if (response.data.success) setActionTypes(response.data.actionTypes); } catch (e) {}
   };
 
   const fetchModuleNames = async () => {
-    try {
-      const response = await getAdminModuleNames();
-      if (response.data.success) {
-        setModuleNames(response.data.moduleNames);
-      }
-    } catch (error) {
-      console.error(error);
-    }
+    try { const response = await getAdminModuleNames(); if (response.data.success) setModuleNames(response.data.moduleNames); } catch (e) {}
   };
 
-  const handleSearch = () => {
-    setFilters({ ...filters, page: 1 });
-    fetchLogs();
-  };
+  const handleSearch = () => { setFilters({ ...filters, page: 1 }); fetchLogs(); };
 
   const handleClearFilters = () => {
-    setFilters({
-      search: '',
-      actionType: '',
-      moduleName: '',
-      startDate: '',
-      endDate: '',
-      sortOrder: 'desc',
-      page: 1,
-      limit: 50
-    });
+    setFilters({ search: '', actionType: '', moduleName: '', startDate: '', endDate: '', sortOrder: 'desc', page: 1, limit: 50 });
     setTimeout(() => fetchLogs(), 100);
   };
 
@@ -109,49 +78,21 @@ const AdminActivityLogs = () => {
     try {
       const response = await exportAdminActivityLogs(filters);
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `admin_activity_logs_${Date.now()}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const link = document.createElement('a'); link.href = url; link.setAttribute('download', `admin_activity_logs_${Date.now()}.pdf`);
+      document.body.appendChild(link); link.click(); link.remove();
       setAlertDialog({ isOpen: true, title: 'Success', message: 'Activity logs exported successfully', type: 'success' });
-    } catch (error) {
-      console.error(error);
-      setAlertDialog({ isOpen: true, title: 'Error', message: 'Export failed', type: 'error' });
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const openDetailsDialog = (log) => {
-    setDetailsDialog({ isOpen: true, log });
+    } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Export failed', type: 'error' }); } 
+    finally { setExporting(false); }
   };
 
   const handleClearActivityLogs = async () => {
     try {
       const response = await clearAdminActivityLogs();
       if (response.data.success) {
-        setAlertDialog({ isOpen: true, title: 'Success', message: 'Admin activity logs cleared successfully', type: 'success' });
-        fetchLogs();
-      } else {
-        setAlertDialog({ isOpen: true, title: 'Error', message: response.data.message || 'Failed to clear logs', type: 'error' });
-      }
-    } catch (error) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: error.response?.data?.message || 'Failed to clear activity logs', type: 'error' });
-    }
-  };
-
-  const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
+        setAlertDialog({ isOpen: true, title: 'Success', message: 'Logs cleared successfully', type: 'success' });
+        fetchLogs(); fetchStats();
+      } else { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear logs', type: 'error' }); }
+    } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to clear activity logs', type: 'error' }); }
   };
 
   const formatJSON = (jsonString) => {
@@ -159,215 +100,161 @@ const AdminActivityLogs = () => {
     try {
       const obj = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
       return (
-        <div className="space-y-1">
+        <div className="space-y-1.5 font-mono text-[10px] sm:text-xs">
           {Object.entries(obj).map(([key, value]) => (
-            <div key={key} className="flex gap-2">
-              <span className="text-[#94A3B8] font-medium">{key}:</span>
-              <span className="text-white">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+            <div key={key} className="flex flex-col sm:flex-row sm:gap-2">
+              <span className="text-blue-400 font-bold shrink-0">{key}:</span>
+              <span className="text-[#CBD5E1] break-all">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
             </div>
           ))}
         </div>
       );
-    } catch {
-      return <span className="text-[#94A3B8]">{jsonString}</span>;
-    }
+    } catch { return <span className="text-[#94A3B8] text-xs font-mono">{jsonString}</span>; }
+  };
+
+  // Count metrics from current page logs (since stats API only gives basic counts)
+  const currentPageMetrics = {
+    logins: logs.filter(l => l.action_type?.toLowerCase().includes('login')).length,
+    settings: logs.filter(l => l.module_name?.toLowerCase().includes('setting')).length,
+    holidays: logs.filter(l => l.module_name?.toLowerCase().includes('holiday')).length,
+    failed: logs.filter(l => l.description?.toLowerCase().includes('failed') || l.description?.toLowerCase().includes('error')).length
   };
 
   return (
-    <div className="flex h-screen bg-[#0E1320] dark-scroll">
+    <div className="flex h-screen bg-[#070B1A] dark-scroll selection:bg-blue-500/30">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto dark-scroll">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex-1 overflow-y-auto dark-scroll pb-24">
+        <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8 animate-fadeIn">
+          
+          <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                <FiActivity className="text-blue-400" />
-                Admin Activity Logs
-              </h1>
-              <p className="text-sm text-[#94A3B8] mt-0.5">Track all administrator actions and changes</p>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">Admin Activity Logs</h1>
+              <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Complete audit trail of all administrator actions.</p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#1E293B] border border-white/10 text-white rounded-xl hover:bg-[#2D3B52] transition-colors text-sm font-semibold"
-              >
-                <FiFilter size={16} />
-                Filters
-              </button>
               {logs.length > 0 && (
-                <button
-                  onClick={() => setClearDialog({ isOpen: true })}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors text-sm font-semibold"
-                >
-                  <FiTrash2 size={16} />
-                  Clear Table
+                <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 hover:border-red-500/30 text-red-400 text-xs font-bold rounded-xl transition-all shadow-clay-admin">
+                  <FiTrash2 size={14} /> Clear
                 </button>
               )}
-              <button
-                onClick={handleExport}
-                disabled={exporting || logs.length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl hover:bg-emerald-500/20 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {exporting ? <Spinner size="sm" /> : <FiDownload size={16} />}
-                Export PDF
+              <button onClick={handleExport} disabled={exporting || logs.length === 0} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl disabled:opacity-50 transition-all shadow-clay-admin">
+                {exporting ? <Spinner size="sm" /> : <FiDownload size={14} />} Export PDF
               </button>
             </div>
           </div>
 
-          {/* Filters Panel */}
-          {showFilters && (
-            <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl p-6 mb-6 shadow-clay-admin">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">Search</label>
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    placeholder="Search admin, email, description..."
-                    className="w-full px-4 py-2 bg-[#0E1320] border border-white/10 rounded-xl text-white placeholder-[#64748B] focus:outline-none focus:border-blue-500/50"
-                  />
+          {/* Stat Cards Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+            {[
+              { label:'Total Logs', value:stats.total, color:'text-blue-400', icon:FiActivity },
+              { label:'Today Logs', value:stats.today, color:'text-emerald-400', icon:FiActivity },
+              { label:'This Week', value:stats.thisWeek, color:'text-purple-400', icon:FiCalendar },
+              { label:'Admin Logins', value:currentPageMetrics.logins, color:'text-cyan-400', icon:FiLogIn, isPageStat:true },
+              { label:'Settings Updates', value:currentPageMetrics.settings, color:'text-orange-400', icon:FiSettings, isPageStat:true },
+              { label:'Holiday Changes', value:currentPageMetrics.holidays, color:'text-pink-400', icon:FiCalendar, isPageStat:true },
+              { label:'Failed Actions', value:currentPageMetrics.failed, color:'text-red-400', icon:FiAlertTriangle, isPageStat:true },
+              { label:'Total Pages', value:pagination.totalPages, color:'text-indigo-400', icon:FiSearch },
+            ].map((s, i) => (
+              <div key={i} className="bg-[#0B1120] border border-white/[0.05] rounded-2xl p-3 shadow-clay-admin flex flex-col justify-between group hover:-translate-y-1 transition-transform relative overflow-hidden">
+                <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full bg-[#0B1120]/5 opacity-0 group-hover:opacity-100 transition-opacity`} />
+                <div className="flex items-center justify-between mb-2 relative z-10">
+                  <s.icon size={12} className={s.color} />
+                  {s.isPageStat && <span className="text-[8px] font-bold text-[#475569] uppercase" title="Current Page Only">PG</span>}
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">Action Type</label>
-                  <select
-                    value={filters.actionType}
-                    onChange={(e) => setFilters({ ...filters, actionType: e.target.value })}
-                    className="w-full px-4 py-2 bg-[#0E1320] border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500/50"
-                  >
-                    <option value="">All Actions</option>
-                    {actionTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">Module</label>
-                  <select
-                    value={filters.moduleName}
-                    onChange={(e) => setFilters({ ...filters, moduleName: e.target.value })}
-                    className="w-full px-4 py-2 bg-[#0E1320] border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500/50"
-                  >
-                    <option value="">All Modules</option>
-                    {moduleNames.map((module) => (
-                      <option key={module} value={module}>{module}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">Start Date</label>
-                  <input
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                    className="w-full px-4 py-2 bg-[#0E1320] border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">End Date</label>
-                  <input
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                    className="w-full px-4 py-2 bg-[#0E1320] border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">Sort Order</label>
-                  <select
-                    value={filters.sortOrder}
-                    onChange={(e) => setFilters({ ...filters, sortOrder: e.target.value })}
-                    className="w-full px-4 py-2 bg-[#0E1320] border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500/50"
-                  >
-                    <option value="desc">Newest First</option>
-                    <option value="asc">Oldest First</option>
-                  </select>
+                <div className="relative z-10">
+                  <p className={`text-xl font-extrabold ${s.color} drop-shadow-sm`}>{s.value}</p>
+                  <p className="text-[9px] font-bold text-[#64748B] uppercase tracking-wider mt-0.5">{s.label}</p>
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Filters Area */}
+          <div className="bg-[#0B1120] border border-white/[0.06] rounded-2xl p-5 mb-6 shadow-clay-admin">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2"><FiFilter className="text-blue-400" /> Filter Activities</h2>
+              <button onClick={() => setShowFilters(!showFilters)} className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] hover:text-[#94A3B8] transition-colors bg-[#0B1120]/5 px-3 py-1 rounded-full">
+                {showFilters ? 'Hide Advanced' : 'Show Advanced'}
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input type="text" value={filters.search} onChange={e => setFilters({ ...filters, search: e.target.value })} placeholder="Search admin, email, desc..." className="admin-input text-xs py-2.5" />
+              <select value={filters.actionType} onChange={e => setFilters({ ...filters, actionType: e.target.value })} className="admin-select text-xs py-2.5 text-[#94A3B8]">
+                <option value="">All Actions</option>
+                {actionTypes.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
               <div className="flex gap-2">
-                <button
-                  onClick={handleSearch}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors text-sm font-semibold"
-                >
-                  <FiSearch size={16} />
-                  Apply Filters
-                </button>
-                <button
-                  onClick={handleClearFilters}
-                  className="flex items-center gap-2 px-6 py-2 bg-[#1E293B] border border-white/10 text-white rounded-xl hover:bg-[#2D3B52] transition-colors text-sm font-semibold"
-                >
-                  <FiX size={16} />
-                  Clear
-                </button>
+                <button onClick={handleSearch} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl py-2.5 shadow-[0_4px_12px_rgba(59,130,246,0.2)] transition-colors">Search</button>
+                <button onClick={handleClearFilters} className="px-4 bg-[#10192D] border border-white/10 hover:border-white/20 text-[#94A3B8] hover:text-white rounded-xl transition-colors"><FiX size={14} /></button>
               </div>
             </div>
-          )}
 
-          {/* Logs Table */}
-          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
+            {showFilters && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/[0.06] animate-fadeIn">
+                <select value={filters.moduleName} onChange={e => setFilters({ ...filters, moduleName: e.target.value })} className="admin-select text-xs py-2.5 text-[#94A3B8]">
+                  <option value="">All Modules</option>
+                  {moduleNames.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <input type="date" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} className="admin-input text-xs py-2.5" />
+                <input type="date" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} className="admin-input text-xs py-2.5" />
+                <select value={filters.sortOrder} onChange={e => setFilters({ ...filters, sortOrder: e.target.value })} className="admin-select text-xs py-2.5 text-[#94A3B8]">
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Table */}
+          <div className="bg-[#0B1120] border border-white/[0.06] rounded-2xl overflow-hidden shadow-clay-admin min-h-[400px] flex flex-col">
             {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <Spinner size="lg" />
+              <div className="flex-1 flex flex-col items-center justify-center p-12">
+                <Spinner size={36} color="blue" />
+                <p className="text-xs font-bold text-blue-400 mt-4 animate-pulse">Syncing Logs...</p>
               </div>
             ) : logs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-center">
-                <FiActivity size={48} className="text-[#64748B] mb-3" />
-                <p className="text-white font-semibold">No activity logs found</p>
-                <p className="text-sm text-[#94A3B8] mt-1">No admin activities match your filters</p>
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-[#64748B]">
+                <div className="w-16 h-16 rounded-2xl bg-[#0B1120]/[0.02] flex items-center justify-center mb-4">
+                  <FiActivity size={32} className="opacity-20" />
+                </div>
+                <p className="text-sm font-bold">No activity logs found</p>
+                <p className="text-xs mt-1">Adjust filters to see more results.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-[#0E1320] border-b border-white/[0.06]">
+              <div className="overflow-x-auto dark-scroll">
+                <table className="min-w-full relative">
+                  <thead>
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-[#94A3B8] uppercase">Date & Time</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-[#94A3B8] uppercase">Admin</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-[#94A3B8] uppercase">Action</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-[#94A3B8] uppercase">Module</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-[#94A3B8] uppercase">Description</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-[#94A3B8] uppercase">IP Address</th>
-                      <th className="px-6 py-4 text-center text-xs font-bold text-[#94A3B8] uppercase">Actions</th>
+                      {['Time', 'Admin', 'Action', 'Module', 'Description', 'Actions'].map((h) => (
+                        <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap bg-[#0E1320]/80 sticky top-0 backdrop-blur-md z-10">{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
+                  <tbody>
                     {logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-white whitespace-nowrap">{formatDateTime(log.created_at)}</span>
+                      <tr key={log.id} className="group border-b border-white/[0.04] hover:bg-[#0B1120]/[0.02] transition-colors">
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="block text-xs font-semibold text-white">{formatDate(log.created_at)}</span>
+                          <span className="text-[10px] text-[#64748B] font-mono">{formatTime(log.created_at)}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-white">{log.admin_name || 'N/A'}</span>
-                            <span className="text-xs text-[#64748B]">{log.admin_email || 'N/A'}</span>
-                          </div>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="block text-sm font-bold text-white">{log.admin_name || 'N/A'}</span>
+                          <span className="text-[10px] text-[#94A3B8]">{log.admin_email || 'N/A'}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                            {log.action_type}
-                          </span>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">{log.action_type}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                            {log.module_name}
-                          </span>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">{log.module_name}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-[#94A3B8]">{log.description}</span>
+                        <td className="px-5 py-4">
+                          <span className="text-xs text-[#CBD5E1] line-clamp-2">{log.description}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-[#64748B] font-mono">{log.ip_address || 'N/A'}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-center">
-                            <button
-                              onClick={() => openDetailsDialog(log)}
-                              className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
-                              title="View Details"
-                            >
-                              <FiEye size={16} />
-                            </button>
-                          </div>
+                        <td className="px-5 py-4 whitespace-nowrap text-right">
+                          <button onClick={() => setDetailsDialog({ isOpen: true, log })} className="w-8 h-8 rounded-lg bg-[#10192D] text-[#60A5FA] border border-white/5 hover:bg-blue-500/20 hover:border-blue-500/30 flex items-center justify-center transition-all shadow-sm">
+                            <FiEye size={14} />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -375,33 +262,16 @@ const AdminActivityLogs = () => {
                 </table>
               </div>
             )}
-
-            {/* Pagination */}
+            
+            {/* Pagination Strip */}
             {!loading && logs.length > 0 && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.06]">
-                <p className="text-sm text-[#94A3B8]">
-                  Showing <span className="font-semibold text-white">{((pagination.page - 1) * filters.limit) + 1}</span> to{' '}
-                  <span className="font-semibold text-white">{Math.min(pagination.page * filters.limit, pagination.total)}</span> of{' '}
-                  <span className="font-semibold text-white">{pagination.total}</span> results
-                </p>
+              <div className="mt-auto px-5 py-3 bg-[#0B1120] border-t border-white/[0.06] flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest">
+                  Showing {((pagination.page - 1) * filters.limit) + 1} – {Math.min(pagination.page * filters.limit, pagination.total)} of {pagination.total}
+                </span>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
-                    disabled={filters.page === 1}
-                    className="px-4 py-2 bg-[#1E293B] border border-white/10 text-white rounded-xl hover:bg-[#2D3B52] transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <span className="flex items-center px-4 text-sm text-white">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </span>
-                  <button
-                    onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
-                    disabled={filters.page >= pagination.totalPages}
-                    className="px-4 py-2 bg-[#1E293B] border border-white/10 text-white rounded-xl hover:bg-[#2D3B52] transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
+                  <button onClick={() => setFilters({ ...filters, page: filters.page - 1 })} disabled={filters.page === 1} className="px-3 py-1.5 bg-[#10192D] text-white text-xs font-bold rounded-lg disabled:opacity-50 border border-white/10 hover:bg-[#0B1120]/10 transition-colors">Prev</button>
+                  <button onClick={() => setFilters({ ...filters, page: filters.page + 1 })} disabled={filters.page >= pagination.totalPages} className="px-3 py-1.5 bg-[#10192D] text-white text-xs font-bold rounded-lg disabled:opacity-50 border border-white/10 hover:bg-[#0B1120]/10 transition-colors">Next</button>
                 </div>
               </div>
             )}
@@ -409,124 +279,72 @@ const AdminActivityLogs = () => {
         </div>
       </div>
 
-      {/* Details Dialog */}
+      {/* Modern Details Dialog */}
       {detailsDialog.isOpen && detailsDialog.log && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#161D2E] border border-white/10 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-clay-admin">
-            <div className="sticky top-0 bg-[#161D2E] border-b border-white/10 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-white">Activity Details</h2>
-              <button
-                onClick={() => setDetailsDialog({ isOpen: false, log: null })}
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <FiX size={20} className="text-[#94A3B8]" />
-              </button>
+        <div className="fixed inset-0 bg-[#070B1A]/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-[#0B1120] border border-white/[0.08] rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.4)] w-full max-w-3xl animate-scale-in flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06] bg-[#10192D]/50 shrink-0">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2"><FiActivity className="text-blue-400" /> Log Details</h2>
+              <button onClick={() => setDetailsDialog({ isOpen: false, log: null })} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#64748B] hover:bg-[#0B1120]/5 hover:text-white transition-colors"><FiX size={16} /></button>
             </div>
-            <div className="p-6 space-y-6">
-              {/* Admin Info */}
-              <div>
-                <h3 className="text-sm font-bold text-[#94A3B8] uppercase mb-3">Admin Information</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Admin Name</span>
-                    <span className="text-sm font-semibold text-white">{detailsDialog.log.admin_name || 'N/A'}</span>
+            
+            <div className="p-6 overflow-y-auto dark-scroll space-y-6">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04]">
+                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-3">Admin Data</p>
+                  <p className="text-sm font-bold text-white">{detailsDialog.log.admin_name || 'N/A'}</p>
+                  <p className="text-xs text-[#94A3B8]">{detailsDialog.log.admin_email || 'N/A'}</p>
+                </div>
+                <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04]">
+                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-3">Action Info</p>
+                  <div className="flex gap-2">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400">{detailsDialog.log.action_type}</span>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400">{detailsDialog.log.module_name}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Email</span>
-                    <span className="text-sm font-semibold text-white">{detailsDialog.log.admin_email || 'N/A'}</span>
-                  </div>
+                  <p className="text-xs text-white font-mono mt-3">{formatDate(detailsDialog.log.created_at)} {formatTime(detailsDialog.log.created_at)}</p>
                 </div>
               </div>
 
-              {/* Action Info */}
-              <div>
-                <h3 className="text-sm font-bold text-[#94A3B8] uppercase mb-3">Action Information</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Action Type</span>
-                    <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                      {detailsDialog.log.action_type}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Module</span>
-                    <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                      {detailsDialog.log.module_name}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Description</span>
-                    <span className="text-sm font-semibold text-white text-right">{detailsDialog.log.description}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Timestamp</span>
-                    <span className="text-sm font-semibold text-white">{formatDateTime(detailsDialog.log.created_at)}</span>
-                  </div>
-                </div>
+              <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04]">
+                <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-2">Description</p>
+                <p className="text-sm font-medium text-white leading-relaxed">{detailsDialog.log.description}</p>
               </div>
 
-              {/* Technical Info */}
-              <div>
-                <h3 className="text-sm font-bold text-[#94A3B8] uppercase mb-3">Technical Information</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">IP Address</span>
-                    <span className="text-sm font-mono text-white">{detailsDialog.log.ip_address || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Device</span>
-                    <span className="text-sm text-white text-right">{detailsDialog.log.device_info || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-sm text-[#94A3B8]">Browser</span>
-                    <span className="text-sm text-white text-right">{detailsDialog.log.browser_info || 'N/A'}</span>
-                  </div>
-                </div>
+              <div className="bg-[#10192D] rounded-xl p-4 border border-white/[0.04] grid grid-cols-3 gap-4">
+                <div><p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-1">IP Address</p><p className="text-xs font-mono text-[#CBD5E1]">{detailsDialog.log.ip_address || '—'}</p></div>
+                <div><p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-1">Device</p><p className="text-xs text-[#CBD5E1]">{detailsDialog.log.device_info || '—'}</p></div>
+                <div><p className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-1">Browser</p><p className="text-xs text-[#CBD5E1]">{detailsDialog.log.browser_info || '—'}</p></div>
               </div>
 
-              {/* Old Data */}
-              {detailsDialog.log.old_data && (
-                <div>
-                  <h3 className="text-sm font-bold text-[#94A3B8] uppercase mb-3">Old Data</h3>
-                  <div className="bg-[#0E1320] border border-white/10 rounded-xl p-4">
-                    {formatJSON(detailsDialog.log.old_data)}
-                  </div>
+              {(detailsDialog.log.old_data || detailsDialog.log.new_data) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {detailsDialog.log.old_data && (
+                    <div className="bg-[#10192D] rounded-xl p-4 border border-red-500/20 flex flex-col max-h-[300px]">
+                      <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-3">Old Data (Removed)</p>
+                      <div className="flex-1 overflow-y-auto dark-scroll bg-red-950/20 rounded-lg p-3 border border-red-500/10">
+                        {formatJSON(detailsDialog.log.old_data)}
+                      </div>
+                    </div>
+                  )}
+                  {detailsDialog.log.new_data && (
+                    <div className="bg-[#10192D] rounded-xl p-4 border border-emerald-500/20 flex flex-col max-h-[300px]">
+                      <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3">New Data (Added)</p>
+                      <div className="flex-1 overflow-y-auto dark-scroll bg-emerald-950/20 rounded-lg p-3 border border-emerald-500/10">
+                        {formatJSON(detailsDialog.log.new_data)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-
-              {/* New Data */}
-              {detailsDialog.log.new_data && (
-                <div>
-                  <h3 className="text-sm font-bold text-[#94A3B8] uppercase mb-3">New Data</h3>
-                  <div className="bg-[#0E1320] border border-white/10 rounded-xl p-4">
-                    {formatJSON(detailsDialog.log.new_data)}
-                  </div>
-                </div>
-              )}
+              
             </div>
           </div>
         </div>
       )}
 
-      {/* Alert Dialog */}
-      <AlertDialog
-        isOpen={alertDialog.isOpen}
-        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
-        title={alertDialog.title}
-        message={alertDialog.message}
-        type={alertDialog.type}
-      />
-
-      {/* Clear Data Dialog */}
-      <ClearDataDialog
-        isOpen={clearDialog.isOpen}
-        onClose={() => setClearDialog({ isOpen: false })}
-        onConfirm={handleClearActivityLogs}
-        title="Clear Admin Activity Logs"
-        message="⚠️ WARNING: This will permanently delete ALL admin activity log records from the database. This action cannot be undone and will free up storage space."
-        confirmText="delete"
-        type="activity"
-      />
+      <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <ClearDataDialog isOpen={clearDialog.isOpen} onClose={() => setClearDialog({ isOpen: false })} onConfirm={handleClearActivityLogs} title="Clear Admin Logs" message="Permanently delete ALL admin activity records? This action cannot be undone." confirmText="delete" type="danger" />
     </div>
   );
 };

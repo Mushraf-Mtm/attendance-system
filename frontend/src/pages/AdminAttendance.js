@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
@@ -7,14 +7,15 @@ import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
 import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, resetAttendance, deleteAttendance, clearMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
-import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar } from 'react-icons/fi';
+import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar, FiCheckCircle, FiAlertCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
 
 const getLocalDateString = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
 
 const AdminAttendance = () => {
   const [attendance,   setAttendance]   = useState([]);
   const [loading,      setLoading]      = useState(true);
-  const [filters,      setFilters]      = useState({ date: getLocalDateString(), status:'', employee_id:'' });
+  const [filters,      setFilters]      = useState({ date: getLocalDateString(), status:'', employee_id:'', department:'', is_wfh:'' });
+  
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState('pdf');
   const [downloadData,   setDownloadData]   = useState({ month:'', year:'' });
@@ -23,14 +24,21 @@ const AdminAttendance = () => {
   const [clearDialog, setClearDialog] = useState({ isOpen: false });
 
   const fetchAttendance = async () => {
-    try { setLoading(true); const r = await getAllAttendance(filters); if (r.data.success) setAttendance(r.data.attendance); }
+    try { 
+      setLoading(true); 
+      // API expects filters
+      const r = await getAllAttendance(filters); 
+      if (r.data.success) setAttendance(r.data.attendance); 
+    }
     catch (e) { setAlertDialog({ isOpen:true, title:'Error', message:'Error loading attendance data', type:'error' }); }
     finally { setLoading(false); }
   };
+  
   useEffect(() => { fetchAttendance(); }, [filters]); // eslint-disable-line
 
   const handleFilterChange = e => setFilters(f => ({ ...f, [e.target.name]: e.target.value }));
 
+  /* ─── DOWNLOAD & ACTIONS ─── */
   const handleDownloadPDF = format => {
     setDownloadFormat(format);
     const now = new Date(); setDownloadData({ month: String(now.getMonth()+1), year: String(now.getFullYear()) });
@@ -86,45 +94,92 @@ const AdminAttendance = () => {
     }
   };
 
+  /* ─── COMPUTED STATS (For selected date only) ─── */
+  const stats = useMemo(() => {
+    let present = 0, late = 0, halfDay = 0, wfh = 0;
+    // Absent cannot be perfectly calculated without total employee count, 
+    // but we'll show Present, Late, Half Day, WFH based on records.
+    attendance.forEach(a => {
+      if (a.attendance_status === 'Present') present++;
+      else if (a.attendance_status === 'Late') { present++; late++; }
+      else if (a.attendance_status === 'Half Day') { halfDay++; }
+      if (a.is_wfh) wfh++;
+    });
+    return { present, late, halfDay, wfh };
+  }, [attendance]);
+
   return (
     <div className="flex h-screen bg-[#0E1320] dark-scroll">
       <Sidebar />
       <div className="flex-1 overflow-y-auto min-w-0 dark-scroll">
-        <div className="px-5 py-6 lg:px-8 lg:py-8">
+        <div className="px-5 py-6 lg:px-8 lg:py-8 max-w-[1600px] mx-auto pt-16 lg:pt-8">
 
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pt-14 lg:pt-0">
+          {/* ═══ HEADER ═══ */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6 animate-fadeInUp stagger-1">
             <div>
-              <h1 className="text-xl font-bold text-white">Attendance Monitoring</h1>
-              <p className="text-sm text-[#94A3B8] mt-0.5">View and manage employee attendance</p>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">Attendance Management</h1>
+              <p className="text-sm text-[#94A3B8] mt-1.5 font-medium">Monitor and manage employee attendance.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => setClearDialog({ isOpen: true })} className="inline-flex items-center gap-2 bg-red-600/90 hover:bg-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm hover:-translate-y-0.5">
-                <FiTrash2 size={15} /> Clear Attendance
+            <div className="flex flex-wrap gap-2.5">
+              <button onClick={() => setClearDialog({ isOpen: true })} className="flex items-center gap-2 bg-[#1C2540] hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-white hover:text-red-400 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-clay-admin">
+                <FiTrash2 size={16} /> Clear
               </button>
-              <button onClick={() => handleDownloadPDF('pdf')} className="inline-flex items-center gap-2 bg-red-600/90 hover:bg-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm hover:-translate-y-0.5">
-                <FiDownload size={15} /> PDF
+              <button onClick={() => handleDownloadPDF('pdf')} className="flex items-center gap-2 bg-[#1C2540] hover:bg-red-500 border border-white/10 hover:border-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-clay-admin">
+                <FiDownload size={16} /> PDF
               </button>
-              <button onClick={() => handleDownloadPDF('excel')} className="inline-flex items-center gap-2 bg-emerald-600/90 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm hover:-translate-y-0.5">
-                <FiDownload size={15} /> Excel
+              <button onClick={() => handleDownloadPDF('excel')} className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-[0_4px_16px_rgba(16,185,129,0.2)]">
+                <FiDownload size={16} /> Excel
               </button>
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl p-5 mb-5 shadow-clay-admin">
+          {/* ═══ TODAY'S SUMMARY ═══ */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 animate-fadeInUp stagger-2">
+            {[
+              { label: 'Present',  value: stats.present, icon: FiCheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+              { label: 'Late',     value: stats.late,    icon: FiClock,       color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20' },
+              { label: 'Half Day', value: stats.halfDay, icon: FiTrendingUp,  color: 'text-yellow-500',  bg: 'bg-yellow-500/10 border-yellow-500/20' },
+              { label: 'WFH',      value: stats.wfh,     icon: FiHome,        color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-4 shadow-clay-admin flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-1">{stat.label}</p>
+                  <p className="text-2xl font-extrabold text-white">{stat.value}</p>
+                </div>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${stat.bg} ${stat.color}`}>
+                  <stat.icon size={18} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ═══ FILTERS ═══ */}
+          <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-5 mb-6 shadow-clay-admin animate-fadeInUp stagger-3">
             <div className="flex items-center gap-2 mb-4">
-              <FiFilter size={14} className="text-[#64748B]" />
-              <h2 className="text-sm font-semibold text-[#94A3B8]">Filters</h2>
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <FiFilter size={14} className="text-blue-400" />
+              </div>
+              <h2 className="text-sm font-bold text-white">Filter Records</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Date</label>
-                <input type="date" name="date" value={filters.date} onChange={handleFilterChange} className="admin-input" />
+                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Date</label>
+                <input type="date" name="date" value={filters.date} onChange={handleFilterChange} className="admin-input py-2.5 text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Status</label>
-                <select name="status" value={filters.status} onChange={handleFilterChange} className="admin-select">
+                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Search ID</label>
+                <input type="text" name="employee_id" value={filters.employee_id} onChange={handleFilterChange} placeholder="EMP-001" className="admin-input py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Department</label>
+                <select name="department" value={filters.department || ''} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-[#94A3B8]">
+                  <option value="">All Depts</option>
+                  {[...new Set(attendance.map(a=>a.department))].filter(Boolean).map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Status</label>
+                <select name="status" value={filters.status} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-[#94A3B8]">
                   <option value="">All Statuses</option>
                   <option value="Currently Working">Currently Working</option>
                   <option value="Present">Present</option>
@@ -134,55 +189,71 @@ const AdminAttendance = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Employee ID</label>
-                <input type="text" name="employee_id" value={filters.employee_id} onChange={handleFilterChange} placeholder="Search by Employee ID" className="admin-input" />
+                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Work Type</label>
+                <select name="is_wfh" value={filters.is_wfh || ''} onChange={handleFilterChange} className="admin-select py-2.5 text-sm text-[#94A3B8]">
+                  <option value="">All Types</option>
+                  <option value="false">Office</option>
+                  <option value="true">WFH</option>
+                </select>
               </div>
             </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-[#161D2E] border border-white/[0.07] rounded-2xl overflow-hidden shadow-clay-admin">
+          {/* ═══ TABLE ═══ */}
+          <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl overflow-hidden shadow-clay-admin animate-fadeInUp stagger-4">
             {loading ? (
-              <div className="flex items-center justify-center py-16"><Spinner size={32} /></div>
+              <div className="flex flex-col items-center justify-center py-24">
+                <Spinner size={36} color="blue" />
+                <p className="text-sm font-medium text-[#64748B] mt-4 animate-pulse">Loading records...</p>
+              </div>
             ) : (
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
-                  <thead className="bg-[#0E1320]/50">
-                    <tr>{['Date','Emp ID','Name','Dept','Login','Logout','Hours','Status','WFH','Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  <thead className="bg-[#0E1320]/80">
+                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','Status','Type','Actions'].map(h => (
+                      <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {attendance.length > 0 ? attendance.map(record => (
-                      <tr key={record.id} className="admin-table-row">
-                        <td className="px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{formatDate(record.attendance_date)}</td>
-                        <td className="px-4 py-3.5 text-sm text-[#94A3B8] font-mono whitespace-nowrap">{record.emp_id}</td>
-                        <td className="hidden sm:table-cell px-4 py-3.5 text-sm font-semibold text-white whitespace-nowrap">{record.name}</td>
-                        <td className="hidden md:table-cell px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{record.department}</td>
-                        <td className="px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{formatTime(record.login_time)}</td>
-                        <td className="hidden lg:table-cell px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">
-                          {formatTime(record.logout_time)}
-                          {record.is_auto_checkout && record.logout_time && <span className="block text-xs text-amber-400">(Auto)</span>}
+                    {attendance.length > 0 ? attendance.map(r => (
+                      <tr key={r.id} className="admin-table-row hover:bg-[#0B1120]/[0.02] transition-colors group">
+                        <td className="px-5 py-4 text-xs font-semibold text-[#CBD5E1] whitespace-nowrap">{formatDate(r.attendance_date)}</td>
+                        <td className="px-5 py-4 text-xs text-[#94A3B8] font-mono whitespace-nowrap">{r.emp_id}</td>
+                        <td className="px-5 py-4 text-sm font-bold text-white whitespace-nowrap">{r.name}</td>
+                        <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">{r.department}</td>
+                        <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">{formatTime(r.login_time)}</td>
+                        <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">
+                          {formatTime(r.logout_time) || '—'}
+                          {r.is_auto_checkout && r.logout_time && <span className="block text-[10px] text-amber-500/80 font-bold mt-0.5">(Auto)</span>}
                         </td>
-                        <td className="hidden xl:table-cell px-4 py-3.5 text-sm text-[#CBD5E1] whitespace-nowrap">{formatWorkingHours(parseFloat(record.total_working_hours))}</td>
-                        <td className="px-4 py-3.5 whitespace-nowrap"><StatusBadge status={record.attendance_status} dark /></td>
-                        <td className="hidden sm:table-cell px-4 py-3.5 whitespace-nowrap">
-                          {record.is_wfh
-                            ? <span className="inline-flex items-center text-xs font-semibold text-blue-400 bg-blue-500/15 border border-blue-500/25 px-2 py-0.5 rounded-full">WFH</span>
-                            : <span className="text-xs text-[#475569]">Office</span>
-                          }
+                        <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
+                        <td className="px-5 py-4 whitespace-nowrap"><StatusBadge status={r.attendance_status} dark /></td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {r.is_wfh ? <span className="text-[10px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-full">WFH</span> : <span className="text-xs text-[#475569] font-medium">Office</span>}
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            {record.login_time && <button onClick={() => handleResetAttendance(record, 'check-in')} title="Reset Check-In" className="w-7 h-7 rounded-lg flex items-center justify-center text-amber-400 hover:bg-amber-500/10 transition-colors"><FiRotateCcw size={13} /></button>}
-                            {record.logout_time && <button onClick={() => handleResetAttendance(record, 'check-out')} title="Reset Check-Out" className="w-7 h-7 rounded-lg flex items-center justify-center text-[#60A5FA] hover:bg-blue-500/10 transition-colors"><FiRefreshCw size={13} /></button>}
-                            <button onClick={() => handleDeleteAttendance(record)} title="Delete" className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors"><FiTrash2 size={13} /></button>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
+                            {r.login_time && (
+                              <button onClick={() => handleResetAttendance(r, 'check-in')} title="Reset Check-In" className="w-8 h-8 rounded-xl flex items-center justify-center text-amber-500 bg-[#1C2540] border border-white/5 hover:bg-amber-500/10 hover:border-amber-500/20 transition-all shadow-sm"><FiRotateCcw size={14} /></button>
+                            )}
+                            {r.logout_time && (
+                              <button onClick={() => handleResetAttendance(r, 'check-out')} title="Reset Check-Out" className="w-8 h-8 rounded-xl flex items-center justify-center text-blue-400 bg-[#1C2540] border border-white/5 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"><FiRefreshCw size={14} /></button>
+                            )}
+                            <button onClick={() => handleDeleteAttendance(r)} title="Delete Record" className="w-8 h-8 rounded-xl flex items-center justify-center text-red-500 bg-[#1C2540] border border-white/5 hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"><FiTrash2 size={14} /></button>
                           </div>
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={10} className="px-4 py-16 text-center">
-                        <div className="flex flex-col items-center gap-3"><FiCalendar size={28} className="text-[#475569]" /><p className="text-sm font-medium text-[#64748B]">No attendance records found</p></div>
+                      <tr><td colSpan={10} className="px-5 py-20 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-16 h-16 rounded-2xl bg-[#0B1120]/[0.02] flex items-center justify-center">
+                            <FiCalendar size={28} className="text-[#475569]" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-[#94A3B8]">No records found</p>
+                            <p className="text-xs font-medium text-[#64748B] mt-1">Try adjusting your filters</p>
+                          </div>
+                        </div>
                       </td></tr>
                     )}
                   </tbody>
@@ -193,28 +264,27 @@ const AdminAttendance = () => {
         </div>
       </div>
 
-      {/* Download Dialog */}
+      {/* ═══ DIALOGS ═══ */}
       {showDownloadDialog && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1C2540] border border-white/[0.08] rounded-2xl shadow-clay-admin-modal w-full max-w-sm animate-scale-in">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
-              <h2 className="text-base font-bold text-white">Download Attendance Matrix</h2>
-              <button onClick={() => setShowDownloadDialog(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#94A3B8] transition-colors"><FiX size={18} /></button>
+        <div className="fixed inset-0 bg-[#0E1320]/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-[#161D2E] border border-white/[0.08] rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.4)] w-full max-w-sm animate-scale-in overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06] bg-[#1C2540]/30">
+              <h2 className="text-sm font-bold text-white">Download Attendance</h2>
+              <button onClick={() => setShowDownloadDialog(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#64748B] hover:bg-[#0B1120]/5 hover:text-white transition-colors"><FiX size={16} /></button>
             </div>
-            <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-[#94A3B8]">Select month and year for the {downloadFormat.toUpperCase()} report.</p>
+            <div className="px-6 py-6 space-y-5">
               <div>
-                <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Month (1–12)</label>
-                <input type="number" min="1" max="12" value={downloadData.month} onChange={e => setDownloadData(d => ({ ...d, month: e.target.value }))} placeholder="1–12" className="admin-input" />
+                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Month (1–12)</label>
+                <input type="number" min="1" max="12" value={downloadData.month} onChange={e => setDownloadData(d => ({ ...d, month: e.target.value }))} placeholder="1–12" className="admin-input py-2.5" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-2">Year</label>
-                <input type="number" min="2020" max="2030" value={downloadData.year} onChange={e => setDownloadData(d => ({ ...d, year: e.target.value }))} placeholder="e.g. 2026" className="admin-input" />
+                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">Year</label>
+                <input type="number" min="2020" max="2030" value={downloadData.year} onChange={e => setDownloadData(d => ({ ...d, year: e.target.value }))} placeholder="e.g. 2026" className="admin-input py-2.5" />
               </div>
             </div>
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/[0.06] bg-[#161D2E]/60 rounded-b-2xl">
-              <button onClick={() => setShowDownloadDialog(false)} className="px-4 py-2 text-sm font-semibold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-white/5 transition-colors">Cancel</button>
-              <button onClick={downloadMatrix} className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-all duration-200 ${downloadFormat === 'pdf' ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
+            <div className="flex gap-3 px-6 py-5 border-t border-white/[0.06] bg-[#1C2540]/30">
+              <button onClick={() => setShowDownloadDialog(false)} className="flex-1 px-4 py-2.5 text-sm font-bold text-[#94A3B8] border border-white/10 rounded-xl hover:bg-[#0B1120]/5 transition-colors">Cancel</button>
+              <button onClick={downloadMatrix} className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all duration-200 ${downloadFormat === 'pdf' ? 'bg-red-600 hover:bg-red-500 shadow-[0_4px_16px_rgba(220,38,38,0.2)]' : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-[0_4px_16px_rgba(16,185,129,0.2)]'}`}>
                 Download {downloadFormat.toUpperCase()}
               </button>
             </div>
@@ -224,17 +294,7 @@ const AdminAttendance = () => {
 
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(d => ({ ...d, isOpen:false })); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
       <AlertDialog   isOpen={alertDialog.isOpen}   onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))}   title={alertDialog.title}   message={alertDialog.message}   type={alertDialog.type} />
-      
-      {/* Clear Data Dialog */}
-      <ClearDataDialog
-        isOpen={clearDialog.isOpen}
-        onClose={() => setClearDialog({ isOpen: false })}
-        onConfirm={handleClearMonthlyAttendance}
-        title="Clear Monthly Attendance"
-        message="⚠️ WARNING: This will permanently delete ALL attendance records for the selected month and year. This action cannot be undone and will free up storage space."
-        confirmText="delete this month attendance"
-        type="attendance"
-      />
+      <ClearDataDialog isOpen={clearDialog.isOpen} onClose={() => setClearDialog({ isOpen: false })} onConfirm={handleClearMonthlyAttendance} title="Clear Monthly Attendance" message="⚠️ WARNING: This will permanently delete ALL attendance records for the selected month and year. This action cannot be undone." confirmText="delete this month attendance" type="attendance" />
     </div>
   );
 };

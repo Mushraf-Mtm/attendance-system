@@ -67,7 +67,7 @@ const ContactPage = () => {
                   <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wider mb-2">Message</label>
                   <textarea name="message" value={formData.message} onChange={handleChange} required rows="5" placeholder="Tell us more about your inquiry..." className="emp-input resize-none" />
                 </div>
-                <button type="submit" className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#2563EB] text-white font-bold rounded-xl hover:bg-blue-700 shadow-[0_4px_16px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 transition-all">
+                <button type="submit" className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#2563EB] text-[#0F172A] font-bold rounded-xl hover:bg-blue-700 shadow-[0_4px_16px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 transition-all">
                   <FiSend size={15} /> Send Message
                 </button>
               </form>
@@ -84,7 +84,7 @@ const ContactPage = () => {
                   <div>
                     <h3 className="text-sm font-bold text-[#0F172A]">{title}</h3>
                     <p className="text-sm text-[#475569] mt-0.5">{value}</p>
-                    <p className="text-xs text-[#94A3B8] mt-0.5">{sub}</p>
+                    <p className="text-xs text-[#64748B] mt-0.5">{sub}</p>
                   </div>
                 </div>
               ))}
@@ -111,7 +111,7 @@ const ContactPage = () => {
               <div key={title} className="bg-white border border-[#E2E8F0] rounded-2xl p-6 text-center shadow-clay">
                 <h3 className="text-sm font-bold text-[#0F172A] mb-2">{title}</h3>
                 <p className="text-[#2563EB] font-semibold text-sm">{avail}</p>
-                <p className="text-xs text-[#94A3B8] mt-1">{sub}</p>
+                <p className="text-xs text-[#64748B] mt-1">{sub}</p>
               </div>
             ))}
           </div>
