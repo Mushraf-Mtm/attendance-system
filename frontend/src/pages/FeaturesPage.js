@@ -16,6 +16,9 @@ const features = [
   { icon: FiSmartphone,  color: 'bg-orange-50 text-orange-600',      title: 'Mobile Responsive',                desc: 'Fully responsive design works seamlessly on all devices — smartphones, tablets, and desktops.', benefits: ['Mobile-first design','Touch-optimized interface','Works on all screen sizes','Native app experience'] },
   { icon: FiAlertCircle, color: 'bg-rose-50 text-rose-600',          title: 'Admin Activity Logs',              desc: 'Track all admin actions with comprehensive audit logging including settings changes and approvals.', benefits: ['Complete admin activity tracking','Settings change history','Device approval logs','PDF export of logs'] },
   { icon: FiCheckCircle, color: 'bg-emerald-50 text-emerald-600',    title: 'Work From Home Support',           desc: 'Dedicated WFH attendance tracking with flexible validation rules for hybrid work models.', benefits: ['WFH attendance marking','Flexible validation rules','Hybrid work support','Remote work analytics'] },
+  { icon: FiWifi,        color: 'bg-yellow-50 text-yellow-600',      title: 'Dynamic Motivation System',        desc: 'Keep employees engaged with context-aware motivational messages based on their attendance events.', benefits: ['Over 200 contextual messages','Daily session caching','Event-driven animated popups','Holiday & weekend awareness'] },
+  { icon: FiBarChart2,   color: 'bg-fuchsia-50 text-fuchsia-600',    title: 'System Health Monitoring',         desc: 'Real-time infrastructure checks for the database, backend API, email services, and cron jobs.', benefits: ['Live database ping tests','Active SMTP verification','Background cron health','Visual status indicators'] },
+  { icon: FiLock,        color: 'bg-blue-50 text-blue-600',          title: 'Premium SaaS Design',              desc: 'Modern, highly polished user interfaces featuring glassmorphism, responsive grids, and micro-animations.', benefits: ['Stunning login screens','Smooth UI animations','Balanced empty states','Professional color themes'] },
 ];
 
 const FeaturesPage = () => {
@@ -62,8 +65,8 @@ const FeaturesPage = () => {
           <h2 className="text-3xl font-extrabold text-[#0F172A] mb-10 text-center">Why Organizations Choose Us</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
-              { title: 'For Administrators', items: ['Complete employee management dashboard','Real-time attendance monitoring','Trusted device approval system','Admin activity audit logs','Comprehensive reporting with holidays','Security logs and audit trails','Data cleanup tools for storage management'] },
-              { title: 'For Employees',      items: ['Simple one-tap check-in and check-out','View attendance history and statistics','Mobile-friendly interface','Profile management and password reset','Clear feedback on attendance status','WFH attendance support'] },
+              { title: 'For Administrators', items: ['Complete employee management dashboard','Real-time attendance monitoring','Trusted device approval & blocking system','Admin activity audit logs','Comprehensive reporting with holidays','Real-time System Health Checks'] },
+              { title: 'For Employees',      items: ['Simple one-tap check-in and check-out','Dynamic Motivation popups on attendance','View attendance history and statistics','Mobile-friendly premium interface','Profile management and password reset','WFH attendance support'] },
             ].map(({ title, items }) => (
               <div key={title} className="bg-white border border-[#E2E8F0] rounded-2xl p-7 shadow-clay">
                 <h3 className="text-lg font-bold text-[#0F172A] mb-5">{title}</h3>

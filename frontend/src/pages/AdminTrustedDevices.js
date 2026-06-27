@@ -3,15 +3,17 @@ import Sidebar from '../components/Sidebar';
 import DetailsDialog from '../components/DetailsDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertDialog from '../components/AlertDialog';
+import PromptDialog from '../components/PromptDialog';
 import { Spinner } from '../components/Loader';
-import { FiSmartphone, FiCheck, FiX, FiEdit2, FiSave, FiRefreshCw, FiEye, FiTrash2, FiSearch, FiMonitor, FiTablet, FiAlertTriangle } from 'react-icons/fi';
-import { getAllTrustedDevices, approveTrustedDevice, rejectTrustedDevice, updateTrustedDeviceAlias, removeTrustedDeviceApproval, deleteTrustedDevice, getTrustedDeviceStats } from '../services/api';
+import { FiSmartphone, FiCheck, FiX, FiEdit2, FiSave, FiRefreshCw, FiEye, FiTrash2, FiSearch, FiMonitor, FiTablet, FiAlertTriangle, FiShieldOff, FiUnlock } from 'react-icons/fi';
+import { getAllTrustedDevices, approveTrustedDevice, rejectTrustedDevice, updateTrustedDeviceAlias, removeTrustedDeviceApproval, deleteTrustedDevice, getTrustedDeviceStats, blockTrustedDevice, unblockTrustedDevice } from '../services/api';
 import { formatDate } from '../utils/formatTime';
 
 const TABS = [
   { id: 'pending',  label: 'Pending',  icon: FiAlertTriangle },
   { id: 'approved', label: 'Approved', icon: FiCheck },
   { id: 'rejected', label: 'Rejected', icon: FiX },
+  { id: 'blocked', label: 'Blocked', icon: FiShieldOff },
 ];
 
 const DeviceTypePill = ({ type }) => {
@@ -56,7 +58,7 @@ const AdminTrustedDevices = () => {
   const [activeTab, setActiveTab] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState([]);
-  const [stats, setStats] = useState({ totalDevices:0, pendingDevices:0, approvedDevices:0, rejectedDevices:0 });
+  const [stats, setStats] = useState({ totalDevices:0, pendingDevices:0, approvedDevices:0, rejectedDevices:0, blockedDevices:0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [editingDevice, setEditingDevice] = useState(null);
   const [editAlias, setEditAlias] = useState('');
@@ -65,6 +67,7 @@ const AdminTrustedDevices = () => {
   
   const [detailsDialog, setDetailsDialog] = useState({ isOpen: false, title: '', details: null });
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info' });
+  const [promptDialog, setPromptDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'info', confirmText: 'Submit' });
   const [alertDialog, setAlertDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
 
   useEffect(() => { 
@@ -101,18 +104,50 @@ const AdminTrustedDevices = () => {
   };
 
   const handleReject = (device) => {
-    setConfirmDialog({
-      isOpen: true, title: 'Reject Device', type: 'danger',
+    setPromptDialog({
+      isOpen: true, title: 'Reject Device', type: 'danger', confirmText: 'Reject',
       message: `Are you sure you want to reject ${device.device_alias || device.employee_name}'s device?`,
-      onConfirm: async () => {
+      onConfirm: async (remarks) => {
         try {
-          const remarks = prompt('Optional: Enter reason for rejection');
           const response = await rejectTrustedDevice(device.id, remarks);
           if (response.data.success) {
             setAlertDialog({ isOpen: true, title: 'Success', message: 'Device rejected successfully', type: 'success' });
             fetchDevices(); fetchStats();
           }
         } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to reject device', type: 'error' }); }
+      }
+    });
+  };
+
+  const handleBlock = (device) => {
+    setConfirmDialog({
+      isOpen: true, title: 'Block Device', type: 'danger', confirmText: 'Block',
+      message: `Are you sure you want to block this trusted device? The employee will no longer be able to use this device for attendance until it is unblocked.`,
+      onConfirm: async () => {
+        try {
+          // You could optionally ask for remarks using PromptDialog, but requirements say optional and confirm dialog is fine.
+          const response = await blockTrustedDevice(device.id, 'Blocked by Admin');
+          if (response.data.success) {
+            setAlertDialog({ isOpen: true, title: 'Success', message: 'Device blocked successfully', type: 'success' });
+            fetchDevices(); fetchStats();
+          }
+        } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to block device', type: 'error' }); }
+      }
+    });
+  };
+
+  const handleUnblock = (device) => {
+    setConfirmDialog({
+      isOpen: true, title: 'Unblock Device', type: 'info', confirmText: 'Unblock',
+      message: `This device will become trusted again.`,
+      onConfirm: async () => {
+        try {
+          const response = await unblockTrustedDevice(device.id);
+          if (response.data.success) {
+            setAlertDialog({ isOpen: true, title: 'Success', message: 'Device unblocked successfully', type: 'success' });
+            fetchDevices(); fetchStats();
+          }
+        } catch (error) { setAlertDialog({ isOpen: true, title: 'Error', message: 'Failed to unblock device', type: 'error' }); }
       }
     });
   };
@@ -151,7 +186,7 @@ const AdminTrustedDevices = () => {
 
   const handleDelete = (device) => {
     setConfirmDialog({
-      isOpen: true, title: 'Delete Device', type: 'danger',
+      isOpen: true, title: 'Delete Device', type: 'danger', confirmText: 'Delete',
       message: `Permanently delete ${device.device_alias || device.employee_name}'s device? This cannot be undone.`,
       onConfirm: async () => {
         try {
@@ -220,7 +255,7 @@ const AdminTrustedDevices = () => {
               { label:'Pending Devices', value:stats.pendingDevices, color:'text-amber-400',   bg:'from-amber-500/10 to-transparent', border:'border-amber-500/20', alert:stats.pendingDevices>0 },
               { label:'Approved Devices',value:stats.approvedDevices,color:'text-emerald-400', bg:'from-emerald-500/10 to-transparent', border:'border-emerald-500/20' },
               { label:'Rejected Devices',value:stats.rejectedDevices,color:'text-red-400',     bg:'from-red-500/10 to-transparent', border:'border-red-500/20' },
-              { label:'Blocked Devices', value: 0,                   color:'text-purple-400',  bg:'from-purple-500/10 to-transparent', border:'border-purple-500/20' },
+              { label:'Blocked Devices', value: stats.blockedDevices,color:'text-purple-400',  bg:'from-purple-500/10 to-transparent', border:'border-purple-500/20' },
             ].map((s, i) => (
               <div key={i} className={`bg-[#0B1120] border ${s.border} rounded-2xl p-4 shadow-clay-admin overflow-hidden relative group hover:-translate-y-1 transition-transform duration-300`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${s.bg} opacity-50 group-hover:opacity-100 transition-opacity`} />
@@ -275,6 +310,7 @@ const AdminTrustedDevices = () => {
                         {activeTab === 'pending' && <Th>First Seen</Th>}
                         {activeTab === 'approved' && <Th>Last Used / Approved</Th>}
                         {activeTab === 'rejected' && <Th>Rejected Date</Th>}
+                        {activeTab === 'blocked' && <Th>Blocked Date</Th>}
                         <Th>Actions</Th>
                       </tr>
                     </thead>
@@ -325,8 +361,12 @@ const AdminTrustedDevices = () => {
                             <Td className="whitespace-nowrap"><span className="text-[10px] font-bold text-red-400/80 uppercase">{formatDate(device.rejected_at)}</span></Td>
                           )}
                           
+                          {activeTab === 'blocked' && (
+                            <Td className="whitespace-nowrap"><span className="text-[10px] font-bold text-purple-400/80 uppercase">{formatDate(device.rejected_at || device.updated_at)}</span></Td>
+                          )}
+                          
                           <Td>
-                            <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2">
                               {editingDevice === device.id ? (
                                 <>
                                   <button onClick={() => handleSaveAlias(device.id)} disabled={savingAlias} className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 flex items-center justify-center disabled:opacity-50"><FiSave size={14} /></button>
@@ -341,10 +381,16 @@ const AdminTrustedDevices = () => {
                                     </>
                                   )}
                                   {activeTab === 'approved' && (
-                                    <button onClick={() => handleRemoveApproval(device)} className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 flex items-center justify-center transition-all" title="Revoke Approval"><FiX size={14} /></button>
+                                    <>
+                                      <button onClick={() => handleBlock(device)} className="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 flex items-center justify-center transition-all" title="Block Device"><FiShieldOff size={14} /></button>
+                                      <button onClick={() => handleRemoveApproval(device)} className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 flex items-center justify-center transition-all" title="Revoke Approval"><FiX size={14} /></button>
+                                    </>
                                   )}
                                   {activeTab === 'rejected' && (
                                     <button onClick={() => handleApprove(device.id)} className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 flex items-center justify-center transition-all" title="Approve"><FiCheck size={14} /></button>
+                                  )}
+                                  {activeTab === 'blocked' && (
+                                    <button onClick={() => handleUnblock(device)} className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 flex items-center justify-center transition-all" title="Unblock Device"><FiUnlock size={14} /></button>
                                   )}
                                   <button onClick={() => handleEditAlias(device)} className="w-8 h-8 rounded-lg bg-[#10192D] text-[#94A3B8] border border-white/5 hover:text-blue-400 hover:border-blue-500/20 hover:bg-blue-500/10 flex items-center justify-center transition-all" title="Edit Alias"><FiEdit2 size={13} /></button>
                                   <button onClick={() => handleViewDetails(device)} className="w-8 h-8 rounded-lg bg-[#10192D] text-[#94A3B8] border border-white/5 hover:text-white hover:border-white/20 flex items-center justify-center transition-all" title="View Details"><FiEye size={14} /></button>
@@ -366,7 +412,8 @@ const AdminTrustedDevices = () => {
       </div>
 
       <DetailsDialog isOpen={detailsDialog.isOpen} onClose={() => setDetailsDialog({ isOpen: false, title: '', details: null })} title={detailsDialog.title} details={detailsDialog.details} />
-      <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog({ ...confirmDialog, isOpen: false }); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'danger' ? 'Delete' : 'Confirm'} />
+      <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog({ ...confirmDialog, isOpen: false }); }} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.confirmText || (confirmDialog.type === 'danger' ? 'Delete' : 'Confirm')} />
+      <PromptDialog isOpen={promptDialog.isOpen} onClose={() => setPromptDialog({ ...promptDialog, isOpen: false })} onConfirm={(val) => { promptDialog.onConfirm(val); setPromptDialog({ ...promptDialog, isOpen: false }); }} title={promptDialog.title} message={promptDialog.message} type={promptDialog.type} confirmText={promptDialog.confirmText} />
       <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
     </div>
   );

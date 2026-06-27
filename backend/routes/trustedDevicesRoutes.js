@@ -8,7 +8,9 @@ const {
   rejectDevice,
   updateDeviceAlias,
   removeApproval,
-  deleteDevice
+  deleteDevice,
+  blockDevice,
+  unblockDevice
 } = require('../controllers/trustedDevicesController');
 
 // All routes require authentication and admin role
@@ -35,5 +37,11 @@ router.post('/remove-approval', removeApproval);
 
 // Delete device
 router.delete('/:id', deleteDevice);
+
+// Block device
+router.post('/block', blockDevice);
+
+// Unblock device
+router.post('/unblock', unblockDevice);
 
 module.exports = router;

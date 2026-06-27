@@ -151,8 +151,10 @@ export const checkHolidayStatus = (date) =>
 export const getSettings = () => 
   api.get('/settings');
 
-export const updateSettings = (data) => 
-  api.put('/settings', data);
+export const updateSettings = (data) => api.put('/settings', data);
+
+// System Health
+export const getSystemHealth = () => api.get('/admins/health').catch(err => ({ data: { success: false, message: err.message } }));
 
 // Attendance Reset and Delete APIs
 export const resetAttendance = (attendanceId, resetType) => 
@@ -228,6 +230,12 @@ export const removeTrustedDeviceApproval = (deviceId) =>
 
 export const deleteTrustedDevice = (deviceId) => 
   api.delete(`/trusted-devices/${deviceId}`);
+
+export const blockTrustedDevice = (deviceId, remarks) =>
+  api.post('/trusted-devices/block', { deviceId, remarks });
+
+export const unblockTrustedDevice = (deviceId) =>
+  api.post('/trusted-devices/unblock', { deviceId });
 
 export default api;
 

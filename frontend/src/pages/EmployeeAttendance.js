@@ -271,7 +271,7 @@ const EmployeeAttendance = () => {
                               {d.holiday && (
                                 <div className="relative group">
                                   <FiInfo size={13} className="text-[#4F6CE1] cursor-help" />
-                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-[#1E293B] text-[#0F172A] text-xs rounded-2xl p-3.5 w-56 z-10 shadow-clay-soft-lg">
+                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-white text-[#0F172A] text-xs rounded-2xl p-3.5 w-56 z-10 shadow-clay-soft-lg">
                                     <p className="font-semibold mb-0.5">{d.holiday.holiday_title}</p>
                                     {d.holiday.holiday_note && <p className="text-[#64748B]">{d.holiday.holiday_note}</p>}
                                   </div>

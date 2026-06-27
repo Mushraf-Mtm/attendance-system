@@ -7,7 +7,8 @@ const {
   updateAdmin,
   deleteAdmin,
   changePassword,
-  getLoginLogs
+  getLoginLogs,
+  getSystemHealth
 } = require('../controllers/adminController');
 
 // All routes require authentication and admin role
@@ -25,5 +26,8 @@ router.post('/change-password', changePassword);
 
 // Login logs
 router.get('/login-logs', getLoginLogs);
+
+// System health
+router.get('/health', getSystemHealth);
 
 module.exports = router;

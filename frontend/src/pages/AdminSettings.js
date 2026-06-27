@@ -87,7 +87,7 @@ const AdminSettings = () => {
     e.preventDefault(); setSaving(true);
     try { 
       const response = await updateSettings(settings); 
-      if (response.data.success) setAlertDialog({ isOpen:true, title:'Success', message:'Settings updated successfully! Changes apply immediately.', type:'success' }); 
+      if (response.data.success) setAlertDialog({ isOpen:true, title:'Success', message:'Settings updated successfully', type:'success' }); 
     }
     catch (error) { setAlertDialog({ isOpen:true, title:'Error', message: error.response?.data?.message || 'Failed to update settings', type:'error' }); }
     finally { setSaving(false); }

@@ -10,8 +10,8 @@ const LogoutWarningDialog = ({ isOpen, onClose, onLogout }) => {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative bg-[#1C2540] border border-[#CBD5E1] rounded-2xl shadow-clay-admin-modal w-full max-w-sm animate-scale-in">
-          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#64748B] transition-colors">
+        <div className="relative bg-[#1E293B] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-sm animate-scale-in">
+          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
             <FiX size={17} />
           </button>
           <div className="flex justify-center pt-8 pb-4">
@@ -20,13 +20,13 @@ const LogoutWarningDialog = ({ isOpen, onClose, onLogout }) => {
             </div>
           </div>
           <div className="px-6 pb-6 text-center">
-            <h2 className="text-lg font-bold text-[#0F172A] mb-2">You're still logged in!</h2>
-            <p className="text-sm text-[#64748B] mb-6">Please sign out properly before closing to end your session securely.</p>
+            <h2 className="text-lg font-bold text-white mb-2">You're still logged in!</h2>
+            <p className="text-sm text-gray-300 mb-6">Please sign out properly before closing to end your session securely.</p>
             <div className="space-y-2">
-              <button onClick={onLogout} className="w-full bg-red-600 hover:bg-red-500 text-[#0F172A] py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm">
+              <button onClick={onLogout} className="w-full bg-red-600 hover:bg-red-500 text-white py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm">
                 <FiLogOut size={16} /> Sign Out Now
               </button>
-              <button onClick={onClose} className="w-full bg-white/5 hover:bg-white/10 border border-[#E2E8F0] text-[#64748B] py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors">
+              <button onClick={onClose} className="w-full bg-white/5 hover:bg-white/10 border border-white/20 text-white py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors">
                 Stay Logged In
               </button>
             </div>
@@ -52,7 +52,7 @@ const LogoutWarningDialog = ({ isOpen, onClose, onLogout }) => {
           <h2 className="text-lg font-bold text-[#0F172A] mb-2">You're still logged in!</h2>
           <p className="text-sm text-[#475569] mb-6">Please sign out properly before closing to end your session securely.</p>
           <div className="space-y-2">
-            <button onClick={onLogout} className="w-full bg-red-600 hover:bg-red-700 text-[#0F172A] py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm">
+            <button onClick={onLogout} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm">
               <FiLogOut size={16} /> Sign Out Now
             </button>
             <button onClick={onClose} className="w-full bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] py-2.5 px-5 rounded-xl text-sm font-semibold transition-colors">

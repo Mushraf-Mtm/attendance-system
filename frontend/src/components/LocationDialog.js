@@ -50,12 +50,12 @@ const LocationDialog = ({ isOpen, onClose, onAllow, title, message, type = 'perm
           {type === 'permission' ? (
             <>
               <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[#475569] border border-[#E2E8F0] rounded-xl hover:bg-[#F1F5F9] transition-colors">Cancel</button>
-              <button onClick={() => { onAllow(); onClose(); }} className={`px-5 py-2 text-sm font-semibold text-[#0F172A] rounded-xl shadow-sm transition-colors ${cfg.btn}`}>
+              <button onClick={() => { onAllow(); onClose(); }} className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-colors ${cfg.btn}`}>
                 Allow Location
               </button>
             </>
           ) : (
-            <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-[#0F172A] rounded-xl shadow-sm transition-colors ${cfg.btn}`}>OK</button>
+            <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-colors ${cfg.btn}`}>OK</button>
           )}
         </div>
       </div>

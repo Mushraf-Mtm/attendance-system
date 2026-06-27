@@ -235,7 +235,7 @@ const updateSettings = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Settings updated successfully! Changes apply immediately - no restart needed.',
+      message: 'Settings updated successfully',
       settings: {
         companyLocation: {
           latitude: parseFloat(latitude),

@@ -148,15 +148,15 @@ const Sidebar = () => {
 
         {/* ─── Profile Card ─── */}
         <div className="px-4 py-4 border-b border-[#E7EBF2]/60 flex-shrink-0">
-          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-gradient-to-br from-[#f8faff] to-[#f1f5f9] border border-[#E7EBF2]/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_rgba(149,163,187,0.06)]">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#4F6CE1] to-[#7B93F5] flex items-center justify-center flex-shrink-0 text-white text-sm font-bold shadow-[0_3px_10px_rgba(79,108,225,0.25)]">
+          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-gradient-to-br from-[#4F6CE1] to-[#7B93F5] shadow-[0_4px_14px_rgba(79,108,225,0.3)] border border-[#4F6CE1]/20">
+            <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 text-white text-sm font-bold shadow-[0_2px_8px_rgba(0,0,0,0.1)]">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[#1E293B] truncate leading-none">{nameStr}</p>
-              <p className="text-[11px] text-[#64748B] truncate mt-1">{user?.job_role || 'Employee'}</p>
+              <p className="text-sm font-semibold text-white truncate leading-none">{nameStr}</p>
+              <p className="text-[11px] text-blue-100 truncate mt-1">{user?.job_role || 'Employee'}</p>
             </div>
-            <div className="clay-live-dot flex-shrink-0" />
+            <div className="clay-live-dot flex-shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)] bg-emerald-400" />
           </div>
         </div>
 

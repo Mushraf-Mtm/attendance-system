@@ -1,7 +1,7 @@
 const pool = require('../config/database');
 const { validateAttendance, calculateAttendanceStatus } = require('../utils/attendanceValidator');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
-const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint } = require('../services/deviceFingerprintService');
+const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint, validateTrustedDevice } = require('../services/deviceFingerprintService');
 const { getClientIP } = require('../services/networkValidationService');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
 
@@ -163,228 +163,6 @@ const checkIn = async (req, res) => {
     // Check if check-in is enabled
     const settings = await getSettingsFromDB();
     
-    // === TRUSTED DEVICE VALIDATION ===
-    // If trusted device validation is enabled, check device approval status
-    if (settings.trustedDevice && settings.trustedDevice.validationEnabled) {
-      console.log('🔒 Trusted Device Validation ENABLED');
-      
-      // Get employee name
-      const employeeResult = await pool.query(
-        'SELECT name FROM employees WHERE employee_id = $1',
-        [employeeCode]
-      );
-      
-      const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
-      
-      // Generate device fingerprint
-      const deviceFingerprint = generateFingerprint(req);
-      console.log('📱 Device Fingerprint:', deviceFingerprint);
-      
-      // First, check if device already exists in trusted_devices
-      const existingDeviceCheck = await pool.query(
-        'SELECT * FROM trusted_devices WHERE employee_id = $1 AND device_fingerprint = $2',
-        [employeeCode, deviceFingerprint]
-      );
-      
-      if (existingDeviceCheck.rows.length === 0) {
-        // NEW DEVICE - Register and block immediately
-        console.log('🆕 NEW DEVICE DETECTED - Registering as Pending');
-        
-        // Register the device
-        await registerTrustedDevice(employeeCode, employeeName, req, {
-          screenResolution,
-          timezone
-        });
-        
-        // Log failed attempt
-        await logAudit({
-          userId: employeeCode,
-          userType: 'employee',
-          action: AUDIT_ACTIONS.CHECKIN_FAILED,
-          status: AUDIT_STATUS.FAILED,
-          ipAddress: clientIP,
-          userAgent: req.headers['user-agent'],
-          deviceFingerprint: deviceFingerprint,
-          details: { 
-            reason: 'New device - pending approval',
-            deviceStatus: 'Pending',
-            isNewDevice: true
-          }
-        });
-        
-        // Block attendance - device needs approval
-        return res.status(403).json({
-          success: false,
-          message: 'Your device has been registered and is pending administrator approval. Please wait for approval before marking attendance.',
-          deviceStatus: 'Pending',
-          requiresApproval: true,
-          isNewDevice: true
-        });
-      }
-      
-      // EXISTING DEVICE - Check approval status
-      const existingDevice = existingDeviceCheck.rows[0];
-      console.log('✅ Existing device found. Status:', existingDevice.approved_status);
-      
-      // Update last used timestamp
-      await pool.query(
-        `UPDATE trusted_devices 
-         SET last_used = CURRENT_TIMESTAMP,
-             employee_name = $1,
-             screen_resolution = COALESCE($2, screen_resolution)
-         WHERE id = $3`,
-        [employeeName, screenResolution, existingDevice.id]
-      );
-      
-      // Check if device is approved
-      if (existingDevice.approved_status !== 'Approved') {
-        // Log failed attempt
-        await logAudit({
-          userId: employeeCode,
-          userType: 'employee',
-          action: AUDIT_ACTIONS.CHECKIN_FAILED,
-          status: AUDIT_STATUS.FAILED,
-          ipAddress: clientIP,
-          userAgent: req.headers['user-agent'],
-          deviceFingerprint: deviceFingerprint,
-          details: { 
-            reason: 'Device not approved',
-            deviceStatus: existingDevice.approved_status,
-            isNewDevice: false
-          }
-        });
-        
-        // Return appropriate message based on device status
-        if (existingDevice.approved_status === 'Pending') {
-          return res.status(403).json({
-            success: false,
-            message: 'Your device approval request is pending. Please wait for administrator approval.',
-            deviceStatus: 'Pending',
-            requiresApproval: true
-          });
-        } else if (existingDevice.approved_status === 'Rejected') {
-          return res.status(403).json({
-            success: false,
-            message: 'Your device has been rejected by the administrator. Please contact admin for access.',
-            deviceStatus: 'Rejected',
-            requiresApproval: true,
-            rejectionReason: existingDevice.remarks
-          });
-        } else {
-          return res.status(403).json({
-            success: false,
-            message: 'Your device is not approved for attendance. Please contact the administrator.',
-            deviceStatus: existingDevice.approved_status,
-            requiresApproval: true
-          });
-        }
-      }
-      
-      // Device is APPROVED - Allow attendance and skip GPS/IP validation
-      console.log('✅ Trusted device APPROVED - Allowing attendance, skipping location/network validation');
-      
-      // Check if already checked in today
-      const existingAttendance = await pool.query(
-        'SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
-        [employeeCode, today]
-      );
-      
-      if (existingAttendance.rows.length > 0 && existingAttendance.rows[0].login_time) {
-        await logAudit({
-          userId: employeeCode,
-          userType: 'employee',
-          action: AUDIT_ACTIONS.CHECKIN_FAILED,
-          status: AUDIT_STATUS.FAILED,
-          ipAddress: clientIP,
-          userAgent: req.headers['user-agent'],
-          details: { reason: 'Already checked in' }
-        });
-        
-        return res.status(400).json({
-          success: false,
-          message: 'You have already checked in today'
-        });
-      }
-      
-      // Check WFH permission for attendance status calculation
-      const wfhResult = await pool.query(
-        'SELECT is_enabled FROM wfh_permissions WHERE employee_id = $1',
-        [employeeCode]
-      );
-      const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
-      
-      // Calculate attendance status
-      const attendanceStatus = await calculateAttendanceStatus(isWFH);
-      
-      // Ensure daily attendance records exist for today
-      await ensureDailyAttendanceRecords(today);
-      
-      // Insert or update attendance
-      let result;
-      if (existingAttendance.rows.length > 0) {
-        result = await pool.query(
-          `UPDATE attendance 
-           SET login_time = CURRENT_TIMESTAMP,
-               latitude_login = $1,
-               longitude_login = $2,
-               address_login = $3,
-               attendance_status = $4,
-               is_wfh = $5,
-               device_info = $6,
-               browser_info = $7,
-               ip_address = $8,
-               gps_accuracy = $9,
-               device_fingerprint = $10,
-               validation_method = $11,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE employee_id = $12 AND attendance_date = $13
-           RETURNING *`,
-          [latitude, longitude, address, attendanceStatus, isWFH, 
-           device_info, browser_info, clientIP, accuracy, 
-           deviceFingerprint, 'trusted_device',
-           employeeCode, today]
-        );
-      } else {
-        result = await pool.query(
-          `INSERT INTO attendance 
-           (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
-            address_login, attendance_status, is_wfh, device_info, browser_info, 
-            ip_address, gps_accuracy, device_fingerprint, validation_method)
-           VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-           RETURNING *`,
-          [employeeCode, today, latitude, longitude, address, attendanceStatus, 
-           isWFH, device_info, browser_info, clientIP, accuracy,
-           deviceFingerprint, 'trusted_device']
-        );
-      }
-      
-      // Log successful check-in
-      await logAudit({
-        userId: employeeCode,
-        userType: 'employee',
-        action: AUDIT_ACTIONS.CHECKIN_SUCCESS,
-        status: AUDIT_STATUS.SUCCESS,
-        ipAddress: clientIP,
-        userAgent: req.headers['user-agent'],
-        deviceFingerprint: deviceFingerprint,
-        details: { 
-          attendanceStatus,
-          validationMethod: 'trusted_device',
-          isWFH,
-          gpsAccuracy: accuracy,
-          deviceAlias: existingDevice.device_alias
-        }
-      });
-      
-      return res.json({
-        success: true,
-        message: 'Check-in successful (Trusted Device)',
-        attendance: result.rows[0],
-        validationMethod: 'trusted_device'
-      });
-    }
-    // === END TRUSTED DEVICE VALIDATION ===
-    
     if (!settings.workingHours.checkInEnabled) {
       await logAudit({
         userId: employeeCode,
@@ -452,7 +230,150 @@ const checkIn = async (req, res) => {
         message: `Check-in is not allowed after office end time (${format24To12Hour(settings.workingHours.officeEndTime)}). Office hours are ${format24To12Hour(settings.workingHours.officeStartTime)} to ${format24To12Hour(settings.workingHours.officeEndTime)}`
       });
     }
+    
+    // === TRUSTED DEVICE VALIDATION ===
+    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+    
+    // Get employee name
+    const employeeResult = await pool.query(
+      'SELECT name FROM employees WHERE employee_id = $1',
+      [employeeCode]
+    );
+    
+    const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
+    
+    // Validate using the prioritized block-check function
+    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {
+      screenResolution,
+      timezone
+    });
 
+    if (!deviceValidation.valid) {
+      // Log failed attempt
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        deviceFingerprint: deviceValidation.fingerprint,
+        details: { 
+          reason: deviceValidation.message,
+          deviceStatus: deviceValidation.deviceStatus,
+          isNewDevice: deviceValidation.isNewDevice
+        }
+      });
+      
+      return res.status(403).json(deviceValidation);
+    }
+
+    // If validation is enabled and we reached here, the device is explicitly Approved.
+    if (validationEnabled) {
+      // Device is APPROVED - Allow attendance and skip GPS/IP validation
+      console.log('✅ Trusted device APPROVED - Allowing attendance, skipping location/network validation');
+      
+      // Ensure daily attendance records exist for today
+      await ensureDailyAttendanceRecords(today);
+      
+      // Check if already checked in today
+      const existingAttendance = await pool.query(
+        'SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
+        [employeeCode, today]
+      );
+      
+      if (existingAttendance.rows.length > 0 && existingAttendance.rows[0].login_time) {
+        await logAudit({
+          userId: employeeCode,
+          userType: 'employee',
+          action: AUDIT_ACTIONS.CHECKIN_FAILED,
+          status: AUDIT_STATUS.FAILED,
+          ipAddress: clientIP,
+          userAgent: req.headers['user-agent'],
+          details: { reason: 'Already checked in' }
+        });
+        
+        return res.status(400).json({
+          success: false,
+          message: 'You have already checked in today'
+        });
+      }
+      
+      // Check WFH permission for attendance status calculation
+      const wfhResult = await pool.query(
+        'SELECT is_enabled FROM wfh_permissions WHERE employee_id = $1',
+        [employeeCode]
+      );
+      const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
+      
+      // Calculate attendance status
+      const attendanceStatus = await calculateAttendanceStatus(isWFH);
+      
+      // Insert or update attendance
+      let result;
+      if (existingAttendance.rows.length > 0) {
+        result = await pool.query(
+          `UPDATE attendance 
+           SET login_time = CURRENT_TIMESTAMP,
+               latitude_login = $1,
+               longitude_login = $2,
+               address_login = $3,
+               attendance_status = $4,
+               is_wfh = $5,
+               device_info = $6,
+               browser_info = $7,
+               ip_address = $8,
+               gps_accuracy = $9,
+               device_fingerprint = $10,
+               validation_method = $11,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE employee_id = $12 AND attendance_date = $13
+           RETURNING *`,
+          [latitude, longitude, address, attendanceStatus, isWFH, 
+           device_info, browser_info, clientIP, accuracy, 
+           deviceValidation.fingerprint, 'trusted_device',
+           employeeCode, today]
+        );
+      } else {
+        result = await pool.query(
+          `INSERT INTO attendance 
+           (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
+            address_login, attendance_status, is_wfh, device_info, browser_info, 
+            ip_address, gps_accuracy, device_fingerprint, validation_method)
+           VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           RETURNING *`,
+          [employeeCode, today, latitude, longitude, address, attendanceStatus, 
+           isWFH, device_info, browser_info, clientIP, accuracy,
+           deviceValidation.fingerprint, 'trusted_device']
+        );
+      }
+      
+      // Log successful check-in
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_SUCCESS,
+        status: AUDIT_STATUS.SUCCESS,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        deviceFingerprint: deviceValidation.fingerprint,
+        details: { 
+          attendanceStatus,
+          validationMethod: 'trusted_device',
+          isWFH,
+          gpsAccuracy: accuracy
+        }
+      });
+      
+      return res.json({
+        success: true,
+        message: 'Check-in successful (Trusted Device)',
+        attendance: result.rows[0],
+        validationMethod: 'trusted_device'
+      });
+    }
+    // === END TRUSTED DEVICE VALIDATION ===
+    
     // Validation
     if (!latitude || !longitude) {
       await logAudit({
@@ -656,6 +577,40 @@ const checkOut = async (req, res) => {
     }
 
     const today = getLocalDateString(); // Use local date instead of UTC
+
+    // === TRUSTED DEVICE VALIDATION ===
+    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+    
+    // Get employee name
+    const employeeResult = await pool.query(
+      'SELECT name FROM employees WHERE employee_id = $1',
+      [employeeCode]
+    );
+    const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
+    
+    // Validate using the prioritized block-check function
+    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+
+    if (!deviceValidation.valid) {
+      // Log failed attempt
+      const clientIP = getClientIP(req);
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKOUT_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        deviceFingerprint: deviceValidation.fingerprint,
+        details: { 
+          reason: deviceValidation.message,
+          deviceStatus: deviceValidation.deviceStatus,
+          isNewDevice: deviceValidation.isNewDevice
+        }
+      });
+      
+      return res.status(403).json(deviceValidation);
+    }
 
     // Check if checked in today
     const attendanceResult = await pool.query(

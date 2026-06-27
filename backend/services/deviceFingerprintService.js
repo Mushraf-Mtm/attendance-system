@@ -249,11 +249,131 @@ const isTrustedDeviceApproved = async (employeeId, fingerprint) => {
   }
 };
 
+/**
+ * Validate Trusted Device
+ * Returns validation result handling Blocked priority and settings
+ */
+const validateTrustedDevice = async (employeeId, employeeName, req, validationEnabled, additionalInfo = {}) => {
+  try {
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const fingerprint = generateFingerprint(req);
+    const { browser, browserVersion, os, deviceType } = parseDeviceInfo(userAgent);
+    
+    const { screenResolution, timezone } = additionalInfo;
+    const platform = req.headers['sec-ch-ua-platform'] || os;
+
+    // Check if device exists in trusted_devices
+    const existingCheck = await pool.query(
+      'SELECT * FROM trusted_devices WHERE employee_id = $1 AND device_fingerprint = $2',
+      [employeeId, fingerprint]
+    );
+
+    // 1. If device exists, ALWAYS check if it's Blocked first
+    if (existingCheck.rows.length > 0) {
+      const existingDevice = existingCheck.rows[0];
+      
+      // Update last used
+      await pool.query(
+        `UPDATE trusted_devices 
+         SET last_used = CURRENT_TIMESTAMP,
+             employee_name = $1,
+             browser_name = $2,
+             browser_version = $3,
+             operating_system = $4,
+             device_type = $5,
+             screen_resolution = COALESCE($6, screen_resolution),
+             platform = COALESCE($7, platform)
+         WHERE id = $8`,
+        [employeeName, browser, browserVersion, os, deviceType, screenResolution, platform, existingDevice.id]
+      );
+
+      // ALWAYS BLOCK IF DEVICE IS BLOCKED, REGARDLESS OF SETTINGS
+      if (existingDevice.approved_status === 'Blocked') {
+        return {
+          valid: false,
+          message: 'This device has been blocked by your administrator. Please contact your administrator.',
+          deviceStatus: 'Blocked',
+          requiresApproval: true,
+          fingerprint,
+          isNew: false
+        };
+      }
+    }
+
+    // 2. If validation is disabled and device isn't blocked, skip further checks
+    if (!validationEnabled) {
+      return { valid: true, fingerprint };
+    }
+
+    // 3. Validation is enabled.
+    if (existingCheck.rows.length === 0) {
+      // New device - register as pending
+      await pool.query(
+        `INSERT INTO trusted_devices 
+         (employee_id, employee_name, device_fingerprint, browser_name, browser_version, 
+          operating_system, device_type, screen_resolution, platform, approved_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending')`,
+        [employeeId, employeeName, fingerprint, browser, browserVersion, os, deviceType, 
+         screenResolution || null, platform]
+      );
+      
+      return {
+        valid: false,
+        message: 'Your device has been registered and is pending administrator approval. Please wait for approval before marking attendance.',
+        deviceStatus: 'Pending',
+        requiresApproval: true,
+        isNewDevice: true,
+        fingerprint
+      };
+    }
+
+    const existingDevice = existingCheck.rows[0];
+    
+    // Check other statuses
+    if (existingDevice.approved_status === 'Pending') {
+      return {
+        valid: false,
+        message: 'Your device approval request is pending. Please wait for administrator approval.',
+        deviceStatus: 'Pending',
+        requiresApproval: true,
+        fingerprint,
+        isNewDevice: false
+      };
+    } else if (existingDevice.approved_status === 'Rejected') {
+      return {
+        valid: false,
+        message: 'Your device has been rejected by the administrator. Please contact admin for access.',
+        deviceStatus: 'Rejected',
+        requiresApproval: true,
+        rejectionReason: existingDevice.remarks,
+        fingerprint,
+        isNewDevice: false
+      };
+    } else if (existingDevice.approved_status === 'Approved') {
+      return { valid: true, fingerprint, isNewDevice: false };
+    } else {
+      return {
+        valid: false,
+        message: 'Your device is not approved for attendance. Please contact the administrator.',
+        deviceStatus: existingDevice.approved_status,
+        requiresApproval: true,
+        fingerprint,
+        isNewDevice: false
+      };
+    }
+
+  } catch (error) {
+    console.error('Error validating trusted device:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   generateFingerprint,
   parseDeviceInfo,
   logDeviceFingerprint,
   isDeviceApproved,
   registerTrustedDevice,
-  isTrustedDeviceApproved
+  isTrustedDeviceApproved,
+  validateTrustedDevice
 };

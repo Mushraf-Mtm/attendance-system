@@ -79,6 +79,10 @@ const getDeviceStats = async (req, res) => {
       "SELECT COUNT(*) FROM trusted_devices WHERE approved_status = 'Rejected'"
     );
 
+    const blockedCount = await pool.query(
+      "SELECT COUNT(*) FROM trusted_devices WHERE approved_status = 'Blocked'"
+    );
+
     const totalCount = await pool.query(
       'SELECT COUNT(*) FROM trusted_devices'
     );
@@ -89,6 +93,7 @@ const getDeviceStats = async (req, res) => {
         pendingDevices: parseInt(pendingCount.rows[0].count),
         approvedDevices: parseInt(approvedCount.rows[0].count),
         rejectedDevices: parseInt(rejectedCount.rows[0].count),
+        blockedDevices: parseInt(blockedCount.rows[0].count),
         totalDevices: parseInt(totalCount.rows[0].count)
       }
     });
@@ -501,6 +506,180 @@ const deleteDevice = async (req, res) => {
   }
 };
 
+// Block device
+const blockDevice = async (req, res) => {
+  try {
+    const { deviceId, remarks } = req.body;
+    const adminId = req.user.id;
+
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device ID is required'
+      });
+    }
+
+    // Get device info
+    const deviceCheck = await pool.query(
+      'SELECT * FROM trusted_devices WHERE id = $1',
+      [deviceId]
+    );
+
+    if (deviceCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found'
+      });
+    }
+
+    const device = deviceCheck.rows[0];
+
+    // Update device status to Blocked
+    const result = await pool.query(
+      `UPDATE trusted_devices 
+       SET approved_status = 'Blocked',
+           rejected_by = $1,
+           rejected_at = CURRENT_TIMESTAMP,
+           approved_by = NULL,
+           approved_at = NULL,
+           remarks = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3
+       RETURNING *`,
+      [adminId, remarks || null, deviceId]
+    );
+
+    // Log audit
+    const clientIP = getClientIP(req);
+    await logAudit({
+      userId: req.user.username,
+      userType: 'admin',
+      action: AUDIT_ACTIONS.DEVICE_BLOCKED || 'device_blocked',
+      status: AUDIT_STATUS.SUCCESS,
+      ipAddress: clientIP,
+      userAgent: req.headers['user-agent'],
+      details: {
+        deviceId,
+        employeeId: device.employee_id,
+        deviceAlias: device.device_alias,
+        remarks
+      }
+    });
+
+    // Log admin activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.BLOCK_DEVICE || 'BLOCK_DEVICE',
+      moduleName: MODULE_NAMES.DEVICE,
+      description: `Blocked device for employee ${device.employee_id} - ${device.employee_name}`,
+      newData: { deviceId, employeeId: device.employee_id, deviceAlias: device.device_alias, remarks },
+      ipAddress: clientIP,
+      browserInfo: req.headers['user-agent']
+    });
+
+    res.json({
+      success: true,
+      message: 'Device blocked successfully',
+      device: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Block device error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// Unblock device
+const unblockDevice = async (req, res) => {
+  try {
+    const { deviceId } = req.body;
+    const adminId = req.user.id;
+
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device ID is required'
+      });
+    }
+
+    // Get device info
+    const deviceCheck = await pool.query(
+      'SELECT * FROM trusted_devices WHERE id = $1',
+      [deviceId]
+    );
+
+    if (deviceCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found'
+      });
+    }
+
+    const device = deviceCheck.rows[0];
+
+    // Update device status to Approved
+    const result = await pool.query(
+      `UPDATE trusted_devices 
+       SET approved_status = 'Approved',
+           approved_by = $1,
+           approved_at = CURRENT_TIMESTAMP,
+           rejected_by = NULL,
+           rejected_at = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING *`,
+      [adminId, deviceId]
+    );
+
+    // Log audit
+    const clientIP = getClientIP(req);
+    await logAudit({
+      userId: req.user.username,
+      userType: 'admin',
+      action: AUDIT_ACTIONS.DEVICE_UNBLOCKED || 'device_unblocked',
+      status: AUDIT_STATUS.SUCCESS,
+      ipAddress: clientIP,
+      userAgent: req.headers['user-agent'],
+      details: {
+        deviceId,
+        employeeId: device.employee_id,
+        deviceAlias: device.device_alias
+      }
+    });
+
+    // Log admin activity
+    await logAdminActivity({
+      adminId: req.user.id,
+      adminName: req.user.username,
+      adminEmail: req.user.email || '',
+      actionType: ADMIN_ACTION_TYPES.UNBLOCK_DEVICE || 'UNBLOCK_DEVICE',
+      moduleName: MODULE_NAMES.DEVICE,
+      description: `Unblocked device for employee ${device.employee_id} - ${device.employee_name}`,
+      newData: { deviceId, employeeId: device.employee_id, deviceAlias: device.device_alias },
+      ipAddress: clientIP,
+      browserInfo: req.headers['user-agent']
+    });
+
+    res.json({
+      success: true,
+      message: 'Device unblocked successfully',
+      device: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Unblock device error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
 module.exports = {
   getAllTrustedDevices,
   getDeviceStats,
@@ -508,5 +687,7 @@ module.exports = {
   rejectDevice,
   updateDeviceAlias,
   removeApproval,
-  deleteDevice
+  deleteDevice,
+  blockDevice,
+  unblockDevice
 };

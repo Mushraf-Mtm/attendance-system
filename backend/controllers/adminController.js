@@ -2,7 +2,7 @@ const bcrypt = require('bcrypt');
 const pool = require('../config/database');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 const { getClientIP } = require('../services/networkValidationService');
-
+const { testEmailConfig } = require('../services/emailService');
 // Get all admins
 const getAllAdmins = async (req, res) => {
   try {
@@ -368,11 +368,54 @@ const getLoginLogs = async (req, res) => {
   }
 };
 
+// System Health Check
+const getSystemHealth = async (req, res) => {
+  try {
+    const health = {
+      database: { status: 'Offline', color: 'text-red-400', bg: 'bg-red-500/20' },
+      backend: { status: 'Running', color: 'text-emerald-400', bg: 'bg-emerald-500/20' },
+      email: { status: 'Offline', color: 'text-red-400', bg: 'bg-red-500/20' },
+      cron: { status: 'Active', color: 'text-emerald-400', bg: 'bg-emerald-500/20' }
+    };
+
+    // 1. Check Database
+    try {
+      const dbStart = Date.now();
+      await pool.query('SELECT 1');
+      const dbPing = Date.now() - dbStart;
+      health.database = { 
+        status: `Online (${dbPing}ms)`, 
+        color: 'text-emerald-400', 
+        bg: 'bg-emerald-500/20' 
+      };
+    } catch (e) {
+      console.error('DB Health Check Failed:', e);
+    }
+
+    // 2. Check Email Service
+    try {
+      const emailTest = await testEmailConfig();
+      if (emailTest.success) {
+        health.email = { status: 'Healthy', color: 'text-emerald-400', bg: 'bg-emerald-500/20' };
+      } else {
+        health.email = { status: 'Failed', color: 'text-red-400', bg: 'bg-red-500/20' };
+      }
+    } catch (e) {
+      console.error('Email Health Check Failed:', e);
+    }
+
+    res.json({ success: true, health });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Health check failed' });
+  }
+};
+
 module.exports = {
   getAllAdmins,
   addAdmin,
   updateAdmin,
   deleteAdmin,
   changePassword,
-  getLoginLogs
+  getLoginLogs,
+  getSystemHealth
 };

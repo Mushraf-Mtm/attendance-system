@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '../components/Sidebar';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminActivityStats, getAdminActivityLogs, getAllHolidays } from '../services/api';
+import { getDashboardStats, getAllAttendance, getTrustedDeviceStats, getAdminActivityStats, getAdminActivityLogs, getAllHolidays, getSystemHealth } from '../services/api';
 import { formatTime, formatWorkingHours, formatDate } from '../utils/formatTime';
 import {
   FiUsers, FiCheckCircle, FiClock, FiHome, FiXCircle, FiActivity, FiSmartphone,
@@ -105,10 +105,11 @@ const LineChart = ({ data }) => {
 /* ─── MAIN COMPONENT ─── */
 const AdminDashboard = () => {
   const [stats, setStats] = useState({ totalEmployees:0, presentToday:0, lateEmployees:0, wfhEmployees:0, absentEmployees:0, currentlyWorking:0 });
-  const [deviceStats, setDeviceStats] = useState({ pendingDevices:0, approvedDevices:0, rejectedDevices:0, totalDevices:0 });
+  const [deviceStats, setDeviceStats] = useState({ pendingDevices:0, approvedDevices:0, rejectedDevices:0, blockedDevices:0, totalDevices:0 });
   const [activityStats, setActivityStats] = useState({ today:0, thisWeek:0, total:0 });
   const [recentActivities, setRecentActivities] = useState([]);
   const [upcomingHolidays, setUpcomingHolidays] = useState([]);
+  const [systemHealth, setSystemHealth] = useState(null);
   
   // Attendance Table State
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -136,17 +137,18 @@ const AdminDashboard = () => {
       const localDate = getLocalDateString();
       const now = new Date();
       
-      const [statsRes, attendanceRes, deviceRes, activityRes, logsRes, holidaysRes] = await Promise.all([
+      const [statsRes, attendanceRes, deviceRes, activityRes, logsRes, holidaysRes, healthRes] = await Promise.all([
         getDashboardStats(), 
         getAllAttendance({ date: localDate }), 
         getTrustedDeviceStats(),
         getAdminActivityStats(),
         getAdminActivityLogs({ limit: 5 }),
-        getAllHolidays(now.getFullYear(), now.getMonth() + 1)
+        getAllHolidays(now.getFullYear(), now.getMonth() + 1),
+        getSystemHealth()
       ]);
       
       if (statsRes.data.success) setStats(statsRes.data.stats);
-      if (attendanceRes.data.success) setAttendanceRecords(attendanceRes.data.attendance);
+      if (attendanceRes.data.success) setAttendanceRecords(attendanceRes.data.attendance || []);
       if (deviceRes.data.success) setDeviceStats(deviceRes.data.stats);
       if (activityRes.data.success) setActivityStats(activityRes.data.stats);
       if (logsRes.data.success) setRecentActivities(logsRes.data.logs.slice(0, 5));
@@ -154,15 +156,33 @@ const AdminDashboard = () => {
         const hols = holidaysRes.data.holidays.filter(h => h.is_enabled && new Date(h.holiday_date) >= new Date(localDate));
         setUpcomingHolidays(hols.slice(0, 3));
       }
+      if (healthRes.data.success) setSystemHealth(healthRes.data.health);
     } catch (e) { console.error('Error fetching dashboard data:', e); }
     finally { setLoading(false); }
   };
 
   /* ─── COMPUTED DATA ─── */
-  const halfDayCount = attendanceRecords.filter(a => a.attendance_status === 'Half Day').length;
   const checkedOutCount = attendanceRecords.filter(a => a.logout_time !== null).length;
+  
+  // Calculate mutually exclusive attendance categories to prevent double counting
+  let presentCount = 0;
+  let absentCount = 0;
+  let lateCount = 0;
+  let halfDayCount = 0;
+  let wfhCount = 0;
 
-  const donutData = [stats.presentToday, stats.absentEmployees, stats.lateEmployees, halfDayCount, stats.wfhEmployees];
+  attendanceRecords.forEach(a => {
+    switch (a.attendance_status) {
+      case 'Present': presentCount++; break;
+      case 'Absent': absentCount++; break;
+      case 'Late': lateCount++; break;
+      case 'Half Day': halfDayCount++; break;
+      case 'Work From Home': wfhCount++; break;
+      default: break;
+    }
+  });
+
+  const donutData = [presentCount, absentCount, lateCount, halfDayCount, wfhCount];
   const donutColors = ['#22C55E', '#EF4444', '#F59E0B', '#EAB308', '#3B82F6'];
   const donutLabels = ['Present', 'Absent', 'Late', 'Half Day', 'WFH'];
 
@@ -307,7 +327,7 @@ const AdminDashboard = () => {
                     <FiSmartphone size={18} />
                   </Link>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="bg-[#1C2540] rounded-xl p-3 border border-white/[0.04]">
                     <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-1">Pending</p>
                     <p className="text-lg font-bold text-amber-400">{deviceStats.pendingDevices}</p>
@@ -319,6 +339,10 @@ const AdminDashboard = () => {
                   <div className="bg-[#1C2540] rounded-xl p-3 border border-white/[0.04]">
                     <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-1">Rejected</p>
                     <p className="text-lg font-bold text-red-400">{deviceStats.rejectedDevices}</p>
+                  </div>
+                  <div className="bg-[#1C2540] rounded-xl p-3 border border-white/[0.04]">
+                    <p className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-1">Blocked</p>
+                    <p className="text-lg font-bold text-gray-500">{deviceStats.blockedDevices}</p>
                   </div>
                 </div>
               </div>
@@ -561,11 +585,11 @@ const AdminDashboard = () => {
               <h2 className="text-[10px] font-bold text-[#64748B] uppercase tracking-widest mb-3 px-1">System Health</h2>
               <div className="bg-[#161D2E] border border-white/[0.06] rounded-2xl p-5 shadow-clay-admin h-[calc(100%-28px)]">
                 <div className="space-y-4">
-                  {[
-                    { label:'Database',      icon:FiDatabase, status:'Online',  color:'text-emerald-400', bg:'bg-emerald-500/20' },
-                    { label:'Backend API',   icon:FiServer,   status:'Running', color:'text-emerald-400', bg:'bg-emerald-500/20' },
-                    { label:'Email Service', icon:FiMail,     status:'Healthy', color:'text-emerald-400', bg:'bg-emerald-500/20' },
-                    { label:'Cron Jobs',     icon:FiClock,    status:'Active',  color:'text-emerald-400', bg:'bg-emerald-500/20' },
+                  {systemHealth ? [
+                    { label:'Database',      icon:FiDatabase, status: systemHealth.database.status,  color: systemHealth.database.color, bg: systemHealth.database.bg },
+                    { label:'Backend API',   icon:FiServer,   status: systemHealth.backend.status,   color: systemHealth.backend.color,  bg: systemHealth.backend.bg },
+                    { label:'Email Service', icon:FiMail,     status: systemHealth.email.status,     color: systemHealth.email.color,    bg: systemHealth.email.bg },
+                    { label:'Cron Jobs',     icon:FiClock,    status: systemHealth.cron.status,      color: systemHealth.cron.color,     bg: systemHealth.cron.bg },
                   ].map(sys => (
                     <div key={sys.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -575,11 +599,19 @@ const AdminDashboard = () => {
                         <span className="text-sm font-semibold text-[#CBD5E1]">{sys.label}</span>
                       </div>
                       <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/[0.04] ${sys.bg}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${sys.color.replace('text', 'bg')}`} />
+                        {sys.color.includes('emerald') ? (
+                          <span className={`w-1.5 h-1.5 rounded-full ${sys.color.replace('text', 'bg')} animate-pulse`} />
+                        ) : (
+                          <span className={`w-1.5 h-1.5 rounded-full ${sys.color.replace('text', 'bg')}`} />
+                        )}
                         <span className={`text-[10px] font-bold ${sys.color} uppercase tracking-wider`}>{sys.status}</span>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="flex justify-center items-center h-32">
+                      <Spinner />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

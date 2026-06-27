@@ -2,6 +2,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
+const { validateTrustedDevice } = require('../services/deviceFingerprintService');
+const { getSettingsFromDB } = require('../utils/settingsHelper');
 
 // Admin Login
 const adminLogin = async (req, res) => {
@@ -150,6 +152,18 @@ const employeeLogin = async (req, res) => {
         message: 'Invalid password',
         field: 'password'
       });
+    }
+
+    // === TRUSTED DEVICE VALIDATION ===
+    // Always check for Blocked status, even during login
+    const settings = await getSettingsFromDB();
+    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+    
+    const deviceValidation = await validateTrustedDevice(employee.employee_id, employee.name, req, validationEnabled, {});
+
+    if (!deviceValidation.valid) {
+      // If validation fails (either explicitly blocked, or it's enabled and not approved)
+      return res.status(403).json(deviceValidation);
     }
 
     // Generate JWT token

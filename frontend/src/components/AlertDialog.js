@@ -22,23 +22,23 @@ const AlertDialog = ({ isOpen, onClose, title, message, type = 'success' }) => {
   if (isAdmin) {
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-        <div className="bg-[#1C2540] border border-[#CBD5E1] rounded-2xl shadow-clay-admin-modal w-full max-w-md animate-scale-in">
-          <div className="flex items-start justify-between px-6 py-5 border-b border-[#E2E8F0]">
+        <div className="bg-[#1E293B] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-md animate-scale-in">
+          <div className="flex items-start justify-between px-6 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.iconBg}`}>
                 <Icon size={20} className={cfg.iconColor} />
               </div>
-              <h3 className="text-base font-bold text-[#0F172A] leading-tight">{title}</h3>
+              <h3 className="text-base font-bold text-white leading-tight">{title}</h3>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#64748B] hover:bg-white/5 hover:text-[#64748B] transition-colors ml-2 flex-shrink-0">
+            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white/5 hover:text-white transition-colors ml-2 flex-shrink-0">
               <FiX size={17} />
             </button>
           </div>
           <div className="px-6 py-5">
-            <p className="text-sm text-[#475569] leading-relaxed whitespace-pre-line">{message}</p>
+            <p className="text-sm text-white leading-relaxed whitespace-pre-line">{message}</p>
           </div>
-          <div className="flex justify-end px-6 py-4 border-t border-[#E2E8F0] bg-[#F8FAFC]/60 rounded-b-2xl">
-            <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-[#0F172A] rounded-xl shadow-sm transition-all duration-200 hover:shadow-glow-blue-sm ${cfg.btn}`}>
+          <div className="flex justify-end px-6 py-4 border-t border-white/10 bg-white/5 rounded-b-2xl">
+            <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-all duration-200 hover:shadow-glow-blue-sm ${cfg.btn}`}>
               Got it
             </button>
           </div>
@@ -65,7 +65,7 @@ const AlertDialog = ({ isOpen, onClose, title, message, type = 'success' }) => {
           <p className="text-sm text-[#475569] leading-relaxed whitespace-pre-line">{message}</p>
         </div>
         <div className="flex justify-end px-6 py-4 border-t border-[#E2E8F0] bg-[#F8FAFC] rounded-b-2xl">
-          <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-[#0F172A] rounded-xl shadow-sm transition-colors ${cfg.lightBtn}`}>
+          <button onClick={onClose} className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-colors ${cfg.lightBtn}`}>
             Got it
           </button>
         </div>

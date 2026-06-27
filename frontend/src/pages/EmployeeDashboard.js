@@ -5,8 +5,10 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import LocationDialog from '../components/LocationDialog';
 import AlertDialog from '../components/AlertDialog';
 import StatusBadge from '../components/ui/StatusBadge';
+import MotivationPopup from '../components/MotivationPopup';
 import { Spinner } from '../components/Loader';
 import { getTodayAttendance, checkIn, checkOut, getWFHStatus, getSettings, getEmployeeMonthlyAttendance } from '../services/api';
+import { getDailyMotivation, getEventMotivation, CATEGORIES } from '../utils/motivationUtil';
 import { getCurrentLocation, getDeviceInfo, getDeviceFingerprintData, getIPAddress } from '../utils/location';
 import { formatTime, formatWorkingHours, format24To12Hour, formatDate } from '../utils/formatTime';
 import {
@@ -16,21 +18,6 @@ import {
 } from 'react-icons/fi';
 
 /* ─── Constants ─── */
-const MOTIVATIONAL_MESSAGES = [
-  { text: "Great job! Keep up the consistency!", icon: "🎯" },
-  { text: "You're building discipline every day!", icon: "💪" },
-  { text: "Small improvements lead to big success!", icon: "🌟" },
-  { text: "Attendance builds trust and reliability!", icon: "🤝" },
-  { text: "You're on track for an excellent month!", icon: "📈" },
-  { text: "Consistency is the key to greatness!", icon: "🔑" },
-  { text: "Your dedication doesn't go unnoticed!", icon: "⭐" },
-  { text: "Another productive day ahead!", icon: "🚀" },
-  { text: "Show up, stand out, succeed!", icon: "🏆" },
-  { text: "Every day counts towards your goals!", icon: "🎯" },
-  { text: "You're doing excellent! Keep it up!", icon: "🎉" },
-  { text: "Punctuality is the soul of business!", icon: "⏰" },
-];
-
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 /* ─── Helpers ─── */
@@ -69,6 +56,9 @@ const EmployeeDashboard = () => {
   const [monthlyHolidays, setMonthlyHolidays]     = useState([]);
   const [currentTime, setCurrentTime]             = useState(new Date());
   const [liveSeconds, setLiveSeconds]             = useState(0);
+  
+  const [motivationPopup, setMotivationPopup]     = useState({ isOpen: false, message: null });
+  const [dailyMotivation, setDailyMotivation]     = useState({ text: 'Have a great day!', icon: '🌟' });
 
   const { user } = useAuth();
 
@@ -100,6 +90,29 @@ const EmployeeDashboard = () => {
       if (monthlyRes.data.success) {
         setMonthlyAttendance(monthlyRes.data.attendance || []);
         setMonthlyHolidays(monthlyRes.data.holidays || []);
+
+        // Dynamic Motivation Setup
+        const holidays = monthlyRes.data.holidays || [];
+        const attendanceList = monthlyRes.data.attendance || [];
+        const todayStr = toLocalDateStr(new Date());
+        
+        const isGovtHoliday = holidays.some(h => h.type === 'Government' && h.date === todayStr);
+        const isOfficeHoliday = holidays.some(h => h.type === 'Office' && h.date === todayStr);
+        
+        // Auto-checkout check for yesterday
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = toLocalDateStr(yesterday);
+        const yesterdayAtt = attendanceList.find(a => toLocalDateStr(a.attendance_date) === yesterdayStr);
+        
+        // Assume auto-checkout if there was a login but no logout, or if status says auto checkout
+        const hasAutoCheckout = yesterdayAtt && yesterdayAtt.login_time && (!yesterdayAtt.logout_time || yesterdayAtt.attendance_status === 'Auto Checkout');
+        
+        // We do not have birthday field exposed in auth user directly usually, setting false for now.
+        const isBirthday = false; 
+
+        const msg = getDailyMotivation(new Date().getDay(), isGovtHoliday, isOfficeHoliday, isBirthday, hasAutoCheckout);
+        setDailyMotivation(msg);
       }
     } catch (e) {
       console.error(e);
@@ -129,7 +142,28 @@ const EmployeeDashboard = () => {
                 setLoadingMessage('Marking attendance...');
                 const data = { latitude:location.latitude, longitude:location.longitude, accuracy:location.accuracy, address:'Location captured', device_info:deviceInfo.device_info, browser_info:deviceInfo.browser_info, screenResolution:fingerprintData.screenResolution, timezone:fingerprintData.timezone, ip_address:ipAddress };
                 const response = await checkIn(data);
-                if (response.data.success) { setLoadingMessage(''); setAlertDialog({ isOpen:true, title:'✅ Check-in Successful', message:'Your attendance has been recorded successfully!', type:'success' }); await fetchData(); }
+                if (response.data.success) { 
+                  setLoadingMessage(''); 
+                  // Trigger Popup Motivation AFTER the success alert is closed
+                  const status = response.data.attendance?.attendance_status;
+                  let category = CATEGORIES.CHECK_IN_NORMAL;
+                  if (status === 'Late') category = CATEGORIES.CHECK_IN_LATE;
+                  else if (status === 'Half Day') category = CATEGORIES.HALF_DAY;
+                  
+                  const msg = getEventMotivation(category);
+                  
+                  setAlertDialog({ 
+                    isOpen: true, 
+                    title: '✅ Check-in Successful', 
+                    message: 'Your attendance has been recorded successfully!', 
+                    type: 'success',
+                    onCloseCallback: () => {
+                      setTimeout(() => setMotivationPopup({ isOpen: true, message: msg }), 400); // Wait for alert to fade out
+                    }
+                  }); 
+                  
+                  await fetchData(); 
+                }
                 else { setLoadingMessage(''); setAlertDialog({ isOpen:true, title:'❌ Check-in Failed', message:response.data.message || 'Check-in failed. Please try again.', type:'error' }); }
               } catch (error) {
                 setLoadingMessage('');
@@ -165,7 +199,22 @@ const EmployeeDashboard = () => {
                 const location = await getCurrentLocation();
                 const response = await checkOut({ latitude:location.latitude, longitude:location.longitude, address:'Location captured' });
                 if (response.data.success) {
-                  setAlertDialog({ isOpen:true, title:'Check-out Successful', message:'Your check-out has been recorded successfully!\n\nWorking hours: ' + formatWorkingHours(parseFloat(response.data.attendance.total_working_hours)), type:'success' });
+                  // Trigger Popup Motivation AFTER the success alert is closed
+                  const workingHours = parseFloat(response.data.attendance?.total_working_hours || 0);
+                  const isEarly = workingHours < (settings.workingHours.halfDayThreshold || 4);
+                  
+                  const msg = getEventMotivation(isEarly ? CATEGORIES.CHECK_OUT_EARLY : CATEGORIES.CHECK_OUT_NORMAL);
+                  
+                  setAlertDialog({ 
+                    isOpen: true, 
+                    title: 'Check-out Successful', 
+                    message: 'Your check-out has been recorded successfully!\n\nWorking hours: ' + formatWorkingHours(parseFloat(response.data.attendance.total_working_hours)), 
+                    type: 'success',
+                    onCloseCallback: () => {
+                      setTimeout(() => setMotivationPopup({ isOpen: true, message: msg }), 400); // Wait for alert to fade out
+                    }
+                  });
+
                   fetchData();
                 }
               } catch (error) {
@@ -285,11 +334,7 @@ const EmployeeDashboard = () => {
     return monthlyAttendance.filter(r => r.login_time).slice(0, 7);
   }, [monthlyAttendance]);
 
-  /* ─── Motivational Message ─── */
-  const motivationalMsg = useMemo(() => {
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-    return MOTIVATIONAL_MESSAGES[dayOfYear % MOTIVATIONAL_MESSAGES.length];
-  }, []);
+  /* ─── Removed old static motivation message logic ─── */
 
   /* ─── Today's Timeline ─── */
   const timeline = useMemo(() => {
@@ -364,7 +409,7 @@ const EmployeeDashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               {/* Greeting */}
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#4F6CE1] to-[#7B93F5] flex items-center justify-center text-[#0F172A] shadow-[0_4px_14px_rgba(79,108,225,0.3)] flex-shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#4F6CE1] to-[#7B93F5] flex items-center justify-center text-white shadow-[0_4px_14px_rgba(79,108,225,0.3)] flex-shrink-0">
                   <GreetingIcon size={22} />
                 </div>
                 <div>
@@ -393,7 +438,7 @@ const EmployeeDashboard = () => {
                 </button>
 
                 {/* Avatar */}
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#4F6CE1] to-[#7B93F5] flex items-center justify-center text-[#0F172A] text-sm font-bold shadow-[0_3px_10px_rgba(79,108,225,0.25)]">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#4F6CE1] to-[#7B93F5] flex items-center justify-center text-white text-sm font-bold shadow-[0_3px_10px_rgba(79,108,225,0.25)]">
                   {initials}
                 </div>
               </div>
@@ -612,16 +657,11 @@ const EmployeeDashboard = () => {
 
             {/* Motivational Card */}
             <div className="clay-motivational p-6 flex flex-col items-center justify-center text-center animate-fadeInUp stagger-8">
-              <div className="w-14 h-14 rounded-2xl bg-white/80 border border-[#E7EBF2]/60 flex items-center justify-center mb-4 shadow-[0_2px_8px_rgba(149,163,187,0.06)]">
-                <span className="text-3xl">{motivationalMsg.icon}</span>
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                <span className="text-3xl">{dailyMotivation.icon}</span>
               </div>
-              <p className="text-base font-bold text-[#1E293B] mb-2">{motivationalMsg.text}</p>
+              <p className="text-base font-bold text-[#1E293B] mb-2">{dailyMotivation.text}</p>
               <p className="text-xs text-[#64748B]">Daily Motivation</p>
-              <div className="flex items-center gap-1 mt-4">
-                <FiZap size={12} className="text-amber-400" />
-                <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-wider">Keep Going</span>
-                <FiZap size={12} className="text-amber-400" />
-              </div>
             </div>
           </div>
 
@@ -898,7 +938,17 @@ const EmployeeDashboard = () => {
           ═══════════════════════════════════════════════════════ */}
       <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(d => ({ ...d, isOpen:false }))} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} message={confirmDialog.message} type={confirmDialog.type} confirmText={confirmDialog.type === 'warning' ? 'Check Out' : 'Check In'} />
       <LocationDialog isOpen={locationDialog.isOpen} onClose={() => setLocationDialog(d => ({ ...d, isOpen:false }))} onAllow={locationDialog.onAllow} title={locationDialog.title} message={locationDialog.message} type={locationDialog.type} />
-      <AlertDialog isOpen={alertDialog.isOpen} onClose={() => setAlertDialog(d => ({ ...d, isOpen:false }))} title={alertDialog.title} message={alertDialog.message} type={alertDialog.type} />
+      <AlertDialog 
+        isOpen={alertDialog.isOpen} 
+        onClose={() => {
+          setAlertDialog(prev => ({ ...prev, isOpen: false }));
+          if (alertDialog.onCloseCallback) alertDialog.onCloseCallback();
+        }} 
+        title={alertDialog.title} 
+        message={alertDialog.message} 
+        type={alertDialog.type} 
+      />
+      <MotivationPopup isOpen={motivationPopup.isOpen} message={motivationPopup.message} onClose={() => setMotivationPopup({ ...motivationPopup, isOpen: false })} />
     </div>
   );
 };

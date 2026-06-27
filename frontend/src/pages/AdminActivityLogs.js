@@ -23,7 +23,7 @@ const AdminActivityLogs = () => {
   const [stats, setStats] = useState({ today: 0, thisWeek: 0, total: 0 });
   
   const [filters, setFilters] = useState({
-    search: '', actionType: '', moduleName: '', startDate: '', endDate: '', sortOrder: 'desc', page: 1, limit: 50
+    search: '', actionType: '', moduleName: '', startDate: '', endDate: '', sortOrder: 'desc', page: 1, limit: 10
   });
 
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 0 });
@@ -46,10 +46,10 @@ const AdminActivityLogs = () => {
     } catch (e) { console.error('Stats error:', e); }
   };
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (currentFilters = filters) => {
     setLoading(true);
     try {
-      const response = await getAdminActivityLogs(filters);
+      const response = await getAdminActivityLogs(currentFilters);
       if (response.data.success) {
         setLogs(response.data.logs);
         setPagination(response.data.pagination);
@@ -66,11 +66,16 @@ const AdminActivityLogs = () => {
     try { const response = await getAdminModuleNames(); if (response.data.success) setModuleNames(response.data.moduleNames); } catch (e) {}
   };
 
-  const handleSearch = () => { setFilters({ ...filters, page: 1 }); fetchLogs(); };
+  const handleSearch = () => { 
+    const newFilters = { ...filters, page: 1 };
+    setFilters(newFilters); 
+    fetchLogs(newFilters); 
+  };
 
   const handleClearFilters = () => {
-    setFilters({ search: '', actionType: '', moduleName: '', startDate: '', endDate: '', sortOrder: 'desc', page: 1, limit: 50 });
-    setTimeout(() => fetchLogs(), 100);
+    const cleared = { search: '', actionType: '', moduleName: '', startDate: '', endDate: '', sortOrder: 'desc', page: 1, limit: 10 };
+    setFilters(cleared);
+    fetchLogs(cleared);
   };
 
   const handleExport = async () => {
