@@ -69,6 +69,7 @@ const EmployeeProfile = () => {
                   { icon: FiUser,  label: 'Full Name',     value: user?.name },
                   { icon: FiMail,  label: 'Email Address', value: user?.email },
                   { icon: FiPhone, label: 'Mobile Number', value: user?.mobile },
+                  { icon: FiUser,  label: 'Birthday',      value: user?.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
                 ].map(field => (
                   <div key={field.label} className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E7EBF2]/80" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9)' }}>
                     <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0 border border-[#E7EBF2]/60 shadow-[0_1px_3px_rgba(149,163,187,0.06)]">

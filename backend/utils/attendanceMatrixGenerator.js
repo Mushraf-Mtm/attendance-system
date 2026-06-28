@@ -32,7 +32,7 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
         margin: 20
       });
 
-      const fileName = `attendance_matrix_${month}_${year}_${Date.now()}.pdf`;
+      const fileName = `attendance_report_${month}_${year}_${Date.now()}.pdf`;
       const filePath = path.join(__dirname, '../temp', fileName);
 
       // Create temp directory if not exists
@@ -75,7 +75,10 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
           const day = new Date(record.attendance_date).getDate();
           // Only include if within valid range
           if (day <= maxDay) {
-            employeeMap[empId].attendance[day] = getAttendanceCodeFromDB(record);
+            employeeMap[empId].attendance[day] = {
+              code: getAttendanceCodeFromDB(record),
+              record: record
+            };
           }
         }
       });
@@ -85,7 +88,7 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
       // Header
       doc.fontSize(18)
          .font('Helvetica-Bold')
-         .text('Monthly Attendance Matrix', { align: 'center' });
+         .text('MONTHLY ATTENDANCE REPORT', { align: 'center' });
       
       doc.fontSize(12)
          .font('Helvetica')
@@ -160,7 +163,8 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
         // Draw attendance cells
         for (let day = 1; day <= maxDay; day++) {
           const x = startX + nameColWidth + ((day - 1) * dateColWidth);
-          const attendanceCode = employee.attendance[day] || null;
+          const attendanceCode = employee.attendance[day]?.code || null;
+          const attendanceRecord = employee.attendance[day]?.record || null;
           
           // Get cell info (Sunday > Holiday > Attendance)
           const cellInfo = getDateCellInfo(day, parseInt(year), parseInt(month), holidayMap, attendanceCode);
@@ -182,6 +186,10 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
             } else if (cellInfo.type === 'holiday') {
               displayText = cellInfo.holidayType === 'Government Holiday' ? 'GovH' : 'OffH';
               fontSize = 5;
+            } else if (cellInfo.type === 'attendance' && attendanceRecord) {
+              if (attendanceRecord.validation_method === 'Manual' || attendanceRecord.absent_reason) {
+                displayText += '*';
+              }
             }
             
             // Draw horizontal text for all types
@@ -270,10 +278,68 @@ const generateMonthlyAttendanceMatrixPDF = async (attendanceData, month, year, h
         });
       }
 
-      // Footer
-      const pageCount = doc.bufferedPageRange().count;
+      // Add Absent Reasons Table at the bottom
+      const absentReasonsList = [];
+      attendanceData.forEach(record => {
+        if (record.attendance_date && record.attendance_status === 'Absent' && record.absent_reason) {
+          absentReasonsList.push(record);
+        }
+      });
+      
+      // Sort absent reasons by date
+      absentReasonsList.sort((a, b) => new Date(a.attendance_date) - new Date(b.attendance_date));
+
+      if (absentReasonsList.length > 0) {
+        const absentTableHeight = 80 + (absentReasonsList.length * 20);
+        if (currentY + absentTableHeight > 550) {
+          doc.addPage({ size: 'A3', layout: 'landscape', margin: 20 });
+          currentY = 50;
+        } else {
+          currentY += 30; // Add spacing before absent reasons table
+        }
+
+        doc.fontSize(14).font('Helvetica-Bold').fillColor('#000000')
+           .text(`Absent Reasons for ${getMonthName(month)} ${year}`, startX, currentY, { align: 'left' });
+        currentY += 25;
+
+        const abTableWidth = 700;
+        const abDateColW = 80;
+        const abEmpColW = 150;
+        const abReasonColW = 470;
+
+        doc.rect(startX, currentY, abTableWidth, 20).fill('#1F2937');
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF')
+           .text('Date', startX + 5, currentY + 5, { width: abDateColW - 10 })
+           .text('Employee', startX + abDateColW + 5, currentY + 5, { width: abEmpColW - 10 })
+           .text('Reason', startX + abDateColW + abEmpColW + 5, currentY + 5, { width: abReasonColW - 10 });
+        currentY += 20;
+
+        absentReasonsList.forEach((ab, index) => {
+          const abDate = new Date(ab.attendance_date);
+          const fDate = `${abDate.getDate()} ${getMonthName(abDate.getMonth() + 1).substring(0, 3)} ${abDate.getFullYear()}`;
+
+          if (index % 2 === 0) {
+            doc.rect(startX, currentY, abTableWidth, 20).fill('#F9FAFB');
+          }
+
+          doc.fontSize(8).font('Helvetica').fillColor('#000000')
+             .text(fDate, startX + 5, currentY + 5, { width: abDateColW - 10 })
+             .text(`${ab.name} (${ab.employee_id})`, startX + abDateColW + 5, currentY + 5, { width: abEmpColW - 10 })
+             .text(ab.absent_reason, startX + abDateColW + abEmpColW + 5, currentY + 5, { width: abReasonColW - 10 });
+
+          doc.rect(startX, currentY, abDateColW, 20).stroke('#E5E7EB');
+          doc.rect(startX + abDateColW, currentY, abEmpColW, 20).stroke('#E5E7EB');
+          doc.rect(startX + abDateColW + abEmpColW, currentY, abReasonColW, 20).stroke('#E5E7EB');
+
+          currentY += 20;
+        });
+      }
+
+      // Footer — use bufferedPageRange to avoid out-of-bounds on single-page PDFs
+      const range = doc.bufferedPageRange();
+      const pageCount = range.count;
       for (let i = 0; i < pageCount; i++) {
-        doc.switchToPage(i);
+        doc.switchToPage(range.start + i);
         doc.fontSize(8)
            .fillColor('#6B7280')
            .text(
@@ -308,7 +374,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
     const pool = require('../config/database');
     const ExcelJS = require('exceljs');
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Attendance Matrix');
+    const worksheet = workbook.addWorksheet('Attendance Report');
 
     // Fetch holidays for the month
     const holidaysResult = await pool.query(
@@ -371,7 +437,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
 
     // Title
     worksheet.mergeCells('A1', `${String.fromCharCode(65 + maxDay)}1`);
-    worksheet.getCell('A1').value = 'Monthly Attendance Matrix';
+    worksheet.getCell('A1').value = 'MONTHLY ATTENDANCE REPORT';
     worksheet.getCell('A1').font = { bold: true, size: 16 };
     worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
     worksheet.getRow(1).height = 25;
@@ -445,6 +511,7 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
       for (let day = 1; day <= maxDay; day++) {
         const cell = row.getCell(day + 1);
         const attendanceCode = employee.attendance[day]?.code || null;
+        const attendanceRecord = employee.attendance[day]?.record || null;
         
         // Get cell info (Sunday > Holiday > Attendance)
         const cellInfo = getDateCellInfo(day, parseInt(year), parseInt(month), holidayMap, attendanceCode);
@@ -492,6 +559,27 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
                 inset: [0.25, 0.25, 0.35, 0.35]
               }
             };
+          } else if (cellInfo.type === 'attendance' && attendanceRecord) {
+            let noteTexts = [];
+            
+            if (attendanceRecord.validation_method === 'Manual') {
+              noteTexts.push({ font: { bold: true, size: 10, name: 'Calibri', color: { argb: 'FF8B5CF6' } }, text: '[Manual Entry]\n' });
+            }
+            if (attendanceRecord.absent_reason) {
+              noteTexts.push({ font: { bold: true, size: 10, name: 'Calibri' }, text: 'Absent Reason:\n' });
+              noteTexts.push({ font: { size: 9, name: 'Calibri' }, text: attendanceRecord.absent_reason + '\n' });
+            }
+            if (attendanceRecord.remarks) {
+              noteTexts.push({ font: { bold: true, size: 10, name: 'Calibri' }, text: 'Remarks:\n' });
+              noteTexts.push({ font: { size: 9, name: 'Calibri' }, text: attendanceRecord.remarks });
+            }
+
+            if (noteTexts.length > 0) {
+              cell.note = { texts: noteTexts, margins: { insetmode: 'custom', inset: [0.25, 0.25, 0.35, 0.35] } };
+              // Add visual indicator to cell
+              displayText += (attendanceRecord.validation_method === 'Manual' ? ' (M)' : '');
+              cell.value = displayText;
+            }
           }
         } else {
           // Leave blank with just border
@@ -671,8 +759,87 @@ const generateMonthlyAttendanceMatrixExcel = async (attendanceData, month, year)
       }
     ];
 
+    // ── Absent Reasons Table ──────────────────────────────────────────────
+    const absentReasonsList = [];
+    attendanceData.forEach(record => {
+      if (record.attendance_date && record.attendance_status === 'Absent' && record.absent_reason) {
+        absentReasonsList.push(record);
+      }
+    });
+    absentReasonsList.sort((a, b) => new Date(a.attendance_date) - new Date(b.attendance_date));
+
+    if (absentReasonsList.length > 0) {
+      // Calculate start row: after matrix + gap + holidays
+      const matrixEndRow = 5 + employees.length; // rows 1-5 header, then employee rows
+      const holidayBlockRows = holidaysResult.rows.length > 0 ? (2 + holidaysResult.rows.length + 2) : 0;
+      const absentStartRow = matrixEndRow + holidayBlockRows + 3;
+
+      // Title
+      worksheet.mergeCells(`A${absentStartRow}`, `C${absentStartRow}`);
+      const abTitleCell = worksheet.getCell(`A${absentStartRow}`);
+      abTitleCell.value = `Absent Reasons – ${getMonthName(month)} ${year}`;
+      abTitleCell.font = { bold: true, size: 13 };
+      abTitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+      worksheet.getRow(absentStartRow).height = 22;
+
+      // Header row
+      const abHeaderRow = worksheet.getRow(absentStartRow + 1);
+
+      const abH1 = abHeaderRow.getCell(1);
+      abH1.value = 'Date';
+      abH1.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      abH1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      abH1.alignment = { horizontal: 'center', vertical: 'middle' };
+      abH1.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+      const abH2 = abHeaderRow.getCell(2);
+      abH2.value = 'Employee';
+      abH2.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      abH2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      abH2.alignment = { horizontal: 'center', vertical: 'middle' };
+      abH2.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+      const abH3 = abHeaderRow.getCell(3);
+      abH3.value = 'Reason';
+      abH3.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      abH3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      abH3.alignment = { horizontal: 'left', vertical: 'middle' };
+      abH3.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+      abHeaderRow.height = 20;
+
+      absentReasonsList.forEach((ab, idx) => {
+        const dataRow = worksheet.getRow(absentStartRow + 2 + idx);
+
+        const abDate = new Date(ab.attendance_date);
+        const fDate = `${abDate.getDate()} ${getMonthName(abDate.getMonth() + 1).substring(0, 3)} ${abDate.getFullYear()}`;
+
+        const c1 = dataRow.getCell(1);
+        c1.value = fDate;
+        c1.alignment = { horizontal: 'center', vertical: 'middle' };
+        c1.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+        const c2 = dataRow.getCell(2);
+        c2.value = `${ab.name} (${ab.employee_id})`;
+        c2.alignment = { horizontal: 'left', vertical: 'middle' };
+        c2.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+        const c3 = dataRow.getCell(3);
+        c3.value = ab.absent_reason;
+        c3.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        c3.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+        dataRow.height = 20;
+      });
+
+      // Widen columns A, B, C for the absent reasons table
+      worksheet.getColumn(1).width = Math.max(worksheet.getColumn(1).width || 15, 15);
+      worksheet.getColumn(2).width = Math.max(worksheet.getColumn(2).width || 30, 30);
+      worksheet.getColumn(3).width = 50;
+    }
+
     // Save file
-    const fileName = `attendance_matrix_${month}_${year}_${Date.now()}.xlsx`;
+    const fileName = `attendance_report_${month}_${year}_${Date.now()}.xlsx`;
     const filePath = path.join(__dirname, '../temp', fileName);
     
     await workbook.xlsx.writeFile(filePath);
@@ -835,7 +1002,7 @@ function drawLegend(doc) {
 
   // Note about blanks
   doc.fontSize(8).font('Helvetica-Oblique').fillColor('#6B7280')
-     .text('(Blank cells = No record)', startX, startY2 + 20);
+     .text('(Blank cells = No record, * = Manual / Absent Reason)', startX, startY2 + 20);
 }
 
 module.exports = {

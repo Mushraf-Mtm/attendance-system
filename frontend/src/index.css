@@ -419,6 +419,38 @@ button, a, input, select, textarea {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
+/* ─── Birthday Card Premium ─── */
+.birthday-card {
+  background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(255, 154, 158, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.animate-float {
+  display: inline-block;
+  animation: floatEmoji 3s ease-in-out infinite;
+}
+
+@keyframes floatEmoji {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(5deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+.confetti-container {
+  background-image: radial-gradient(#FFF 2px, transparent 2px), radial-gradient(#FFF 2px, transparent 2px);
+  background-position: 0 0, 20px 20px;
+  background-size: 40px 40px;
+  opacity: 0.1;
+  animation: bgConfetti 10s linear infinite;
+}
+
+@keyframes bgConfetti {
+  0% { background-position: 0 0, 20px 20px; }
+  100% { background-position: 40px 40px, 60px 60px; }
+}
+
 /* ─── Responsive Adjustments ─── */
 @media (max-width: 1024px) {
   .clay-stat-card, .clay-card-soft, .clay-action-card {

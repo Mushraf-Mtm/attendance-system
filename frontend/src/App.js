@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Loader from './components/Loader';
 import LogoutWarningDialog from './components/LogoutWarningDialog';
+import GlobalErrorDialog from './components/GlobalErrorDialog';
 
 // Public Pages
 import LandingPage from './pages/LandingPage';
@@ -22,10 +23,13 @@ import ForgotPassword from './pages/ForgotPassword';
 // Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
 import AdminEmployees from './pages/AdminEmployees';
+import AdminDepartments from './pages/AdminDepartments';
 import AdminAttendance from './pages/AdminAttendance';
 import AdminSettings from './pages/AdminSettings';
 import AdminManagement from './pages/AdminManagement';
 import AdminHolidays from './pages/AdminHolidays';
+import AdminManualAttendance from './pages/AdminManualAttendance';
+import AdminAbsentReasons from './pages/AdminAbsentReasons';
 import AdminOTPSettings from './pages/AdminOTPSettings';
 import AdminSecurityLogs from './pages/AdminSecurityLogs';
 import AdminTrustedDevices from './pages/AdminTrustedDevices';
@@ -136,10 +140,30 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+// ScrollToTop Component
+const ScrollToTop = () => {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) {
+      const element = document.getElementById(hash.substring(1));
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [pathname, hash]);
+
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <ScrollToTop />
+        <GlobalErrorDialog />
         <Routes>
           {/* Public Landing Page */}
           <Route path="/" element={<LandingPage />} />
@@ -197,6 +221,14 @@ function App() {
             }
           />
           <Route
+            path="/admin/departments"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminDepartments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/attendance"
             element={
               <ProtectedRoute requiredRole="admin">
@@ -225,6 +257,22 @@ function App() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminHolidays />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/manual-attendance"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminManualAttendance />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/absent-reasons"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminAbsentReasons />
               </ProtectedRoute>
             }
           />

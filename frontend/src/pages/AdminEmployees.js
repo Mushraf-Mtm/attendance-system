@@ -44,8 +44,11 @@ const AdminEmployees = () => {
   };
 
   const handleEdit = emp => {
-    setFormData({ id:emp.id, employee_id:emp.employee_id, name:emp.name, department_id:emp.department_id, job_role:emp.job_role, mobile:emp.mobile, email:emp.email, password:'', status:emp.status });
-    setEditMode(true); setShowModal(true);
+    // Format date_of_birth to YYYY-MM-DD for the date input if it exists
+    const dob = emp.date_of_birth ? new Date(emp.date_of_birth).toISOString().split('T')[0] : '';
+    setFormData({ ...emp, password:'', date_of_birth: dob });
+    setEditMode(true);
+    setShowModal(true);
   };
 
   const handleDelete = emp => setConfirmDialog({
@@ -81,13 +84,13 @@ const AdminEmployees = () => {
     });
   };
 
-  const closeModal = () => { setShowModal(false); setEditMode(false); setShowPassword(false); setFormData({ id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active' }); };
+  const closeModal = () => { setShowModal(false); setEditMode(false); setShowPassword(false); setFormData({ id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'' }); };
 
   const filteredEmployees = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ).sort((a, b) => a.employee_id.localeCompare(b.employee_id));
 
   if (loading) return (
     <div className="flex h-screen bg-[#0E1320]"><Sidebar /><div className="flex-1 flex items-center justify-center"><Spinner size={36} /></div></div>
@@ -189,13 +192,14 @@ const AdminEmployees = () => {
                 {[
                   { label:'Employee ID', name:'employee_id', type:'text', disabled:editMode },
                   { label:'Full Name',   name:'name',        type:'text' },
+                  { label:'Date of Birth', name:'date_of_birth', type:'date', max: new Date().toISOString().split('T')[0] },
                   { label:'Job Role',    name:'job_role',    type:'text' },
                   { label:'Mobile',      name:'mobile',      type:'tel'  },
                   { label:'Email',       name:'email',       type:'email'},
-                ].map(({ label, name, type, disabled }) => (
+                ].map(({ label, name, type, disabled, ...rest }) => (
                   <div key={name}>
                     <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">{label}</label>
-                    <input type={type} name={name} value={formData[name]} onChange={handleInputChange} required disabled={disabled}
+                    <input type={type} name={name} value={formData[name] || ''} onChange={handleInputChange} required disabled={disabled} max={rest.max}
                       className="admin-input" />
                   </div>
                 ))}
@@ -203,7 +207,7 @@ const AdminEmployees = () => {
                   <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Department</label>
                   <select name="department_id" value={formData.department_id} onChange={handleInputChange} required className="admin-select">
                     <option value="">Select Department</option>
-                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    {departments.filter(d => d.status === 'Active').map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
                 <div>

@@ -243,7 +243,7 @@ const EmployeeAttendance = () => {
                 <table className="min-w-full clay-table">
                   <thead>
                     <tr className="border-b border-[#E7EBF2]">
-                      {['Date','Login','Logout','Working Hours','Status','WFH'].map(h => (
+                      {['Date','Login','Logout','Working Hours','Status','Absent Reason','WFH'].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -262,12 +262,13 @@ const EmployeeAttendance = () => {
                               {record.is_auto_checkout && record.logout_time && <span className="block text-[10px] text-amber-500 font-medium">(Auto checkout)</span>}
                             </div>
                           </td>
-                          <td className="text-[#64748B]">
-                            {d.type === 'attendance' ? formatWorkingHours(parseFloat(record.total_working_hours)) : '—'}
-                          </td>
+                          <td className="text-[#1E293B] font-semibold">{record.logout_time ? formatWorkingHours(parseFloat(record.total_working_hours)) : '—'}</td>
                           <td>
                             <div className="flex items-center gap-2">
-                              <StatusBadge status={d.status} />
+                              <StatusBadge status={d.type === 'attendance' ? record.attendance_status : d.status} />
+                              {record.validation_method === 'Manual' && (
+                                <span className="text-[10px] font-bold text-purple-600 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-full">Manual</span>
+                              )}
                               {d.holiday && (
                                 <div className="relative group">
                                   <FiInfo size={13} className="text-[#4F6CE1] cursor-help" />
@@ -278,6 +279,9 @@ const EmployeeAttendance = () => {
                                 </div>
                               )}
                             </div>
+                          </td>
+                          <td className="text-[#64748B] font-semibold">
+                            {d.type === 'absent' || record.attendance_status === 'Absent' ? (record.absent_reason || '—') : '—'}
                           </td>
                           <td>
                             {record.is_wfh

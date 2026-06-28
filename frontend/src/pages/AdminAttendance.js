@@ -5,7 +5,7 @@ import AlertDialog from '../components/AlertDialog';
 import ClearDataDialog from '../components/ClearDataDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import { Spinner } from '../components/Loader';
-import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, resetAttendance, deleteAttendance, clearMonthlyAttendance } from '../services/api';
+import { getAllAttendance, downloadMonthlyMatrixPDF, downloadMonthlyMatrixExcel, downloadMonthlyExcel, resetAttendance, deleteAttendance, clearMonthlyAttendance } from '../services/api';
 import { formatTime, formatDate, formatWorkingHours } from '../utils/formatTime';
 import { FiDownload, FiFilter, FiRefreshCw, FiTrash2, FiRotateCcw, FiX, FiCalendar, FiCheckCircle, FiAlertCircle, FiClock, FiHome, FiTrendingUp } from 'react-icons/fi';
 
@@ -52,7 +52,8 @@ const AdminAttendance = () => {
     try {
       let response, fileName;
       if (downloadFormat === 'pdf') { response = await downloadMonthlyMatrixPDF(month, year); fileName = `attendance_matrix_${month}_${year}.pdf`; }
-      else { response = await downloadMonthlyMatrixExcel(month, year); fileName = `attendance_matrix_${month}_${year}.xlsx`; }
+      else if (downloadFormat === 'excel') { response = await downloadMonthlyMatrixExcel(month, year); fileName = `attendance_matrix_${month}_${year}.xlsx`; }
+      else if (downloadFormat === 'excel-list') { response = await downloadMonthlyExcel(month, year); fileName = `attendance_report_${month}_${year}.xlsx`; }
       const blob = new Blob([response.data], { type: downloadFormat === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a'); link.href = url; link.download = fileName;
@@ -210,7 +211,7 @@ const AdminAttendance = () => {
               <div className="overflow-x-auto dark-scroll">
                 <table className="min-w-full divide-y divide-white/[0.04]">
                   <thead className="bg-[#0E1320]/80">
-                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','Status','Type','Actions'].map(h => (
+                    <tr>{['Date','Emp ID','Name','Dept','Check In','Check Out','Hours','Status','Absent Reason','Type','Actions'].map(h => (
                       <th key={h} className="px-5 py-4 text-left text-[10px] font-bold text-[#64748B] uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}</tr>
                   </thead>
@@ -227,7 +228,17 @@ const AdminAttendance = () => {
                           {r.is_auto_checkout && r.logout_time && <span className="block text-[10px] text-amber-500/80 font-bold mt-0.5">(Auto)</span>}
                         </td>
                         <td className="px-5 py-4 text-xs text-[#CBD5E1] font-mono whitespace-nowrap">{r.logout_time ? formatWorkingHours(parseFloat(r.total_working_hours)) : '—'}</td>
-                        <td className="px-5 py-4 whitespace-nowrap"><StatusBadge status={r.attendance_status} dark /></td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={r.attendance_status || 'Absent'} dark />
+                            {r.validation_method === 'Manual' && (
+                              <span className="text-[10px] font-bold text-purple-400 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-full">Manual</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-xs font-semibold text-[#CBD5E1] whitespace-nowrap">
+                          {r.attendance_status === 'Absent' ? (r.absent_reason || '—') : '—'}
+                        </td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {r.is_wfh ? <span className="text-[10px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-full">WFH</span> : <span className="text-xs text-[#475569] font-medium">Office</span>}
                         </td>

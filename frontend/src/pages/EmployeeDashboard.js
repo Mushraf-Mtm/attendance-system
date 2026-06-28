@@ -9,6 +9,7 @@ import MotivationPopup from '../components/MotivationPopup';
 import { Spinner } from '../components/Loader';
 import { getTodayAttendance, checkIn, checkOut, getWFHStatus, getSettings, getEmployeeMonthlyAttendance } from '../services/api';
 import { getDailyMotivation, getEventMotivation, CATEGORIES } from '../utils/motivationUtil';
+import { mapErrorToDialogConfig } from '../utils/errorMapper';
 import { getCurrentLocation, getDeviceInfo, getDeviceFingerprintData, getIPAddress } from '../utils/location';
 import { formatTime, formatWorkingHours, format24To12Hour, formatDate } from '../utils/formatTime';
 import {
@@ -40,12 +41,14 @@ const EmployeeDashboard = () => {
   /* ─── Existing State (unchanged) ─── */
   const [todayAttendance, setTodayAttendance] = useState(null);
   const [loading, setLoading]               = useState(true);
-  const [actionLoading, setActionLoading]   = useState(false);
+  const [isCheckingIn, setIsCheckingIn]     = useState(false);
+  const [checkInMessage, setCheckInMessage] = useState('');
+  const [isCheckingOut, setIsCheckingOut]   = useState(false);
+  const [checkOutMessage, setCheckOutMessage] = useState('');
   const [wfhEnabled, setWfhEnabled]         = useState(false);
   const [checkInEnabled, setCheckInEnabled] = useState(true);
   const [checkOutEnabled, setCheckOutEnabled] = useState(true);
   const [settings, setSettings]             = useState(null);
-  const [loadingMessage, setLoadingMessage] = useState('');
 
   const [confirmDialog, setConfirmDialog]   = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'info' });
   const [locationDialog, setLocationDialog] = useState({ isOpen:false, title:'', message:'', type:'permission', onAllow:null });
@@ -80,7 +83,16 @@ const EmployeeDashboard = () => {
         getSettings(),
         getEmployeeMonthlyAttendance(now.getMonth() + 1, now.getFullYear()),
       ]);
-      if (attendanceRes.data.success) setTodayAttendance(attendanceRes.data.attendance);
+      if (attendanceRes.data.success) {
+        const attendance = attendanceRes.data.attendance;
+        setTodayAttendance(attendance);
+        
+        // Attendance Session Recovery: 
+        // If the user cleared local storage but has an active session on the same device, restore it.
+        if (attendance && attendance.session_id && !localStorage.getItem('attendance_session_id')) {
+          localStorage.setItem('attendance_session_id', attendance.session_id);
+        }
+      }
       if (wfhRes.data.success) setWfhEnabled(wfhRes.data.wfh_enabled);
       if (settingsRes.data.success) {
         setSettings(settingsRes.data.settings);
@@ -108,11 +120,26 @@ const EmployeeDashboard = () => {
         // Assume auto-checkout if there was a login but no logout, or if status says auto checkout
         const hasAutoCheckout = yesterdayAtt && yesterdayAtt.login_time && (!yesterdayAtt.logout_time || yesterdayAtt.attendance_status === 'Auto Checkout');
         
-        // We do not have birthday field exposed in auth user directly usually, setting false for now.
-        const isBirthday = false; 
+        // Birthday check
+        let isBirthday = false;
+        if (user?.date_of_birth) {
+          const dob = new Date(user.date_of_birth);
+          const today = new Date();
+          if (dob.getMonth() === today.getMonth() && dob.getDate() === today.getDate()) {
+            isBirthday = true;
+          }
+        } 
 
         const msg = getDailyMotivation(new Date().getDay(), isGovtHoliday, isOfficeHoliday, isBirthday, hasAutoCheckout);
-        setDailyMotivation(msg);
+        setDailyMotivation({ ...msg, isBirthday });
+
+        // Trigger Birthday Popup only once per session
+        if (isBirthday && !sessionStorage.getItem('birthday_popup_shown')) {
+          setTimeout(() => {
+            setMotivationPopup({ isOpen: true, message: msg });
+            sessionStorage.setItem('birthday_popup_shown', 'true');
+          }, 1500);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -125,25 +152,32 @@ const EmployeeDashboard = () => {
      ════════════════════════════════════════════════════════════════ */
 
   const handleCheckIn = () => {
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('showGlobalError', { detail: mapErrorToDialogConfig({ code: 'ERR_NETWORK', message: 'Network Error' }) }));
+      return;
+    }
     if (!settings) { setAlertDialog({ isOpen:true, title:'Error', message:'Settings not loaded. Please refresh.', type:'error' }); return; }
     setConfirmDialog({
       isOpen:true, title:'Check In', type:'info',
       message: wfhEnabled ? 'Are you sure you want to check in? Your current location will be recorded.' : `Are you sure you want to check in? You must be within ${settings.companyLocation.allowedRadius} meters of the office.`,
       onConfirm: async () => {
-        setActionLoading(true); setLoadingMessage('Requesting location permission...');
+        setIsCheckingIn(true); setCheckInMessage('Requesting location permission...');
         try {
           setLocationDialog({ isOpen:true, title:settings.messages.locationPermissionTitle, message:settings.messages.locationPermissionMessage, type:'permission',
             onAllow: async () => {
               try {
-                setLoadingMessage('Getting your location...');
+                setCheckInMessage('Getting your location...');
                 const location = await getCurrentLocation();
-                setLoadingMessage('Collecting device information...');
+                setCheckInMessage('Collecting device information...');
                 const deviceInfo = getDeviceInfo(); const fingerprintData = getDeviceFingerprintData(); const ipAddress = await getIPAddress();
-                setLoadingMessage('Marking attendance...');
+                setCheckInMessage('Marking attendance...');
                 const data = { latitude:location.latitude, longitude:location.longitude, accuracy:location.accuracy, address:'Location captured', device_info:deviceInfo.device_info, browser_info:deviceInfo.browser_info, screenResolution:fingerprintData.screenResolution, timezone:fingerprintData.timezone, ip_address:ipAddress };
                 const response = await checkIn(data);
                 if (response.data.success) { 
-                  setLoadingMessage(''); 
+                  if (response.data.sessionId) {
+                    localStorage.setItem('attendance_session_id', response.data.sessionId);
+                  }
+                  setCheckInMessage(''); 
                   // Trigger Popup Motivation AFTER the success alert is closed
                   const status = response.data.attendance?.attendance_status;
                   let category = CATEGORIES.CHECK_IN_NORMAL;
@@ -164,41 +198,54 @@ const EmployeeDashboard = () => {
                   
                   await fetchData(); 
                 }
-                else { setLoadingMessage(''); setAlertDialog({ isOpen:true, title:'❌ Check-in Failed', message:response.data.message || 'Check-in failed. Please try again.', type:'error' }); }
+                else { setCheckInMessage(''); setAlertDialog({ isOpen:true, title:'❌ Check-in Failed', message:response.data.message || 'Check-in failed. Please try again.', type:'error' }); }
               } catch (error) {
-                setLoadingMessage('');
-                if (error.type === 'denied') { setLocationDialog({ isOpen:true, title:'❌ Location Permission Denied', message:settings.messages.locationDeniedMessage || 'Please enable location permissions.', type:'error', onAllow:null }); }
-                else if (error.type === 'unavailable') { setLocationDialog({ isOpen:true, title:'❌ Location Unavailable', message:settings.messages.locationUnavailableMessage || 'Unable to retrieve your location.', type:'error', onAllow:null }); }
-                else if (error.type === 'timeout') { setLocationDialog({ isOpen:true, title:'⏱️ Location Timeout', message:settings.messages.locationTimeoutMessage || 'Location request timed out.', type:'warning', onAllow:null }); }
-                else if (error.response?.data?.message) {
-                  let msg = error.response.data.message;
-                  if (error.response.data.distance) msg += `\n\n📍 Distance: ${error.response.data.distance} meters from office`;
-                  if (error.response.data.accuracyInfo) { const { accuracy, threshold } = error.response.data.accuracyInfo; msg += `\n\n📡 GPS Accuracy: ${accuracy}m (Required: ${threshold}m or better)`; }
-                  if (error.response.data.validationMode) msg += `\n\n🔒 Validation Mode: ${error.response.data.validationMode.replace(/_/g,' ').toUpperCase()}`;
-                  setAlertDialog({ isOpen:true, title:'❌ Check-in Failed', message:msg, type:'error' });
-                } else { setAlertDialog({ isOpen:true, title:'❌ Check-in Failed', message:error.message || 'Unable to complete check-in.', type:'error' }); }
-              } finally { setActionLoading(false); setLoadingMessage(''); }
+                setCheckInMessage('');
+                if (!error.isGlobalError) {
+                  const config = mapErrorToDialogConfig(error);
+                  window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
+                }
+              } finally { setIsCheckingIn(false); setCheckInMessage(''); }
             },
           });
-        } catch (e) { setActionLoading(false); setLoadingMessage(''); }
+        } catch (e) { setIsCheckingIn(false); setCheckInMessage(''); }
       },
     });
   };
 
   const handleCheckOut = () => {
+    if (!navigator.onLine) {
+      window.dispatchEvent(new CustomEvent('showGlobalError', { detail: mapErrorToDialogConfig({ code: 'ERR_NETWORK', message: 'Network Error' }) }));
+      return;
+    }
     if (!settings) { setAlertDialog({ isOpen:true, title:'Error', message:'Settings not loaded. Please refresh.', type:'error' }); return; }
     setConfirmDialog({
       isOpen:true, title:'Check Out', type:'warning',
       message:'Are you sure you want to check out? Your working hours will be calculated and recorded.',
       onConfirm: async () => {
-        setActionLoading(true);
+        setIsCheckingOut(true);
         try {
           setLocationDialog({ isOpen:true, title:settings.messages.locationPermissionTitle, message:settings.messages.locationPermissionMessage, type:'permission',
             onAllow: async () => {
               try {
+                setCheckOutMessage('Getting your location...');
                 const location = await getCurrentLocation();
-                const response = await checkOut({ latitude:location.latitude, longitude:location.longitude, address:'Location captured' });
+                setCheckOutMessage('Collecting device information...');
+                const deviceInfo = getDeviceInfo();
+                const fingerprintData = getDeviceFingerprintData();
+                setCheckOutMessage('Processing check-out...');
+                const response = await checkOut({
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  address: 'Location captured',
+                  device_info: deviceInfo.device_info,
+                  browser_info: deviceInfo.browser_info,
+                  screenResolution: fingerprintData.screenResolution,
+                  timezone: fingerprintData.timezone,
+                  sessionId: localStorage.getItem('attendance_session_id')
+                });
                 if (response.data.success) {
+                  setCheckOutMessage('');
                   // Trigger Popup Motivation AFTER the success alert is closed
                   const workingHours = parseFloat(response.data.attendance?.total_working_hours || 0);
                   const isEarly = workingHours < (settings.workingHours.halfDayThreshold || 4);
@@ -218,13 +265,15 @@ const EmployeeDashboard = () => {
                   fetchData();
                 }
               } catch (error) {
-                if (error.type === 'denied') { setLocationDialog({ isOpen:true, title:settings.messages.locationDeniedTitle, message:settings.messages.locationDeniedMessage, type:'error', onAllow:null }); }
-                else if (error.response?.data?.message) { setAlertDialog({ isOpen:true, title:'Check-out Failed', message:error.response.data.message, type:'error' }); }
-                else { setAlertDialog({ isOpen:true, title:'Check-out Failed', message:error.message || 'Unable to complete check-out.', type:'error' }); }
-              } finally { setActionLoading(false); }
+                setCheckOutMessage('');
+                if (!error.isGlobalError) {
+                  const config = mapErrorToDialogConfig(error);
+                  window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
+                }
+              } finally { setIsCheckingOut(false); setCheckOutMessage(''); }
             },
           });
-        } catch (e) { setActionLoading(false); }
+        } catch (e) { setIsCheckingOut(false); setCheckOutMessage(''); }
       },
     });
   };
@@ -517,7 +566,7 @@ const EmployeeDashboard = () => {
             {/* Check In */}
             <button
               onClick={handleCheckIn}
-              disabled={actionLoading || hasCheckedIn || !checkInEnabled}
+              disabled={isCheckingIn || hasCheckedIn || !checkInEnabled}
               className={`clay-action-card clay-checkin relative p-6 flex flex-col items-center gap-4 ${hasCheckedIn || !checkInEnabled ? 'bg-[#F8FAFC] !border-[#E7EBF2]' : ''}`}
             >
               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
@@ -525,7 +574,7 @@ const EmployeeDashboard = () => {
                   ? 'bg-[#F1F5F9]'
                   : 'bg-gradient-to-br from-emerald-50 to-emerald-100'
               }`}>
-                {actionLoading && loadingMessage
+                {isCheckingIn && checkInMessage
                   ? <Spinner size="lg" />
                   : <FiLogIn size={28} className={hasCheckedIn || !checkInEnabled ? 'text-[#64748B]' : 'text-emerald-600'} />
                 }
@@ -535,7 +584,7 @@ const EmployeeDashboard = () => {
                   {!checkInEnabled ? 'Check-In Disabled' : hasCheckedIn ? 'Checked In' : 'Check In'}
                 </p>
                 <p className={`text-xs mt-1 ${hasCheckedIn || !checkInEnabled ? 'text-[#64748B]' : 'text-[#64748B]'}`}>
-                  {actionLoading && loadingMessage ? loadingMessage : !checkInEnabled ? 'Contact admin to enable' : hasCheckedIn ? `at ${formatTime(todayAttendance?.login_time)}` : 'Tap to mark attendance'}
+                  {isCheckingIn && checkInMessage ? checkInMessage : !checkInEnabled ? 'Contact admin to enable' : hasCheckedIn ? `at ${formatTime(todayAttendance?.login_time)}` : 'Tap to mark attendance'}
                 </p>
               </div>
               {hasCheckedIn && (
@@ -548,7 +597,7 @@ const EmployeeDashboard = () => {
             {/* Check Out */}
             <button
               onClick={handleCheckOut}
-              disabled={actionLoading || !hasCheckedIn || hasCheckedOut || !checkOutEnabled}
+              disabled={isCheckingOut || !hasCheckedIn || hasCheckedOut || !checkOutEnabled}
               className={`clay-action-card clay-checkout relative p-6 flex flex-col items-center gap-4 ${!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'bg-[#F8FAFC] !border-[#E7EBF2]' : ''}`}
             >
               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
@@ -556,14 +605,17 @@ const EmployeeDashboard = () => {
                   ? 'bg-[#F1F5F9]'
                   : 'bg-gradient-to-br from-red-50 to-red-100'
               }`}>
-                <FiLogOut size={28} className={!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'text-[#64748B]' : 'text-red-500'} />
+                {isCheckingOut && checkOutMessage
+                  ? <Spinner size="lg" />
+                  : <FiLogOut size={28} className={!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'text-[#64748B]' : 'text-red-500'} />
+                }
               </div>
               <div className="text-center">
                 <p className={`text-base font-bold ${!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'text-[#64748B]' : 'text-[#1E293B]'}`}>
                   {!checkOutEnabled ? 'Check-Out Disabled' : hasCheckedOut ? 'Checked Out' : 'Check Out'}
                 </p>
                 <p className={`text-xs mt-1 ${!hasCheckedIn || hasCheckedOut || !checkOutEnabled ? 'text-[#64748B]' : 'text-[#64748B]'}`}>
-                  {!checkOutEnabled ? 'Contact admin to enable' : hasCheckedOut ? `at ${formatTime(todayAttendance?.logout_time)}` : 'Tap to end your shift'}
+                  {isCheckingOut && checkOutMessage ? checkOutMessage : !checkOutEnabled ? 'Contact admin to enable' : hasCheckedOut ? `at ${formatTime(todayAttendance?.logout_time)}` : 'Tap to end your shift'}
                 </p>
               </div>
               {hasCheckedOut && (
@@ -655,14 +707,26 @@ const EmployeeDashboard = () => {
               </div>
             </div>
 
-            {/* Motivational Card */}
-            <div className="clay-motivational p-6 flex flex-col items-center justify-center text-center animate-fadeInUp stagger-8">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
-                <span className="text-3xl">{dailyMotivation.icon}</span>
+            {/* Motivational / Birthday Card */}
+            {dailyMotivation.isBirthday ? (
+              <div className="birthday-card p-6 flex flex-col items-center justify-center text-center animate-fadeInUp stagger-8 relative overflow-hidden">
+                <div className="confetti-container absolute inset-0 pointer-events-none"></div>
+                <div className="w-16 h-16 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center mb-3 shadow-[0_4px_12px_rgba(255,255,255,0.3)] z-10">
+                  <span className="text-3xl relative animate-float">🎉</span>
+                </div>
+                <h3 className="text-lg font-extrabold text-white mb-2 z-10 text-shadow-sm">Happy Birthday, {user?.name.split(' ')[0]}!</h3>
+                <p className="text-xs font-semibold text-white/90 z-10 mb-1 leading-relaxed px-2">Wishing you happiness, success, and a wonderful year ahead.</p>
+                <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest z-10 mt-2">Have a fantastic day!</p>
               </div>
-              <p className="text-base font-bold text-[#1E293B] mb-2">{dailyMotivation.text}</p>
-              <p className="text-xs text-[#64748B]">Daily Motivation</p>
-            </div>
+            ) : (
+              <div className="clay-motivational p-6 flex flex-col items-center justify-center text-center animate-fadeInUp stagger-8">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                  <span className="text-3xl">{dailyMotivation.icon}</span>
+                </div>
+                <p className="text-base font-bold text-[#1E293B] mb-2">{dailyMotivation.text}</p>
+                <p className="text-xs text-[#64748B]">Daily Motivation</p>
+              </div>
+            )}
           </div>
 
           {/* ═══════════════════════════════════════════════════════

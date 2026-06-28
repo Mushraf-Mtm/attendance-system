@@ -14,7 +14,10 @@ const holidayRoutes = require('./routes/holidayRoutes');
 const securityRoutes = require('./routes/securityRoutes');
 const trustedDevicesRoutes = require('./routes/trustedDevicesRoutes');
 const adminActivityRoutes = require('./routes/adminActivityRoutes');
+const manualAttendanceRoutes = require('./routes/manualAttendanceRoutes');
+const absentReasonRoutes = require('./routes/absentReasonRoutes');
 const clearDataRoutes = require('./routes/clearDataRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
 
 // Import cron jobs
 const { createDailyAbsentRecords } = require('./jobs/createDailyAbsentRecords');
@@ -71,7 +74,10 @@ app.use('/api/holidays', holidayRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/trusted-devices', trustedDevicesRoutes);
 app.use('/api/admin-activity', adminActivityRoutes);
+app.use('/api/manual-attendance', manualAttendanceRoutes);
+app.use('/api/absent-reasons', absentReasonRoutes);
 app.use('/api/clear-data', clearDataRoutes);
+app.use('/api/departments', departmentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

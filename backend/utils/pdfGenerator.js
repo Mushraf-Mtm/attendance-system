@@ -45,16 +45,17 @@ const generateMonthlyAttendancePDF = (attendanceData, month, year) => {
       // Column positions
       const cols = {
         empId: 30,
-        name: 90,
-        dept: 180,
-        role: 250,
-        mobile: 330,
-        date: 410,
-        login: 480,
-        logout: 540,
-        hours: 600,
-        status: 660,
-        wfh: 720
+        name: 70,
+        dept: 140,
+        role: 200,
+        mobile: 260,
+        date: 320,
+        login: 375,
+        logout: 420,
+        hours: 465,
+        status: 505,
+        reason: 555,
+        wfh: 715
       };
 
       // Draw header background
@@ -65,17 +66,18 @@ const generateMonthlyAttendancePDF = (attendanceData, month, year) => {
       doc.fontSize(8)
          .font('Helvetica-Bold')
          .fillColor('#FFFFFF')
-         .text('Emp ID', cols.empId + 5, currentY + 5, { width: 55 })
-         .text('Name', cols.name + 5, currentY + 5, { width: 85 })
-         .text('Dept', cols.dept + 5, currentY + 5, { width: 65 })
-         .text('Role', cols.role + 5, currentY + 5, { width: 75 })
-         .text('Mobile', cols.mobile + 5, currentY + 5, { width: 75 })
-         .text('Date', cols.date + 5, currentY + 5, { width: 65 })
-         .text('Login', cols.login + 5, currentY + 5, { width: 55 })
-         .text('Logout', cols.logout + 5, currentY + 5, { width: 55 })
-         .text('Hours', cols.hours + 5, currentY + 5, { width: 55 })
-         .text('Status', cols.status + 5, currentY + 5, { width: 55 })
-         .text('WFH', cols.wfh + 5, currentY + 5, { width: 40 });
+         .text('Emp ID', cols.empId + 2, currentY + 5, { width: 38 })
+         .text('Name', cols.name + 2, currentY + 5, { width: 68 })
+         .text('Dept', cols.dept + 2, currentY + 5, { width: 58 })
+         .text('Role', cols.role + 2, currentY + 5, { width: 58 })
+         .text('Mobile', cols.mobile + 2, currentY + 5, { width: 58 })
+         .text('Date', cols.date + 2, currentY + 5, { width: 53 })
+         .text('Login', cols.login + 2, currentY + 5, { width: 43 })
+         .text('Logout', cols.logout + 2, currentY + 5, { width: 43 })
+         .text('Hours', cols.hours + 2, currentY + 5, { width: 38 })
+         .text('Status', cols.status + 2, currentY + 5, { width: 48 })
+         .text('Reason', cols.reason + 2, currentY + 5, { width: 158 })
+         .text('WFH', cols.wfh + 2, currentY + 5, { width: 33 });
 
       currentY += rowHeight;
 
@@ -95,18 +97,24 @@ const generateMonthlyAttendancePDF = (attendanceData, month, year) => {
              .fill('#F3F4F6');
         }
 
+        const truncate = (text, maxLength) => {
+          if (!text) return '-';
+          return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        };
+
         doc.fillColor('#000000')
-           .text(record.employee_id || '-', cols.empId + 5, currentY + 5, { width: 55 })
-           .text(record.name || '-', cols.name + 5, currentY + 5, { width: 85 })
-           .text(record.department || '-', cols.dept + 5, currentY + 5, { width: 65 })
-           .text(record.job_role || '-', cols.role + 5, currentY + 5, { width: 75 })
-           .text(record.mobile || '-', cols.mobile + 5, currentY + 5, { width: 75 })
-           .text(record.attendance_date ? new Date(record.attendance_date).toLocaleDateString() : '-', cols.date + 5, currentY + 5, { width: 65 })
-           .text(record.login_time ? new Date(record.login_time).toLocaleTimeString() : '-', cols.login + 5, currentY + 5, { width: 55 })
-           .text(record.logout_time ? new Date(record.logout_time).toLocaleTimeString() : '-', cols.logout + 5, currentY + 5, { width: 55 })
-           .text(record.total_working_hours ? `${record.total_working_hours}h` : '-', cols.hours + 5, currentY + 5, { width: 55 })
-           .text(record.attendance_status || '-', cols.status + 5, currentY + 5, { width: 55 })
-           .text(record.is_wfh ? 'Yes' : 'No', cols.wfh + 5, currentY + 5, { width: 40 });
+           .text(record.employee_id || '-', cols.empId + 2, currentY + 5, { width: 38 })
+           .text(truncate(record.name, 12), cols.name + 2, currentY + 5, { width: 68 })
+           .text(truncate(record.department, 10), cols.dept + 2, currentY + 5, { width: 58 })
+           .text(truncate(record.job_role, 10), cols.role + 2, currentY + 5, { width: 58 })
+           .text(record.mobile || '-', cols.mobile + 2, currentY + 5, { width: 58 })
+           .text(record.attendance_date ? new Date(record.attendance_date).toLocaleDateString() : '-', cols.date + 2, currentY + 5, { width: 53 })
+           .text(record.login_time ? new Date(record.login_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-', cols.login + 2, currentY + 5, { width: 43 })
+           .text(record.logout_time ? new Date(record.logout_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-', cols.logout + 2, currentY + 5, { width: 43 })
+           .text(record.total_working_hours ? `${record.total_working_hours}h` : '-', cols.hours + 2, currentY + 5, { width: 38 })
+           .text((record.attendance_status || '-') + (record.validation_method === 'Manual' ? ' (M)' : ''), cols.status + 2, currentY + 5, { width: 48 })
+           .text(truncate(record.absent_reason, 35), cols.reason + 2, currentY + 5, { width: 158 })
+           .text(record.is_wfh ? 'Yes' : 'No', cols.wfh + 2, currentY + 5, { width: 33 });
 
         currentY += rowHeight;
       });

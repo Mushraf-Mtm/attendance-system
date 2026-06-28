@@ -19,7 +19,7 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText
 
   if (isAdmin) {
     return (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
         <div className="bg-[#1E293B] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-md animate-scale-in">
           <div className="flex items-start justify-between px-6 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">

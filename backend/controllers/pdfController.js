@@ -17,7 +17,6 @@ const generateMonthlyMatrixPDF = async (req, res) => {
     }
 
     // Fetch ALL active employees and their attendance for the month
-    // This ensures all employees appear even if they have no attendance records
     const result = await pool.query(
       `SELECT 
         e.id as employee_db_id,
@@ -31,7 +30,9 @@ const generateMonthlyMatrixPDF = async (req, res) => {
         a.login_time,
         a.logout_time,
         a.attendance_status,
-        a.total_working_hours
+        a.total_working_hours,
+        a.absent_reason,
+        a.validation_method
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
        LEFT JOIN attendance a ON e.employee_id = a.employee_id 
@@ -42,7 +43,6 @@ const generateMonthlyMatrixPDF = async (req, res) => {
       [month, year]
     );
 
-    // Even if no attendance records, we should show all active employees
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -110,7 +110,9 @@ const generateMonthlyMatrixExcel = async (req, res) => {
         a.login_time,
         a.logout_time,
         a.attendance_status,
-        a.total_working_hours
+        a.total_working_hours,
+        a.absent_reason,
+        a.validation_method
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
        LEFT JOIN attendance a ON e.employee_id = a.employee_id 

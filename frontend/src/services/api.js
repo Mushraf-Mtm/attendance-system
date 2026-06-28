@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { mapErrorToDialogConfig } from '../utils/errorMapper';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -27,21 +28,22 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only redirect to login if token is invalid/expired AND user is already logged in
-    if (error.response?.status === 401) {
-      const token = sessionStorage.getItem('token');
-      const currentPath = window.location.pathname;
+    // Only process errors if the user is not on a login page
+    const currentPath = window.location.pathname;
+    const isLoginAttempt = error.config?.url?.includes('/login');
+    const isValidationConflict = error.response?.status === 409 && error.response?.data?.errorCode === 'DEPARTMENT_ALREADY_EXISTS';
+    const isDepartmentInactive = error.response?.status === 400 && error.response?.data?.errorCode === 'DEPARTMENT_INACTIVE';
+    const isManualAttendanceConflict = error.response?.data?.errorCode && ['DUPLICATE_ATTENDANCE', 'EARLY_CHECKIN', 'EARLY_CHECKOUT', 'INVALID_TIME'].includes(error.response?.data?.errorCode);
+    
+    if (!currentPath.includes('/login') && !isLoginAttempt && !isValidationConflict && !isDepartmentInactive && !isManualAttendanceConflict) {
+      // Map error to config and dispatch
+      const config = mapErrorToDialogConfig(error);
+      window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
       
-      // Only clear and redirect if:
-      // 1. User has a token (was logged in)
-      // 2. Not already on a login page
-      // 3. Error is from a protected route (not from login attempt)
-      if (token && !currentPath.includes('/login') && error.config.url && !error.config.url.includes('/login')) {
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('user');
-        window.location.href = '/';
-      }
+      // Attach flag so components know it was handled globally
+      error.isGlobalError = true;
     }
+    
     return Promise.reject(error);
   }
 );
@@ -70,7 +72,16 @@ export const deleteEmployee = (id) =>
   api.delete(`/employees/${id}`);
 
 export const getAllDepartments = () => 
-  api.get('/employees/departments');
+  api.get('/departments');
+
+export const addDepartment = (data) => 
+  api.post('/departments', data);
+
+export const updateDepartment = (id, data) => 
+  api.put(`/departments/${id}`, data);
+
+export const deleteDepartment = (id) => 
+  api.delete(`/departments/${id}`);
 
 // Attendance APIs
 export const checkIn = (data) => 
@@ -236,6 +247,25 @@ export const blockTrustedDevice = (deviceId, remarks) =>
 
 export const unblockTrustedDevice = (deviceId) =>
   api.post('/trusted-devices/unblock', { deviceId });
+
+// --- Reports ---
+export const downloadMonthlyExcel = (month, year) => {
+  return api.get('/pdf/monthly-excel', {
+    params: { month, year },
+    responseType: 'blob'
+  });
+};
+
+// --- Manual Attendance ---
+export const getEmployeesForManualAttendance = (params) => api.get('/manual-attendance/employees', { params });
+export const createManualAttendance = (data) => api.post('/manual-attendance', data);
+export const updateManualAttendance = (id, data) => api.put(`/manual-attendance/${id}`, data);
+export const deleteManualAttendance = (id) => api.delete(`/manual-attendance/${id}`);
+
+// --- Absent Reason ---
+export const getAbsentEmployees = (params) => api.get('/absent-reasons', { params });
+export const updateAbsentReason = (id, data) => api.put(`/absent-reasons/${id}`, data);
+export const clearAbsentReason = (id) => api.delete(`/absent-reasons/${id}/clear`);
 
 export default api;
 

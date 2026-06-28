@@ -1,7 +1,8 @@
 const pool = require('../config/database');
+const crypto = require('crypto');
 const { validateAttendance, calculateAttendanceStatus } = require('../utils/attendanceValidator');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
-const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint, validateTrustedDevice } = require('../services/deviceFingerprintService');
+const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint, validateTrustedDevice, parseDeviceInfo } = require('../services/deviceFingerprintService');
 const { getClientIP } = require('../services/networkValidationService');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
 
@@ -102,34 +103,36 @@ const checkIn = async (req, res) => {
     const clientIP = getClientIP(req);
     const today = getLocalDateString(); // Use local date instead of UTC
     
-    // Check if today is Sunday (using current system date)
-    const currentDate = new Date();
-    const dayOfWeek = currentDate.getDay();
-    
-    console.log('=== SUNDAY CHECK ===');
-    console.log('Current Date:', currentDate.toISOString());
-    console.log('Local Date String:', today);
-    console.log('Day of Week:', dayOfWeek, '(0=Sunday, 1=Monday, 2=Tuesday, etc.)');
-    console.log('Date String:', today);
-    
-    if (dayOfWeek === 0) {
-      await logAudit({
-        userId: employeeCode,
-        userType: 'employee',
-        action: AUDIT_ACTIONS.CHECKIN_FAILED,
-        status: AUDIT_STATUS.FAILED,
-        ipAddress: clientIP,
-        userAgent: req.headers['user-agent'],
-        details: { reason: 'Sunday', date: today, dayOfWeek }
-      });
-      
-      return res.status(403).json({
-        success: false,
-        message: 'Today is Sunday. Attendance is not required on Sundays.',
-        isHoliday: true,
-        holidayType: 'Sunday'
-      });
-    }
+    // === TEMPORARILY COMMENTED OUT FOR TESTING — UNCOMMENT AFTER TESTING ===
+    // // Check if today is Sunday (using current system date)
+    // const currentDate = new Date();
+    // const dayOfWeek = currentDate.getDay();
+    // 
+    // console.log('=== SUNDAY CHECK ===');
+    // console.log('Current Date:', currentDate.toISOString());
+    // console.log('Local Date String:', today);
+    // console.log('Day of Week:', dayOfWeek, '(0=Sunday, 1=Monday, 2=Tuesday, etc.)');
+    // console.log('Date String:', today);
+    // 
+    // if (dayOfWeek === 0) {
+    //   await logAudit({
+    //     userId: employeeCode,
+    //     userType: 'employee',
+    //     action: AUDIT_ACTIONS.CHECKIN_FAILED,
+    //     status: AUDIT_STATUS.FAILED,
+    //     ipAddress: clientIP,
+    //     userAgent: req.headers['user-agent'],
+    //     details: { reason: 'Sunday', date: today, dayOfWeek }
+    //   });
+    //   
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'Today is Sunday. Attendance is not required on Sundays.',
+    //     isHoliday: true,
+    //     holidayType: 'Sunday'
+    //   });
+    // }
+    // === END TEMPORARY COMMENT ===
 
     // Check if today is an enabled holiday
     const holidayCheck = await pool.query(
@@ -209,6 +212,7 @@ const checkIn = async (req, res) => {
       
       return res.status(403).json({
         success: false,
+        errorCode: 'EARLY_CHECKIN',
         message: `Check-in is not allowed before office start time (${format24To12Hour(settings.workingHours.officeStartTime)})`
       });
     }
@@ -309,6 +313,8 @@ const checkIn = async (req, res) => {
       // Calculate attendance status
       const attendanceStatus = await calculateAttendanceStatus(isWFH);
       
+      const sessionId = crypto.randomUUID();
+      
       // Insert or update attendance
       let result;
       if (existingAttendance.rows.length > 0) {
@@ -326,12 +332,13 @@ const checkIn = async (req, res) => {
                gps_accuracy = $9,
                device_fingerprint = $10,
                validation_method = $11,
+               session_id = $12,
                updated_at = CURRENT_TIMESTAMP
-           WHERE employee_id = $12 AND attendance_date = $13
+           WHERE employee_id = $13 AND attendance_date = $14
            RETURNING *`,
           [latitude, longitude, address, attendanceStatus, isWFH, 
            device_info, browser_info, clientIP, accuracy, 
-           deviceValidation.fingerprint, 'trusted_device',
+           deviceValidation.fingerprint, 'trusted_device', sessionId,
            employeeCode, today]
         );
       } else {
@@ -339,12 +346,12 @@ const checkIn = async (req, res) => {
           `INSERT INTO attendance 
            (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
             address_login, attendance_status, is_wfh, device_info, browser_info, 
-            ip_address, gps_accuracy, device_fingerprint, validation_method)
-           VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ip_address, gps_accuracy, device_fingerprint, validation_method, session_id)
+           VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
            RETURNING *`,
           [employeeCode, today, latitude, longitude, address, attendanceStatus, 
            isWFH, device_info, browser_info, clientIP, accuracy,
-           deviceValidation.fingerprint, 'trusted_device']
+           deviceValidation.fingerprint, 'trusted_device', sessionId]
         );
       }
       
@@ -369,7 +376,8 @@ const checkIn = async (req, res) => {
         success: true,
         message: 'Check-in successful (Trusted Device)',
         attendance: result.rows[0],
-        validationMethod: 'trusted_device'
+        validationMethod: 'trusted_device',
+        sessionId
       });
     }
     // === END TRUSTED DEVICE VALIDATION ===
@@ -469,6 +477,8 @@ const checkIn = async (req, res) => {
       timezone
     });
 
+    const sessionId = crypto.randomUUID();
+
     // Insert or update attendance
     let result;
     if (existingAttendance.rows.length > 0) {
@@ -486,12 +496,13 @@ const checkIn = async (req, res) => {
              gps_accuracy = $9,
              device_fingerprint = $10,
              validation_method = $11,
+             session_id = $12,
              updated_at = CURRENT_TIMESTAMP
-         WHERE employee_id = $12 AND attendance_date = $13
+         WHERE employee_id = $13 AND attendance_date = $14
          RETURNING *`,
         [latitude, longitude, address, attendanceStatus, isWFH, 
          device_info, browser_info, clientIP, accuracy, 
-         deviceData ? deviceData.fingerprint : null, validationResult.method,
+         deviceData ? deviceData.fingerprint : null, validationResult.method, sessionId,
          employeeCode, today]
       );
     } else {
@@ -499,12 +510,12 @@ const checkIn = async (req, res) => {
         `INSERT INTO attendance 
          (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
           address_login, attendance_status, is_wfh, device_info, browser_info, 
-          ip_address, gps_accuracy, device_fingerprint, validation_method)
-         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          ip_address, gps_accuracy, device_fingerprint, validation_method, session_id)
+         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING *`,
         [employeeCode, today, latitude, longitude, address, attendanceStatus, 
          isWFH, device_info, browser_info, clientIP, accuracy,
-         deviceData ? deviceData.fingerprint : null, validationResult.method]
+         deviceData ? deviceData.fingerprint : null, validationResult.method, sessionId]
       );
     }
 
@@ -525,11 +536,12 @@ const checkIn = async (req, res) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Check-in successful',
       attendance: result.rows[0],
-      validationMethod: validationResult.method
+      validationMethod: validationResult.method,
+      sessionId
     });
 
   } catch (error) {
@@ -564,7 +576,12 @@ const checkOut = async (req, res) => {
     const {
       latitude,
       longitude,
-      address
+      address,
+      device_info,
+      browser_info,
+      screenResolution,
+      timezone,
+      sessionId
     } = req.body;
 
     // Check if check-out is enabled
@@ -588,24 +605,33 @@ const checkOut = async (req, res) => {
     );
     const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
     
-    // Validate using the prioritized block-check function
-    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+    // Validate using the prioritized block-check function (same as Check-In)
+    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {
+      screenResolution,
+      timezone
+    });
 
     if (!deviceValidation.valid) {
-      // Log failed attempt
+      // Log failed attempt with full device details
       const clientIP = getClientIP(req);
+      const userAgent = req.headers['user-agent'] || 'Unknown';
+      const deviceDetails = parseDeviceInfo(userAgent);
       await logAudit({
         userId: employeeCode,
         userType: 'employee',
         action: AUDIT_ACTIONS.CHECKOUT_FAILED,
         status: AUDIT_STATUS.FAILED,
         ipAddress: clientIP,
-        userAgent: req.headers['user-agent'],
+        userAgent: userAgent,
         deviceFingerprint: deviceValidation.fingerprint,
         details: { 
           reason: deviceValidation.message,
           deviceStatus: deviceValidation.deviceStatus,
-          isNewDevice: deviceValidation.isNewDevice
+          isNewDevice: deviceValidation.isNewDevice,
+          browser: deviceDetails.browser,
+          os: deviceDetails.os,
+          deviceType: deviceDetails.deviceType,
+          validationResult: 'denied'
         }
       });
       
@@ -634,6 +660,71 @@ const checkOut = async (req, res) => {
         message: 'You have already checked out today'
       });
     }
+
+    // === ATTENDANCE SESSION & DEVICE VALIDATION (ALWAYS ON) ===
+    const currentFingerprint = generateFingerprint(req);
+    const clientIP = getClientIP(req);
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const deviceDetails = parseDeviceInfo(userAgent);
+
+    const sessionMismatch = attendance.session_id && sessionId !== attendance.session_id;
+    const fingerprintMismatch = attendance.device_fingerprint && currentFingerprint !== attendance.device_fingerprint;
+
+    if (sessionMismatch || fingerprintMismatch) {
+      console.log('❌ CHECK-OUT BLOCKED - Session or Device mismatch');
+      console.log('Check-In Session:', attendance.session_id);
+      console.log('Current Session:', sessionId);
+      console.log('Check-In Fingerprint:', attendance.device_fingerprint);
+      console.log('Current Fingerprint:', currentFingerprint);
+
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKOUT_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: userAgent,
+        deviceFingerprint: currentFingerprint,
+        details: {
+          reason: sessionMismatch && fingerprintMismatch ? 'Both Session and Device mismatch (High Risk)' : 
+                  sessionMismatch ? 'Attendance Session mismatch' : 'Check-Out attempted from a different device',
+          checkInSession: attendance.session_id,
+          currentSession: sessionId,
+          checkInFingerprint: attendance.device_fingerprint,
+          currentFingerprint: currentFingerprint,
+          browser: deviceDetails.browser,
+          os: deviceDetails.os,
+          deviceType: deviceDetails.deviceType,
+          attendanceDate: today,
+          validationResult: sessionMismatch ? 'session_mismatch' : 'device_mismatch'
+        }
+      });
+
+      if (sessionMismatch && fingerprintMismatch) {
+        return res.status(403).json({
+          success: false,
+          valid: false,
+          sessionInvalid: true,
+          message: 'Your attendance session is no longer valid. Please contact your administrator if you believe this is an error.'
+        });
+      } else if (sessionMismatch) {
+        return res.status(403).json({
+          success: false,
+          valid: false,
+          sessionInvalid: true,
+          message: 'Your attendance session is no longer valid. Please contact your administrator if you believe this is an error.'
+        });
+      } else if (fingerprintMismatch) {
+        return res.status(403).json({
+          success: false,
+          valid: false,
+          deviceMismatch: true,
+          message: 'For attendance security, you must complete Check-Out using the same device that was used for Check-In. Please return to your original device.'
+        });
+      }
+    }
+    console.log('✅ Session and Device verified - MATCH');
+    // === END ATTENDANCE SESSION VALIDATION ===
 
     // Check early checkout permission
     const earlyCheckoutResult = await pool.query(
@@ -686,6 +777,7 @@ const checkOut = async (req, res) => {
         
         return res.status(403).json({
           success: false,
+          errorCode: 'EARLY_CHECKOUT',
           message: `Check-out is not allowed before office end time (${format24To12Hour(settings.workingHours.officeEndTime)}). Contact admin for early checkout permission.`
         });
       }
@@ -707,7 +799,7 @@ const checkOut = async (req, res) => {
       finalStatus = 'Half Day';
     }
 
-    // Update attendance
+    // Update attendance (include device fingerprint and validation method from checkout)
     const result = await pool.query(
       `UPDATE attendance 
        SET logout_time = CURRENT_TIMESTAMP,
@@ -716,14 +808,17 @@ const checkOut = async (req, res) => {
            address_logout = $3,
            total_working_hours = $4,
            attendance_status = $5,
+           device_fingerprint = COALESCE($8, device_fingerprint),
+           validation_method = COALESCE($9, validation_method),
            updated_at = CURRENT_TIMESTAMP
        WHERE employee_id = $6 AND attendance_date = $7
        RETURNING *`,
-      [latitude, longitude, address, workingHours, finalStatus, employeeCode, today]
+      [latitude, longitude, address, workingHours, finalStatus, employeeCode, today,
+       deviceValidation.fingerprint || null,
+       validationEnabled ? 'trusted_device' : null]
     );
 
     // Log successful check-out
-    const clientIP = getClientIP(req);
     await logAudit({
       userId: employeeCode,
       userType: 'employee',
@@ -731,10 +826,12 @@ const checkOut = async (req, res) => {
       status: AUDIT_STATUS.SUCCESS,
       ipAddress: clientIP,
       userAgent: req.headers['user-agent'],
+      deviceFingerprint: deviceValidation.fingerprint || null,
       details: { 
         finalStatus,
         workingHours: parseFloat(workingHours),
-        earlyCheckout: hasEarlyCheckoutPermission
+        earlyCheckout: hasEarlyCheckoutPermission,
+        validationMethod: validationEnabled ? 'trusted_device' : 'standard'
       }
     });
 
@@ -776,6 +873,24 @@ const getTodayAttendance = async (req, res) => {
     const employeeCode = req.user.employee_id; // Use employee code from JWT
     const today = getLocalDateString(); // Use local date instead of UTC
 
+    // === TRUSTED DEVICE VALIDATION (BLOCK ON LOAD) ===
+    const settings = await getSettingsFromDB();
+    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+    
+    // Get employee name
+    const employeeResult = await pool.query(
+      'SELECT name FROM employees WHERE employee_id = $1',
+      [employeeCode]
+    );
+    const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
+
+    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+
+    if (!deviceValidation.valid) {
+      return res.status(403).json(deviceValidation);
+    }
+    // === END TRUSTED DEVICE VALIDATION ===
+
     const result = await pool.query(
       'SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
       [employeeCode, today]
@@ -800,6 +915,24 @@ const getEmployeeMonthlyAttendance = async (req, res) => {
   try {
     const employeeCode = req.user.employee_id; // Use employee code from JWT
     const { month, year } = req.query;
+
+    // === TRUSTED DEVICE VALIDATION (BLOCK ON LOAD) ===
+    const settings = await getSettingsFromDB();
+    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+    
+    // Get employee name
+    const employeeResult = await pool.query(
+      'SELECT name FROM employees WHERE employee_id = $1',
+      [employeeCode]
+    );
+    const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
+
+    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+
+    if (!deviceValidation.valid) {
+      return res.status(403).json(deviceValidation);
+    }
+    // === END TRUSTED DEVICE VALIDATION ===
 
     let query;
     let values;
@@ -869,10 +1002,10 @@ const getAllAttendance = async (req, res) => {
     let query = `
       SELECT a.*, e.employee_id as emp_id, e.name, e.mobile, 
              d.name as department, e.job_role
-      FROM attendance a
-      JOIN employees e ON a.employee_id = e.employee_id
+      FROM employees e
+      LEFT JOIN attendance a ON a.employee_id = e.employee_id AND a.attendance_date = $1
       LEFT JOIN departments d ON e.department_id = d.id
-      WHERE a.attendance_date = $1
+      WHERE e.status = 'Active'
     `;
     const values = [targetDate];
     let paramCount = 2;
@@ -885,6 +1018,8 @@ const getAllAttendance = async (req, res) => {
       // If filtering for "Present", include both "Present" and "Work From Home"
       else if (status === 'Present') {
         query += ` AND a.attendance_status IN ('Present', 'Work From Home')`;
+      } else if (status === 'Absent') {
+        query += ` AND (a.attendance_status = 'Absent' OR a.attendance_status IS NULL)`;
       } else {
         query += ` AND a.attendance_status = $${paramCount}`;
         values.push(status);

@@ -4,13 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import {
   FiHome, FiUsers, FiCalendar, FiLogOut, FiUser, FiClock,
   FiSettings, FiShield, FiMenu, FiX, FiLock, FiKey,
-  FiAlertCircle, FiUmbrella, FiChevronRight, FiSmartphone, FiActivity,
+  FiAlertCircle, FiUmbrella, FiChevronRight, FiSmartphone, FiActivity, FiLayers
 } from 'react-icons/fi';
 
 const adminSections = [
   { label: 'Overview',         items: [{ path: '/admin/dashboard', icon: FiHome, label: 'Dashboard' }] },
-  { label: 'People',           items: [{ path: '/admin/employees', icon: FiUsers, label: 'Employees' }, { path: '/admin/management', icon: FiShield, label: 'Admin Management' }] },
-  { label: 'Time & Attendance',items: [{ path: '/admin/attendance', icon: FiCalendar, label: 'Attendance' }, { path: '/admin/holidays', icon: FiUmbrella, label: 'Holidays' }] },
+  { label: 'People',           items: [{ path: '/admin/employees', icon: FiUsers, label: 'Employees' }, { path: '/admin/departments', icon: FiLayers, label: 'Departments' }, { path: '/admin/management', icon: FiShield, label: 'Admin Management' }] },
+  { label: 'Time & Attendance',items: [{ path: '/admin/attendance', icon: FiCalendar, label: 'Attendance' }, { path: '/admin/manual-attendance', icon: FiCalendar, label: 'Manual Attendance' }, { path: '/admin/absent-reasons', icon: FiUmbrella, label: 'Absent Reasons' }, { path: '/admin/holidays', icon: FiUmbrella, label: 'Holidays' }] },
   { label: 'System',           items: [{ path: '/admin/settings', icon: FiSettings, label: 'Settings' }, { path: '/admin/trusted-devices', icon: FiSmartphone, label: 'Trusted Devices' }, { path: '/admin/activity-logs', icon: FiActivity, label: 'Activity Logs' }, { path: '/admin/otp-settings', icon: FiKey, label: 'OTP Settings' }, { path: '/admin/security-logs', icon: FiAlertCircle, label: 'Security Logs' }] },
 ];
 const employeeSections = [

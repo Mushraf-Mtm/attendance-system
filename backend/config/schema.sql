@@ -7,7 +7,10 @@
 CREATE TABLE IF NOT EXISTS departments (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create Admins Table
@@ -45,6 +48,7 @@ CREATE TABLE IF NOT EXISTS employees (
     password VARCHAR(255) NOT NULL,
     status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
     password_changed_at TIMESTAMP,
+    date_of_birth DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -91,7 +95,9 @@ CREATE TABLE IF NOT EXISTS attendance (
     ip_address VARCHAR(50),
     gps_accuracy DECIMAL(10,2),
     device_fingerprint VARCHAR(255),
+    session_id VARCHAR(255),
     validation_method VARCHAR(50),
+    absent_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(employee_id, attendance_date)
@@ -253,6 +259,18 @@ CREATE TABLE IF NOT EXISTS attendance_rate_limits (
     UNIQUE(employee_id, ip_address)
 );
 
+-- Create Manual Attendance Logs Table
+CREATE TABLE IF NOT EXISTS manual_attendance_logs (
+    id SERIAL PRIMARY KEY,
+    attendance_id INTEGER REFERENCES attendance(id) ON DELETE CASCADE,
+    employee_id VARCHAR(50) REFERENCES employees(employee_id) ON DELETE CASCADE,
+    attendance_date DATE NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    admin_id INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create trigger for device fingerprints
 CREATE OR REPLACE FUNCTION update_device_fingerprints_updated_at()
 RETURNS TRIGGER AS $$
@@ -303,6 +321,8 @@ CREATE INDEX IF NOT EXISTS idx_trusted_devices_status ON trusted_devices(approve
 CREATE INDEX IF NOT EXISTS idx_trusted_devices_last_used ON trusted_devices(last_used);
 CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_employee ON attendance_rate_limits(employee_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_rate_limits_window ON attendance_rate_limits(window_start);
+CREATE INDEX IF NOT EXISTS idx_manual_attendance_logs_emp ON manual_attendance_logs(employee_id);
+CREATE INDEX IF NOT EXISTS idx_manual_attendance_logs_date ON manual_attendance_logs(attendance_date);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton ON settings ((id IS NOT NULL));
 
 -- ============================================

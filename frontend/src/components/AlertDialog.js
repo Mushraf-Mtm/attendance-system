@@ -21,7 +21,7 @@ const AlertDialog = ({ isOpen, onClose, title, message, type = 'success' }) => {
 
   if (isAdmin) {
     return (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
         <div className="bg-[#1E293B] border border-white/10 rounded-2xl shadow-clay-admin-modal w-full max-w-md animate-scale-in">
           <div className="flex items-start justify-between px-6 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
@@ -48,7 +48,7 @@ const AlertDialog = ({ isOpen, onClose, title, message, type = 'success' }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-clay-modal w-full max-w-md animate-scale-in border border-[#E2E8F0]">
         <div className="flex items-start justify-between px-6 py-5 border-b border-[#E2E8F0]">
           <div className="flex items-center gap-3">

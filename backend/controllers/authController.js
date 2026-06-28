@@ -189,6 +189,7 @@ const employeeLogin = async (req, res) => {
         department: employee.department_name,
         job_role: employee.job_role,
         mobile: employee.mobile,
+        date_of_birth: employee.date_of_birth,
         role: 'employee'
       }
     });

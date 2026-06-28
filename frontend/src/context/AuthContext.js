@@ -38,8 +38,15 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setToken(null);
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
+    sessionStorage.clear(); // Complete session clear
+    
+    // Clear all potential attendance session state
+    localStorage.removeItem('attendance_session_id');
+    localStorage.removeItem('check_in_time');
+    localStorage.removeItem('wfh_status');
+    localStorage.removeItem('check_in_device_id');
+    localStorage.removeItem('cached_location');
+    localStorage.removeItem('device_fingerprint');
   };
 
   const value = {
