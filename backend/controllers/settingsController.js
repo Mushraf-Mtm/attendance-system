@@ -48,6 +48,10 @@ const getSettings = async (req, res) => {
       trustedDevice: {
         validationEnabled: dbSettings.trusted_device_validation_enabled || false
       },
+      electronDesktop: {
+        enabled: dbSettings.electron_desktop_enabled !== false,
+        validationMode: dbSettings.electron_desktop_validation_mode || 'trusted_device_and_network'
+      },
       messages: {
         locationPermissionTitle: "Location Permission Required",
         locationPermissionMessage: "This app needs access to your location to verify your attendance. Please allow location access to continue.",
@@ -96,7 +100,9 @@ const updateSettings = async (req, res) => {
       allowedIPs,
       attendanceValidationMode,
       attendanceRateLimit,
-      trustedDeviceValidationEnabled
+      trustedDeviceValidationEnabled,
+      electronDesktopEnabled,
+      electronDesktopValidationMode
     } = req.body;
 
     // Validation
@@ -162,6 +168,18 @@ const updateSettings = async (req, res) => {
       });
     }
 
+    const validElectronModes = [
+      'trusted_device_only', 'network_only', 'trusted_device_or_network',
+      'trusted_device_and_network', 'location_only', 'location_and_trusted_device',
+      'location_and_network', 'location_and_trusted_device_and_network'
+    ];
+    if (electronDesktopValidationMode && !validElectronModes.includes(electronDesktopValidationMode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid electron desktop validation mode'
+      });
+    }
+
     // Update settings in database
     const updateQuery = `
       UPDATE settings SET
@@ -181,6 +199,8 @@ const updateSettings = async (req, res) => {
         attendance_validation_mode = $14,
         attendance_rate_limit = $15,
         trusted_device_validation_enabled = $16,
+        electron_desktop_enabled = $17,
+        electron_desktop_validation_mode = $18,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM settings ORDER BY id LIMIT 1)
       RETURNING *
@@ -202,7 +222,9 @@ const updateSettings = async (req, res) => {
       allowedIPs || null,
       attendanceValidationMode || 'location_or_network',
       attendanceRateLimit ? parseInt(attendanceRateLimit) : 5,
-      trustedDeviceValidationEnabled !== undefined ? trustedDeviceValidationEnabled : false
+      trustedDeviceValidationEnabled !== undefined ? trustedDeviceValidationEnabled : false,
+      electronDesktopEnabled !== undefined ? electronDesktopEnabled : true,
+      electronDesktopValidationMode || 'trusted_device_and_network'
     ];
 
     const result = await pool.query(updateQuery, values);
@@ -227,7 +249,8 @@ const updateSettings = async (req, res) => {
       description: 'Updated system settings',
       newData: { 
         latitude, longitude, allowedRadius, officeStartTime, officeEndTime,
-        attendanceValidationMode, trustedDeviceValidationEnabled
+        attendanceValidationMode, trustedDeviceValidationEnabled,
+        electronDesktopEnabled, electronDesktopValidationMode
       },
       ipAddress: getClientIP(req),
       browserInfo: req.headers['user-agent']
@@ -264,6 +287,10 @@ const updateSettings = async (req, res) => {
         },
         trustedDevice: {
           validationEnabled: trustedDeviceValidationEnabled
+        },
+        electronDesktop: {
+          enabled: electronDesktopEnabled !== undefined ? electronDesktopEnabled : true,
+          validationMode: electronDesktopValidationMode || 'trusted_device_and_network'
         }
       }
     });

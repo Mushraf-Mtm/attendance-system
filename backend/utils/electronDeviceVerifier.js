@@ -6,127 +6,154 @@ const crypto = require('crypto');
  * @returns {boolean}
  */
 const isElectronRequest = (req) => {
-  return req.headers['x-desktop-app'] === 'true' && 
-         req.headers['x-device-source'] === 'electron-desktop';
+  return (
+    req.headers['x-desktop-app'] === 'true' &&
+    req.headers['x-device-source'] === 'electron-desktop'
+  );
 };
 
 /**
  * Extracts Electron headers from the request.
  * @param {Object} req - Express request object
- * @returns {Object} Extracted headers
+ * @returns {Object}
  */
 const getElectronHeaders = (req) => {
   return {
     publicKeyBase64: req.headers['x-desktop-public-key'],
     publicKeyHash: req.headers['x-desktop-public-key-hash'],
-    signature: req.headers['x-desktop-signature'],
+    signatureBase64: req.headers['x-desktop-signature'],
     timestamp: req.headers['x-desktop-timestamp'],
     hostname: req.headers['x-desktop-hostname'],
     platform: req.headers['x-desktop-platform'],
-    appVersion: req.headers['x-electron-app-version']
+    appVersion: req.headers['x-electron-app-version'],
   };
 };
 
 /**
- * Validates if the timestamp is within a 5-minute window.
- * @param {string} timestamp - ISO timestamp string
+ * Validates if timestamp is within 5 minutes.
+ * @param {string} timestamp
  * @returns {boolean}
  */
 const isFreshTimestamp = (timestamp) => {
   if (!timestamp) return false;
-  
-  const reqTime = new Date(timestamp).getTime();
-  const now = new Date().getTime();
-  
-  // 5 minutes in milliseconds
+
+  const requestTime = new Date(timestamp).getTime();
+
+  if (!requestTime || Number.isNaN(requestTime)) {
+    return false;
+  }
+
+  const now = Date.now();
   const FIVE_MINUTES = 5 * 60 * 1000;
-  
-  return Math.abs(now - reqTime) <= FIVE_MINUTES;
+
+  return Math.abs(now - requestTime) <= FIVE_MINUTES;
 };
 
 /**
  * Verifies the Electron request signature.
+ * Ed25519 must use crypto.verify(null, ...), not createVerify('sha256').
  * @param {Object} req - Express request object
- * @returns {Object} Verification result object
+ * @returns {Object}
  */
 const verifyElectronSignature = (req) => {
   if (!isElectronRequest(req)) {
     return {
       isElectron: false,
       valid: false,
-      message: 'Not an Electron request'
+      reason: 'NOT_ELECTRON_REQUEST',
+      message: 'Not an Electron request',
     };
   }
 
   const headers = getElectronHeaders(req);
 
-  // Check required headers
-  if (!headers.publicKeyBase64 || !headers.publicKeyHash || !headers.signature || !headers.timestamp) {
+  if (
+    !headers.publicKeyBase64 ||
+    !headers.publicKeyHash ||
+    !headers.signatureBase64 ||
+    !headers.timestamp
+  ) {
     return {
       isElectron: true,
       valid: false,
-      message: 'Missing required Electron security headers'
+      reason: 'MISSING_ELECTRON_HEADERS',
+      message: 'Missing required Electron security headers',
     };
   }
 
-  // Check timestamp freshness
   if (!isFreshTimestamp(headers.timestamp)) {
     return {
       isElectron: true,
       valid: false,
-      message: 'Request timestamp is expired or invalid'
+      reason: 'EXPIRED_ELECTRON_SIGNATURE',
+      message: 'Request timestamp is expired or invalid',
     };
   }
 
   try {
     const publicKey = Buffer.from(headers.publicKeyBase64, 'base64').toString('utf8');
-    
-    // Verify hash matches the provided public key
-    const calculatedHash = crypto.createHash('sha256').update(publicKey).digest('hex');
+
+    const calculatedHash = crypto
+      .createHash('sha256')
+      .update(publicKey, 'utf8')
+      .digest('hex');
+
     if (calculatedHash !== headers.publicKeyHash) {
       return {
         isElectron: true,
         valid: false,
-        message: 'Public key hash mismatch'
+        reason: 'PUBLIC_KEY_HASH_MISMATCH',
+        message: 'Public key hash mismatch',
       };
     }
 
-    // Rebuild payload: timestamp + \n + METHOD + \n + URL_PATH_WITH_QUERY + \n + publicKeyHash
-    const urlPath = req.originalUrl;
+    /**
+     * Must match Electron main.js payload exactly:
+     *
+     * timestamp
+     * METHOD
+     * URL_PATH_WITH_QUERY
+     * publicKeyHash
+     */
     const method = req.method.toUpperCase();
+    const urlPath = req.originalUrl;
     const payload = `${headers.timestamp}\n${method}\n${urlPath}\n${headers.publicKeyHash}`;
 
-    // Verify signature
-    const verify = crypto.createVerify('sha256');
-    verify.update(payload);
-    verify.end();
-    
-    const isValidSignature = verify.verify(publicKey, headers.signature, 'base64');
+    const isValidSignature = crypto.verify(
+      null,
+      Buffer.from(payload, 'utf8'),
+      publicKey,
+      Buffer.from(headers.signatureBase64, 'base64')
+    );
 
     if (!isValidSignature) {
       return {
         isElectron: true,
         valid: false,
-        message: 'Invalid signature'
+        reason: 'INVALID_ELECTRON_SIGNATURE',
+        message: 'Invalid signature',
       };
     }
 
     return {
       isElectron: true,
       valid: true,
-      publicKey: publicKey,
+      publicKey,
       publicKeyHash: headers.publicKeyHash,
       hostname: headers.hostname || 'Unknown',
       platform: headers.platform || 'Unknown',
       appVersion: headers.appVersion || 'Unknown',
-      source: 'electron-desktop'
+      source: 'electron-desktop',
+      verifiedAt: new Date(),
     };
   } catch (error) {
     console.error('Electron verification error:', error);
+
     return {
       isElectron: true,
       valid: false,
-      message: 'Signature verification error'
+      reason: 'SIGNATURE_VERIFICATION_ERROR',
+      message: 'Signature verification error',
     };
   }
 };
@@ -135,5 +162,5 @@ module.exports = {
   isElectronRequest,
   getElectronHeaders,
   isFreshTimestamp,
-  verifyElectronSignature
+  verifyElectronSignature,
 };

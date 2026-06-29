@@ -161,53 +161,87 @@ const EmployeeDashboard = () => {
       isOpen:true, title:'Check In', type:'info',
       message: wfhEnabled ? 'Are you sure you want to check in? Your current location will be recorded.' : `Are you sure you want to check in? You must be within ${settings.companyLocation.allowedRadius} meters of the office.`,
       onConfirm: async () => {
-        setIsCheckingIn(true); setCheckInMessage('Requesting location permission...');
+        setIsCheckingIn(true);
         try {
-          setLocationDialog({ isOpen:true, title:settings.messages.locationPermissionTitle, message:settings.messages.locationPermissionMessage, type:'permission',
-            onAllow: async () => {
-              try {
-                setCheckInMessage('Getting your location...');
-                const location = await getCurrentLocation();
-                setCheckInMessage('Collecting device information...');
-                const deviceInfo = getDeviceInfo(); const fingerprintData = getDeviceFingerprintData(); const ipAddress = await getIPAddress();
-                setCheckInMessage('Marking attendance...');
-                const data = { latitude:location.latitude, longitude:location.longitude, accuracy:location.accuracy, address:'Location captured', device_info:deviceInfo.device_info, browser_info:deviceInfo.browser_info, screenResolution:fingerprintData.screenResolution, timezone:fingerprintData.timezone, ip_address:ipAddress };
-                const response = await checkIn(data);
-                if (response.data.success) { 
-                  if (response.data.sessionId) {
-                    localStorage.setItem('attendance_session_id', response.data.sessionId);
+          const isElectron = window.attendanceDesktop?.isDesktopApp === true;
+          const electronMode = settings.electronDesktop?.validationMode || 'trusted_device_and_network';
+          const locationNotRequired = isElectron && ['trusted_device_only', 'network_only', 'trusted_device_or_network', 'trusted_device_and_network'].includes(electronMode);
+
+          const performCheckIn = async (location = null) => {
+            try {
+              setCheckInMessage('Collecting device information...');
+              const deviceInfo = getDeviceInfo(); const fingerprintData = getDeviceFingerprintData(); const ipAddress = await getIPAddress();
+              setCheckInMessage('Marking attendance...');
+              const data = { 
+                latitude: location?.latitude, 
+                longitude: location?.longitude, 
+                accuracy: location?.accuracy, 
+                address: location ? 'Location captured' : 'Location skipped by desktop policy', 
+                device_info: deviceInfo.device_info, 
+                browser_info: deviceInfo.browser_info, 
+                screenResolution: fingerprintData.screenResolution, 
+                timezone: fingerprintData.timezone, 
+                ip_address: ipAddress,
+                isElectronDesktop: isElectron,
+                locationSkippedReason: locationNotRequired ? 'electron-desktop-validation-mode' : undefined,
+                electronValidationMode: isElectron ? electronMode : undefined
+              };
+              const response = await checkIn(data);
+              if (response.data.success) { 
+                if (response.data.sessionId) {
+                  localStorage.setItem('attendance_session_id', response.data.sessionId);
+                }
+                setCheckInMessage(''); 
+                const status = response.data.attendance?.attendance_status;
+                let category = CATEGORIES.CHECK_IN_NORMAL;
+                if (status === 'Late') category = CATEGORIES.CHECK_IN_LATE;
+                else if (status === 'Half Day') category = CATEGORIES.HALF_DAY;
+                
+                const msg = getEventMotivation(category);
+                
+                setAlertDialog({ 
+                  isOpen: true, 
+                  title: '✅ Check-in Successful', 
+                  message: 'Your attendance has been recorded successfully!', 
+                  type: 'success',
+                  onCloseCallback: () => {
+                    setTimeout(() => setMotivationPopup({ isOpen: true, message: msg }), 400); // Wait for alert to fade out
                   }
-                  setCheckInMessage(''); 
-                  // Trigger Popup Motivation AFTER the success alert is closed
-                  const status = response.data.attendance?.attendance_status;
-                  let category = CATEGORIES.CHECK_IN_NORMAL;
-                  if (status === 'Late') category = CATEGORIES.CHECK_IN_LATE;
-                  else if (status === 'Half Day') category = CATEGORIES.HALF_DAY;
-                  
-                  const msg = getEventMotivation(category);
-                  
-                  setAlertDialog({ 
-                    isOpen: true, 
-                    title: '✅ Check-in Successful', 
-                    message: 'Your attendance has been recorded successfully!', 
-                    type: 'success',
-                    onCloseCallback: () => {
-                      setTimeout(() => setMotivationPopup({ isOpen: true, message: msg }), 400); // Wait for alert to fade out
-                    }
-                  }); 
-                  
-                  await fetchData(); 
+                }); 
+                
+                await fetchData(); 
+              }
+              else { setCheckInMessage(''); setAlertDialog({ isOpen:true, title:'❌ Check-in Failed', message:response.data.message || 'Check-in failed. Please try again.', type:'error' }); }
+            } catch (error) {
+              setCheckInMessage('');
+              if (!error.isGlobalError) {
+                const config = mapErrorToDialogConfig(error);
+                window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
+              }
+            } finally { setIsCheckingIn(false); setCheckInMessage(''); }
+          };
+
+          if (locationNotRequired) {
+            await performCheckIn(null);
+          } else {
+            setCheckInMessage('Requesting location permission...');
+            setLocationDialog({ isOpen:true, title:settings.messages.locationPermissionTitle, message:settings.messages.locationPermissionMessage, type:'permission',
+              onAllow: async () => {
+                try {
+                  setCheckInMessage('Getting your location...');
+                  const location = await getCurrentLocation();
+                  await performCheckIn(location);
+                } catch (error) {
+                  setIsCheckingIn(false); setCheckInMessage('');
+                  if (isElectron && (error.type === 'denied' || error.type === 'unavailable' || error.type === 'timeout')) {
+                    window.dispatchEvent(new CustomEvent('showGlobalError', { detail: mapErrorToDialogConfig({ response: { data: { errorCode: 'DESKTOP_GPS_NOT_AVAILABLE' } } }) }));
+                  } else {
+                    window.dispatchEvent(new CustomEvent('showGlobalError', { detail: mapErrorToDialogConfig(error) }));
+                  }
                 }
-                else { setCheckInMessage(''); setAlertDialog({ isOpen:true, title:'❌ Check-in Failed', message:response.data.message || 'Check-in failed. Please try again.', type:'error' }); }
-              } catch (error) {
-                setCheckInMessage('');
-                if (!error.isGlobalError) {
-                  const config = mapErrorToDialogConfig(error);
-                  window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
-                }
-              } finally { setIsCheckingIn(false); setCheckInMessage(''); }
-            },
-          });
+              },
+            });
+          }
         } catch (e) { setIsCheckingIn(false); setCheckInMessage(''); }
       },
     });
@@ -225,54 +259,83 @@ const EmployeeDashboard = () => {
       onConfirm: async () => {
         setIsCheckingOut(true);
         try {
-          setLocationDialog({ isOpen:true, title:settings.messages.locationPermissionTitle, message:settings.messages.locationPermissionMessage, type:'permission',
-            onAllow: async () => {
-              try {
-                setCheckOutMessage('Getting your location...');
-                const location = await getCurrentLocation();
-                setCheckOutMessage('Collecting device information...');
-                const deviceInfo = getDeviceInfo();
-                const fingerprintData = getDeviceFingerprintData();
-                setCheckOutMessage('Processing check-out...');
-                const response = await checkOut({
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  address: 'Location captured',
-                  device_info: deviceInfo.device_info,
-                  browser_info: deviceInfo.browser_info,
-                  screenResolution: fingerprintData.screenResolution,
-                  timezone: fingerprintData.timezone,
-                  sessionId: localStorage.getItem('attendance_session_id')
-                });
-                if (response.data.success) {
-                  setCheckOutMessage('');
-                  // Trigger Popup Motivation AFTER the success alert is closed
-                  const workingHours = parseFloat(response.data.attendance?.total_working_hours || 0);
-                  const isEarly = workingHours < (settings.workingHours.halfDayThreshold || 4);
-                  
-                  const msg = getEventMotivation(isEarly ? CATEGORIES.CHECK_OUT_EARLY : CATEGORIES.CHECK_OUT_NORMAL);
-                  
-                  setAlertDialog({ 
-                    isOpen: true, 
-                    title: 'Check-out Successful', 
-                    message: 'Your check-out has been recorded successfully!\n\nWorking hours: ' + formatWorkingHours(parseFloat(response.data.attendance.total_working_hours)), 
-                    type: 'success',
-                    onCloseCallback: () => {
-                      setTimeout(() => setMotivationPopup({ isOpen: true, message: msg }), 400); // Wait for alert to fade out
-                    }
-                  });
+          const isElectron = window.attendanceDesktop?.isDesktopApp === true;
+          const electronMode = settings.electronDesktop?.validationMode || 'trusted_device_and_network';
+          const locationNotRequired = isElectron && ['trusted_device_only', 'network_only', 'trusted_device_or_network', 'trusted_device_and_network'].includes(electronMode);
 
-                  fetchData();
-                }
-              } catch (error) {
+          const performCheckOut = async (location = null) => {
+            try {
+              setCheckOutMessage('Collecting device information...');
+              const deviceInfo = getDeviceInfo();
+              const fingerprintData = getDeviceFingerprintData();
+              setCheckOutMessage('Processing check-out...');
+              const data = {
+                latitude: location?.latitude,
+                longitude: location?.longitude,
+                address: location ? 'Location captured' : 'Location skipped by desktop policy',
+                device_info: deviceInfo.device_info,
+                browser_info: deviceInfo.browser_info,
+                screenResolution: fingerprintData.screenResolution,
+                timezone: fingerprintData.timezone,
+                sessionId: localStorage.getItem('attendance_session_id'),
+                isElectronDesktop: isElectron,
+                locationSkippedReason: locationNotRequired ? 'electron-desktop-validation-mode' : undefined,
+                electronValidationMode: isElectron ? electronMode : undefined
+              };
+              const response = await checkOut(data);
+              
+              if (response.data.success) {
                 setCheckOutMessage('');
-                if (!error.isGlobalError) {
-                  const config = mapErrorToDialogConfig(error);
-                  window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
+                // Trigger Popup Motivation AFTER the success alert is closed
+                const workingHours = parseFloat(response.data.attendance?.total_working_hours || 0);
+                const isEarly = workingHours < (settings.workingHours.halfDayThreshold || 4);
+                
+                const msg = getEventMotivation(isEarly ? CATEGORIES.CHECK_OUT_EARLY : CATEGORIES.CHECK_OUT_NORMAL);
+                
+                setAlertDialog({ 
+                  isOpen: true, 
+                  title: 'Check-out Successful', 
+                  message: 'Your check-out has been recorded successfully!\n\nWorking hours: ' + formatWorkingHours(parseFloat(response.data.attendance.total_working_hours)), 
+                  type: 'success',
+                  onCloseCallback: () => {
+                    setTimeout(() => setMotivationPopup({ isOpen: true, message: msg }), 400); // Wait for alert to fade out
+                  }
+                });
+
+                fetchData();
+              } else {
+                setCheckOutMessage(''); 
+                setAlertDialog({ isOpen:true, title:'❌ Check-out Failed', message:response.data.message || 'Check-out failed. Please try again.', type:'error' });
+              }
+            } catch (error) {
+              setCheckOutMessage('');
+              if (!error.isGlobalError) {
+                const config = mapErrorToDialogConfig(error);
+                window.dispatchEvent(new CustomEvent('showGlobalError', { detail: config }));
+              }
+            } finally { setIsCheckingOut(false); setCheckOutMessage(''); }
+          };
+
+          if (locationNotRequired) {
+            await performCheckOut(null);
+          } else {
+            setLocationDialog({ isOpen:true, title:settings.messages.locationPermissionTitle, message:settings.messages.locationPermissionMessage, type:'permission',
+              onAllow: async () => {
+                try {
+                  setCheckOutMessage('Getting your location...');
+                  const location = await getCurrentLocation();
+                  await performCheckOut(location);
+                } catch (error) {
+                  setIsCheckingOut(false); setCheckOutMessage('');
+                  if (isElectron && (error.type === 'denied' || error.type === 'unavailable' || error.type === 'timeout')) {
+                    window.dispatchEvent(new CustomEvent('showGlobalError', { detail: mapErrorToDialogConfig({ response: { data: { errorCode: 'DESKTOP_GPS_NOT_AVAILABLE' } } }) }));
+                  } else {
+                    window.dispatchEvent(new CustomEvent('showGlobalError', { detail: mapErrorToDialogConfig(error) }));
+                  }
                 }
-              } finally { setIsCheckingOut(false); setCheckOutMessage(''); }
-            },
-          });
+              },
+            });
+          }
         } catch (e) { setIsCheckingOut(false); setCheckOutMessage(''); }
       },
     });

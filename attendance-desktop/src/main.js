@@ -2,181 +2,334 @@ const { app, BrowserWindow, session, safeStorage, shell } = require('electron');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) {
-  app.quit();
+try {
+  if (require('electron-squirrel-startup')) {
+    app.quit();
+  }
+} catch (error) {
+  // Ignore if electron-squirrel-startup is not installed.
 }
 
+// ===============================
+// LOCAL TEST URLs
+// ===============================
+// const FRONTEND_URL = 'http://localhost:3000';
+// const BACKEND_URL = 'http://localhost:5000';
+
+// ===============================
+// PRODUCTION URLs - use before final build
+// ===============================
 const FRONTEND_URL = 'https://attendance-system-rho-five.vercel.app';
 const BACKEND_URL = 'https://attendance-system-tnbm.onrender.com';
-const APP_VERSION = app.getVersion();
 
-// Identity files
+const APP_VERSION = app.getVersion();
 const IDENTITY_FILE = 'device_identity.enc';
 
 let desktopIdentity = null;
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
+
 if (!gotTheLock) {
   app.quit();
 }
 
-// Security: Create or Load Ed25519 Identity
-function getOrCreateDesktopIdentity() {
-  const userDataPath = app.getPath('userData');
-  const identityFilePath = path.join(userDataPath, IDENTITY_FILE);
+// ===============================
+// Device Identity
+// ===============================
 
-  if (fs.existsSync(identityFilePath)) {
-    try {
-      desktopIdentity = readDesktopIdentity(identityFilePath);
-      if (desktopIdentity && desktopIdentity.publicKey && desktopIdentity.privateKey) {
-        return desktopIdentity;
-      }
-    } catch (e) {
-      console.error('Failed to read identity, generating new one...');
-    }
+function getIdentityFilePath() {
+  const userDataPath = app.getPath('userData');
+
+  if (!fs.existsSync(userDataPath)) {
+    fs.mkdirSync(userDataPath, { recursive: true });
   }
 
-  // Generate new identity if not exists or failed to read
-  desktopIdentity = createDesktopIdentity();
-  saveDesktopIdentity(desktopFilePath = identityFilePath, desktopIdentity);
-  return desktopIdentity;
+  return path.join(userDataPath, IDENTITY_FILE);
 }
 
 function createDesktopIdentity() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519', {
-    publicKeyEncoding: { type: 'spki', format: 'pem' },
-    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+    publicKeyEncoding: {
+      type: 'spki',
+      format: 'pem',
+    },
+    privateKeyEncoding: {
+      type: 'pkcs8',
+      format: 'pem',
+    },
   });
 
-  const publicKeyHash = crypto.createHash('sha256').update(publicKey).digest('hex');
+  const publicKeyHash = crypto
+    .createHash('sha256')
+    .update(publicKey, 'utf8')
+    .digest('hex');
 
-  return { publicKey, privateKey, publicKeyHash };
+  return {
+    publicKey,
+    privateKey,
+    publicKeyHash,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 function saveDesktopIdentity(filePath, identity) {
+  const dataString = JSON.stringify(identity);
+
   if (safeStorage.isEncryptionAvailable()) {
-    const dataStr = JSON.stringify(identity);
-    const encrypted = safeStorage.encryptString(dataStr);
+    const encrypted = safeStorage.encryptString(dataString);
     fs.writeFileSync(filePath, encrypted);
   } else {
-    // Fallback if safeStorage is not available (rare on Windows, but good practice)
-    fs.writeFileSync(filePath, Buffer.from(JSON.stringify(identity), 'utf8').toString('base64'));
+    const fallback = Buffer.from(dataString, 'utf8').toString('base64');
+    fs.writeFileSync(filePath, fallback, 'utf8');
   }
 }
 
 function readDesktopIdentity(filePath) {
   const data = fs.readFileSync(filePath);
+
   if (safeStorage.isEncryptionAvailable()) {
     try {
       const decrypted = safeStorage.decryptString(data);
       return JSON.parse(decrypted);
-    } catch (e) {
-      // Might be base64 fallback from previous run
-      return JSON.parse(Buffer.from(data.toString(), 'base64').toString('utf8'));
+    } catch (error) {
+      const fallback = Buffer.from(data.toString(), 'base64').toString('utf8');
+      return JSON.parse(fallback);
     }
-  } else {
-    return JSON.parse(Buffer.from(data.toString(), 'base64').toString('utf8'));
+  }
+
+  const fallback = Buffer.from(data.toString(), 'base64').toString('utf8');
+  return JSON.parse(fallback);
+}
+
+function getOrCreateDesktopIdentity() {
+  const identityFilePath = getIdentityFilePath();
+
+  if (fs.existsSync(identityFilePath)) {
+    try {
+      const existingIdentity = readDesktopIdentity(identityFilePath);
+
+      if (
+        existingIdentity &&
+        existingIdentity.publicKey &&
+        existingIdentity.privateKey &&
+        existingIdentity.publicKeyHash
+      ) {
+        desktopIdentity = existingIdentity;
+        return desktopIdentity;
+      }
+    } catch (error) {
+      console.error('Failed to read existing desktop identity. Creating new identity.');
+    }
+  }
+
+  desktopIdentity = createDesktopIdentity();
+  saveDesktopIdentity(identityFilePath, desktopIdentity);
+
+  return desktopIdentity;
+}
+
+// ===============================
+// Request Signing
+// ===============================
+
+function getUrlPathWithQuery(url) {
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.pathname + parsedUrl.search;
+  } catch (error) {
+    console.error('Invalid URL while signing request:', url);
+    return url;
   }
 }
 
 function signRequest(method, url, timestamp) {
-  // Extract path and query from full URL
-  let urlPath = url;
-  try {
-    const parsedUrl = new URL(url);
-    urlPath = parsedUrl.pathname + parsedUrl.search;
-  } catch (e) {
-    // fallback
+  if (!desktopIdentity) {
+    desktopIdentity = getOrCreateDesktopIdentity();
   }
 
+  const urlPath = getUrlPathWithQuery(url);
+
   const payload = `${timestamp}\n${method.toUpperCase()}\n${urlPath}\n${desktopIdentity.publicKeyHash}`;
-  const sign = crypto.createSign('sha256');
-  sign.update(payload);
-  sign.end();
-  return sign.sign(desktopIdentity.privateKey, 'base64');
+
+  // Ed25519 must use crypto.sign(null, ...)
+  const signature = crypto.sign(
+    null,
+    Buffer.from(payload, 'utf8'),
+    desktopIdentity.privateKey
+  );
+
+  return signature.toString('base64');
 }
 
 function setupBackendHeaderInjection() {
   const filter = {
-    urls: [BACKEND_URL + '/*']
+    urls: [`${BACKEND_URL}/*`],
   };
 
-  session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-    const timestamp = new Date().toISOString();
-    
-    // Only sign requests going to backend API
-    const method = details.method;
-    const url = details.url;
-    const signature = signRequest(method, url, timestamp);
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    filter,
+    (details, callback) => {
+      try {
+        if (!desktopIdentity) {
+          desktopIdentity = getOrCreateDesktopIdentity();
+        }
 
-    const base64PublicKey = Buffer.from(desktopIdentity.publicKey).toString('base64');
-    const hostname = require('os').hostname();
-    const platform = require('os').platform();
+        const timestamp = new Date().toISOString();
+        const signature = signRequest(details.method, details.url, timestamp);
 
-    details.requestHeaders['X-Desktop-App'] = 'true';
-    details.requestHeaders['X-Device-Source'] = 'electron-desktop';
-    details.requestHeaders['X-Desktop-Public-Key'] = base64PublicKey;
-    details.requestHeaders['X-Desktop-Public-Key-Hash'] = desktopIdentity.publicKeyHash;
-    details.requestHeaders['X-Desktop-Signature'] = signature;
-    details.requestHeaders['X-Desktop-Timestamp'] = timestamp;
-    details.requestHeaders['X-Desktop-Hostname'] = hostname;
-    details.requestHeaders['X-Desktop-Platform'] = platform;
-    details.requestHeaders['X-Electron-App-Version'] = APP_VERSION;
+        const base64PublicKey = Buffer.from(
+          desktopIdentity.publicKey,
+          'utf8'
+        ).toString('base64');
 
-    callback({ requestHeaders: details.requestHeaders });
-  });
+        details.requestHeaders['X-Desktop-App'] = 'true';
+        details.requestHeaders['X-Device-Source'] = 'electron-desktop';
+        details.requestHeaders['X-Desktop-Public-Key'] = base64PublicKey;
+        details.requestHeaders['X-Desktop-Public-Key-Hash'] =
+          desktopIdentity.publicKeyHash;
+        details.requestHeaders['X-Desktop-Signature'] = signature;
+        details.requestHeaders['X-Desktop-Timestamp'] = timestamp;
+        details.requestHeaders['X-Desktop-Hostname'] = os.hostname();
+        details.requestHeaders['X-Desktop-Platform'] = os.platform();
+        details.requestHeaders['X-Electron-App-Version'] = APP_VERSION;
+      } catch (error) {
+        console.error('Failed to attach Electron desktop headers:', error);
+      }
+
+      callback({
+        requestHeaders: details.requestHeaders,
+      });
+    }
+  );
 }
 
-const createWindow = () => {
+// ===============================
+// Location Permission
+// ===============================
+
+function setupLocationPermission() {
+  const allowedOrigins = [new URL(FRONTEND_URL).origin];
+
+  session.defaultSession.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      try {
+        const currentUrl = webContents.getURL();
+        const currentOrigin = new URL(currentUrl).origin;
+
+        if (
+          permission === 'geolocation' &&
+          allowedOrigins.includes(currentOrigin)
+        ) {
+          console.log('Geolocation permission allowed for:', currentOrigin);
+          return callback(true);
+        }
+
+        console.log('Permission blocked:', permission, currentOrigin);
+        return callback(false);
+      } catch (error) {
+        console.error('Permission request error:', error);
+        return callback(false);
+      }
+    }
+  );
+
+  session.defaultSession.setPermissionCheckHandler(
+    (webContents, permission, requestingOrigin) => {
+      try {
+        if (permission !== 'geolocation') {
+          return false;
+        }
+
+        let origin = requestingOrigin;
+
+        if (!origin && webContents) {
+          origin = new URL(webContents.getURL()).origin;
+        }
+
+        return allowedOrigins.includes(origin);
+      } catch (error) {
+        console.error('Permission check error:', error);
+        return false;
+      }
+    }
+  );
+}
+
+// ===============================
+// Window Security
+// ===============================
+
+function isAllowedNavigation(url) {
+  try {
+    const parsedUrl = new URL(url);
+    const frontendOrigin = new URL(FRONTEND_URL).origin;
+    const backendOrigin = new URL(BACKEND_URL).origin;
+
+    return (
+      parsedUrl.origin === frontendOrigin ||
+      parsedUrl.origin === backendOrigin
+    );
+  } catch (error) {
+    return false;
+  }
+}
+
+function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    title: "Attendance Desktop App",
+    minWidth: 1024,
+    minHeight: 700,
+    title: 'AttendNest - Employee Attendance Management System | GPS Attendance Tracking',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: true,
+      devTools: !app.isPackaged,
     },
   });
 
-  // Secure navigation restrictions
+  mainWindow.setMenuBarVisibility(false);
+
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const parsedUrl = new URL(url);
-    if (parsedUrl.origin !== FRONTEND_URL && parsedUrl.origin !== BACKEND_URL) {
+    if (!isAllowedNavigation(url)) {
       event.preventDefault();
-      console.log(`Blocked navigation to ${url}`);
+      shell.openExternal(url);
     }
   });
 
-  // External link handling
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedNavigation(url)) {
+      return { action: 'allow' };
+    }
+
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
-  // Production DevTools disable
   if (app.isPackaged) {
     mainWindow.webContents.on('devtools-opened', () => {
       mainWindow.webContents.closeDevTools();
     });
   }
 
-  // Disable menu bar
-  mainWindow.setMenuBarVisibility(false);
-
-  // Load the React frontend
   mainWindow.loadURL(FRONTEND_URL);
-};
+}
+
+// ===============================
+// App Lifecycle
+// ===============================
 
 app.whenReady().then(() => {
-  // Ensure safeStorage is ready
-  getOrCreateDesktopIdentity();
-  
-  // Setup interceptor
+  desktopIdentity = getOrCreateDesktopIdentity();
+
+  setupLocationPermission();
+
   setupBackendHeaderInjection();
 
   createWindow();
@@ -188,17 +341,20 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+app.on('second-instance', () => {
+  const mainWindow = BrowserWindow.getAllWindows()[0];
+
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+
+    mainWindow.focus();
   }
 });
 
-// Second instance check
-app.on('second-instance', () => {
-  const mainWindow = BrowserWindow.getAllWindows()[0];
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
   }
 });

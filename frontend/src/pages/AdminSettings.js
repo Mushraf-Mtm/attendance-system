@@ -42,7 +42,8 @@ const AdminSettings = () => {
     lateAfterTime:'', officeStartTime:'09:00', officeEndTime:'18:00', autoCheckoutTime:'18:32', halfDayThreshold:4, 
     checkInEnabled:true, checkOutEnabled:true, 
     officePublicIP:'', allowedIPs:'', 
-    attendanceValidationMode:'location_or_network', attendanceRateLimit:5, trustedDeviceValidationEnabled:false 
+    attendanceValidationMode:'location_or_network', attendanceRateLimit:5, trustedDeviceValidationEnabled:false,
+    electronDesktopEnabled:true, electronDesktopValidationMode:'trusted_device_and_network'
   });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
@@ -72,7 +73,9 @@ const AdminSettings = () => {
           allowedIPs:s.network?.allowedIPs||'', 
           attendanceValidationMode:s.validation?.attendanceValidationMode||'location_or_network', 
           attendanceRateLimit:s.security?.attendanceRateLimit||5, 
-          trustedDeviceValidationEnabled:s.trustedDevice?.validationEnabled||false 
+          trustedDeviceValidationEnabled:s.trustedDevice?.validationEnabled||false,
+          electronDesktopEnabled:s.electronDesktop?.enabled!==undefined?s.electronDesktop.enabled:true,
+          electronDesktopValidationMode:s.electronDesktop?.validationMode||'trusted_device_and_network'
         }); 
       } 
     }
@@ -189,8 +192,35 @@ const AdminSettings = () => {
               </div>
             </SectionCard></div>
 
+            {/* Electron Desktop Configuration */}
+            <div className="stagger-5"><SectionCard icon={FiSliders} iconBg="bg-blue-500/10" iconColor="text-blue-400" title="Electron Desktop Attendance Validation">
+              <div className="space-y-1 divide-y divide-white/[0.04] bg-[#1C2540]/30 border border-white/[0.04] rounded-2xl mb-6">
+                <div className="flex items-center justify-between p-4 hover:bg-[#0B1120]/[0.02] transition-colors rounded-xl">
+                  <div>
+                    <p className="text-sm font-bold text-white mb-0.5">Enable Electron Desktop Attendance</p>
+                    <p className="text-xs font-medium text-[#64748B]">Allow employees to check in using the desktop app</p>
+                  </div>
+                  <ToggleSwitch checked={settings.electronDesktopEnabled} onChange={() => handleToggle('electronDesktopEnabled')} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-6">
+                <Field label="Electron Desktop Validation Mode" hint="Recommended for office desktop systems: Trusted Device AND Network/IP. Use Location options only if Electron GPS works correctly on that system.">
+                  <select name="electronDesktopValidationMode" value={settings.electronDesktopValidationMode} onChange={handleChange} className="admin-select py-2.5 text-sm" required>
+                    <option value="trusted_device_only">Trusted Device Only</option>
+                    <option value="network_only">Network/IP Only</option>
+                    <option value="trusted_device_or_network">Trusted Device OR Network/IP</option>
+                    <option value="trusted_device_and_network">Trusted Device AND Network/IP</option>
+                    <option value="location_only">Location Only</option>
+                    <option value="location_and_trusted_device">Location AND Trusted Device</option>
+                    <option value="location_and_network">Location AND Network/IP</option>
+                    <option value="location_and_trusted_device_and_network">Location AND Trusted Device AND Network/IP</option>
+                  </select>
+                </Field>
+              </div>
+            </SectionCard></div>
+
             {/* 4. Security */}
-            <div className="stagger-5"><SectionCard icon={FiShield} iconBg="bg-purple-500/10" iconColor="text-purple-400" title="Security & Network">
+            <div className="stagger-6"><SectionCard icon={FiShield} iconBg="bg-purple-500/10" iconColor="text-purple-400" title="Security & Network">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <Field label="Attendance Rate Limit" hint="Max attendance requests per minute per employee">
                   <input type="number" name="attendanceRateLimit" value={settings.attendanceRateLimit} onChange={handleChange} min="1" max="20" className="admin-input py-2.5 text-sm" required />

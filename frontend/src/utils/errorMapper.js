@@ -97,7 +97,78 @@ export const mapErrorToDialogConfig = (error) => {
     };
   }
 
-  // Electron Desktop Device Errors
+  // Electron Desktop Specific Validation Errors
+  if (data.errorCode === 'ELECTRON_ATTENDANCE_DISABLED') {
+    return {
+      priority: 3,
+      title: 'Desktop Check-in Disabled',
+      message: data.message || 'Check-in via the Electron Desktop App is currently disabled by your administrator. Please use the web or mobile app.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
+  if (data.errorCode === 'DESKTOP_GPS_NOT_AVAILABLE') {
+    return {
+      priority: 6,
+      title: 'Desktop GPS Unavailable',
+      message: data.message || 'Unable to retrieve location on this desktop. Please ensure location services are enabled, or ask your administrator to configure a different validation mode for Desktop.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'location'
+    };
+  }
+
+  if (data.errorCode === 'ELECTRON_TRUSTED_DEVICE_REQUIRED') {
+    return {
+      priority: 4,
+      title: 'Approved Desktop Required',
+      message: data.message || 'This validation mode requires an approved Electron desktop device. Please request approval from your administrator.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
+  if (data.errorCode === 'ELECTRON_NETWORK_VALIDATION_FAILED') {
+    return {
+      priority: 6,
+      title: 'Desktop Network Validation Failed',
+      message: data.message || 'You must be connected to the office network to check in via the Desktop App.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'network'
+    };
+  }
+
+  if (data.errorCode === 'ELECTRON_LOCATION_REQUIRED' || data.errorCode === 'ELECTRON_LOCATION_VALIDATION_FAILED') {
+    return {
+      priority: 6,
+      title: 'Desktop Location Required',
+      message: data.message || 'Your desktop location is outside the allowed office area, or GPS is unavailable.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'location'
+    };
+  }
+
+  if (data.errorCode === 'ELECTRON_VALIDATION_FAILED') {
+    return {
+      priority: 6,
+      title: 'Desktop Validation Failed',
+      message: data.message || 'Your check-in did not meet the required validation policies for Desktop devices.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'error'
+    };
+  }
+
+  // Legacy/General Electron Desktop Device Errors
+  if (data.errorCode === 'CHECKOUT_DEVICE_MISMATCH') {
+    return {
+      priority: 4,
+      title: data.title || 'Check-Out Not Allowed',
+      message: data.message || 'For attendance security, you must complete Check-Out using the same approved device that was used for Check-In.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
   if (data.errorCode === 'INVALID_SIGNATURE') {
     return {
       priority: 3,
@@ -155,6 +226,16 @@ export const mapErrorToDialogConfig = (error) => {
       message: data.message || 'For attendance security, you must complete Check-Out using the same approved device that was used for Check-In.',
       buttons: [ERROR_ACTIONS.OK],
       icon: 'device'
+    };
+  }
+
+  if (data.errorCode === 'SETTINGS_NOT_FOUND' || status === 404 && message.includes('settings')) {
+    return {
+      priority: 6,
+      title: data.title || 'Settings Not Loaded',
+      message: data.message || 'Office settings are not configured. Please contact administrator.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'settings'
     };
   }
 

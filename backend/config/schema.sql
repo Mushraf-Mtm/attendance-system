@@ -140,6 +140,8 @@ CREATE TABLE IF NOT EXISTS settings (
     attendance_validation_mode VARCHAR(30) DEFAULT 'location_or_network',
     attendance_rate_limit INTEGER DEFAULT 5,
     trusted_device_validation_enabled BOOLEAN DEFAULT FALSE,
+    electron_desktop_enabled BOOLEAN DEFAULT TRUE,
+    electron_desktop_validation_mode VARCHAR(80) DEFAULT 'trusted_device_and_network',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -3,9 +3,10 @@ const crypto = require('crypto');
 const { validateAttendance, calculateAttendanceStatus } = require('../utils/attendanceValidator');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
 const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint, validateTrustedDevice, parseDeviceInfo } = require('../services/deviceFingerprintService');
-const { getClientIP } = require('../services/networkValidationService');
+const { getClientIP, validateNetwork } = require('../services/networkValidationService');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
 const { isElectronRequest, verifyElectronSignature } = require('../utils/electronDeviceVerifier');
+const { validateLocation, validateGPSAccuracy } = require('../utils/locationValidator');
 
 // Helper function to get local date in YYYY-MM-DD format
 const getLocalDateString = () => {
@@ -236,6 +237,20 @@ const checkIn = async (req, res) => {
       });
     }
     
+    // Get employee name
+    const employeeResult = await pool.query(
+      'SELECT name FROM employees WHERE employee_id = $1',
+      [employeeCode]
+    );
+    const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
+    
+    // Check WFH permission for attendance status calculation
+    const wfhResult = await pool.query(
+      'SELECT is_enabled FROM wfh_permissions WHERE employee_id = $1',
+      [employeeCode]
+    );
+    const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
+
     // === TRUSTED DEVICE VALIDATION ===
     const isElectron = isElectronRequest(req);
     let deviceValidation = { valid: false };
@@ -245,184 +260,144 @@ const checkIn = async (req, res) => {
 
     const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
     
-    // Get employee name
-    const employeeResult = await pool.query(
-      'SELECT name FROM employees WHERE employee_id = $1',
-      [employeeCode]
-    );
-    
-    const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
-    
     if (isElectron) {
+      if (!settings.electronDesktop?.enabled) {
+         return res.status(403).json({ success: false, errorCode: 'ELECTRON_ATTENDANCE_DISABLED', message: 'Check-in via the Electron Desktop App is currently disabled.' });
+      }
+
+      const electronMode = settings.electronDesktop.validationMode || 'trusted_device_and_network';
+      
+      const requiresTrustedDevice = ['trusted_device_only', 'trusted_device_or_network', 'trusted_device_and_network', 'location_and_trusted_device', 'location_and_trusted_device_and_network'].includes(electronMode);
+      const requiresNetwork = ['network_only', 'trusted_device_or_network', 'trusted_device_and_network', 'location_and_network', 'location_and_trusted_device_and_network'].includes(electronMode);
+      const requiresLocation = ['location_only', 'location_and_trusted_device', 'location_and_network', 'location_and_trusted_device_and_network'].includes(electronMode);
+      const isOrMode = electronMode === 'trusted_device_or_network';
+
+      // 1. Trusted Device Validation
+      let trustedDevicePassed = false;
+      let trustedDeviceError = null;
+
       const verificationResult = verifyElectronSignature(req);
       if (!verificationResult.valid) {
-        return res.status(403).json({
-          success: false,
-          errorCode: 'INVALID_SIGNATURE',
-          title: 'Desktop Device Verification Failed',
-          message: verificationResult.message || 'We could not verify this desktop device. Please use the official Attendance Desktop App.'
-        });
-      }
-      
-      desktopPublicKeyHash = verificationResult.publicKeyHash;
-      
-      const deviceResult = await pool.query(
-        `SELECT * FROM trusted_devices 
-         WHERE employee_id = $1 AND desktop_public_key_hash = $2 AND device_source = 'electron-desktop'`,
-        [employeeCode, desktopPublicKeyHash]
-      );
-      
-      if (deviceResult.rows.length === 0 || deviceResult.rows[0].approved_status !== 'Approved') {
-        return res.status(403).json({
-          success: false,
-          errorCode: 'DEVICE_APPROVAL_REQUIRED',
-          message: 'This desktop device is not approved yet. Please wait for administrator approval before signing in.'
-        });
-      }
-      
-      trustedDeviceId = deviceResult.rows[0].id;
-      deviceValidation = { valid: true, fingerprint: `electron-${desktopPublicKeyHash}` };
-    } else {
-      // Validate using the prioritized block-check function
-      deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {
-        screenResolution,
-        timezone
-      });
-    }
-
-    if (!deviceValidation.valid) {
-      // Log failed attempt
-      await logAudit({
-        userId: employeeCode,
-        userType: 'employee',
-        action: AUDIT_ACTIONS.CHECKIN_FAILED,
-        status: AUDIT_STATUS.FAILED,
-        ipAddress: clientIP,
-        userAgent: req.headers['user-agent'],
-        deviceFingerprint: deviceValidation.fingerprint,
-        details: { 
-          reason: deviceValidation.message,
-          deviceStatus: deviceValidation.deviceStatus,
-          isNewDevice: deviceValidation.isNewDevice
+        trustedDeviceError = { errorCode: 'INVALID_SIGNATURE', message: verificationResult.message || 'We could not verify this desktop device.' };
+      } else {
+        desktopPublicKeyHash = verificationResult.publicKeyHash;
+        const deviceResult = await pool.query(`SELECT * FROM trusted_devices WHERE employee_id = $1 AND desktop_public_key_hash = $2 AND device_source = 'electron-desktop'`, [employeeCode, desktopPublicKeyHash]);
+        if (deviceResult.rows.length === 0 || deviceResult.rows[0].approved_status !== 'Approved') {
+          trustedDeviceError = { errorCode: 'DEVICE_APPROVAL_REQUIRED', message: 'This desktop device is not approved yet. Please wait for administrator approval.' };
+        } else {
+          trustedDeviceId = deviceResult.rows[0].id;
+          deviceValidation = { valid: true, fingerprint: `electron-${desktopPublicKeyHash}` };
+          trustedDevicePassed = true;
         }
-      });
-      
-      return res.status(403).json(deviceValidation);
-    }
+      }
 
-    // If validation is enabled and we reached here, the device is explicitly Approved.
-    if (validationEnabled) {
-      // Device is APPROVED - Allow attendance and skip GPS/IP validation
-      console.log('✅ Trusted device APPROVED - Allowing attendance, skipping location/network validation');
-      
-      // Ensure daily attendance records exist for today
+      if (requiresTrustedDevice && !trustedDevicePassed && !isOrMode) {
+        return res.status(403).json({ success: false, ...trustedDeviceError });
+      }
+
+      // 2. Network Validation
+      let networkPassed = false;
+      if (requiresNetwork && !isWFH) {
+        const networkCheck = await validateNetwork(req);
+        networkPassed = networkCheck.valid;
+        if (!networkPassed && (!isOrMode || (!trustedDevicePassed && isOrMode))) {
+           return res.status(403).json({ success: false, errorCode: 'ELECTRON_NETWORK_VALIDATION_FAILED', message: networkCheck.message });
+        }
+      } else if (isWFH) {
+        networkPassed = true;
+      }
+
+      if (isOrMode && !trustedDevicePassed && !networkPassed) {
+         return res.status(403).json({ success: false, errorCode: 'ELECTRON_VALIDATION_FAILED', message: 'Must pass either Trusted Device or Network validation.' });
+      }
+
+      // 3. Location Validation
+      let locationPassed = false;
+      if (requiresLocation && !isWFH) {
+        if (!latitude || !longitude) {
+           return res.status(400).json({ success: false, errorCode: 'ELECTRON_LOCATION_REQUIRED', message: 'Location coordinates are required for this validation mode.' });
+        }
+        const accuracyCheck = await validateGPSAccuracy(accuracy);
+        if (!accuracyCheck.valid) {
+           return res.status(400).json({ success: false, errorCode: 'ELECTRON_LOCATION_VALIDATION_FAILED', message: accuracyCheck.message });
+        }
+        const locationCheck = await validateLocation(parseFloat(latitude), parseFloat(longitude), false);
+        if (!locationCheck.valid) {
+           return res.status(403).json({ success: false, errorCode: 'ELECTRON_LOCATION_VALIDATION_FAILED', message: locationCheck.message });
+        }
+        locationPassed = true;
+      } else if (isWFH) {
+        locationPassed = true;
+      }
+
+      // If all passed, record attendance
       await ensureDailyAttendanceRecords(today);
-      
-      // Check if already checked in today
-      const existingAttendance = await pool.query(
-        'SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
-        [employeeCode, today]
-      );
+      const existingAttendance = await pool.query('SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2', [employeeCode, today]);
       
       if (existingAttendance.rows.length > 0 && existingAttendance.rows[0].login_time) {
-        await logAudit({
-          userId: employeeCode,
-          userType: 'employee',
-          action: AUDIT_ACTIONS.CHECKIN_FAILED,
-          status: AUDIT_STATUS.FAILED,
-          ipAddress: clientIP,
-          userAgent: req.headers['user-agent'],
-          details: { reason: 'Already checked in' }
-        });
-        
-        return res.status(400).json({
-          success: false,
-          message: 'You have already checked in today'
-        });
+        await logAudit({ userId: employeeCode, userType: 'employee', action: AUDIT_ACTIONS.CHECKIN_FAILED, status: AUDIT_STATUS.FAILED, ipAddress: clientIP, userAgent: req.headers['user-agent'], details: { reason: 'Already checked in' } });
+        return res.status(400).json({ success: false, message: 'You have already checked in today' });
       }
-      
-      // Check WFH permission for attendance status calculation
-      const wfhResult = await pool.query(
-        'SELECT is_enabled FROM wfh_permissions WHERE employee_id = $1',
-        [employeeCode]
-      );
-      const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
-      
-      // Calculate attendance status
+
       const attendanceStatus = await calculateAttendanceStatus(isWFH);
-      
       const sessionId = crypto.randomUUID();
-      
-      // Insert or update attendance
+
       let result;
       if (existingAttendance.rows.length > 0) {
         result = await pool.query(
-          `UPDATE attendance 
-           SET login_time = CURRENT_TIMESTAMP,
-               latitude_login = $1,
-               longitude_login = $2,
-               address_login = $3,
-               attendance_status = $4,
-               is_wfh = $5,
-               device_info = $6,
-               browser_info = $7,
-               ip_address = $8,
-               gps_accuracy = $9,
-               device_fingerprint = $10,
-               validation_method = $11,
-               session_id = $12,
-               trusted_device_id = $13,
-               device_source = $14,
-               desktop_public_key_hash = $15,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE employee_id = $16 AND attendance_date = $17
-           RETURNING *`,
-          [latitude, longitude, address, attendanceStatus, isWFH, 
-           device_info, browser_info, clientIP, accuracy, 
-           deviceValidation.fingerprint, 'trusted_device', sessionId,
-           trustedDeviceId, deviceSource, desktopPublicKeyHash,
-           employeeCode, today]
+          `UPDATE attendance SET login_time = CURRENT_TIMESTAMP, latitude_login = $1, longitude_login = $2, address_login = $3, attendance_status = $4, is_wfh = $5, device_info = $6, browser_info = $7, ip_address = $8, gps_accuracy = $9, device_fingerprint = $10, validation_method = $11, session_id = $12, trusted_device_id = $13, device_source = $14, desktop_public_key_hash = $15, updated_at = CURRENT_TIMESTAMP WHERE employee_id = $16 AND attendance_date = $17 RETURNING *`,
+          [latitude, longitude, address, attendanceStatus, isWFH, device_info, browser_info, clientIP, accuracy, deviceValidation.fingerprint || 'electron', electronMode, sessionId, trustedDeviceId, deviceSource, desktopPublicKeyHash, employeeCode, today]
         );
       } else {
         result = await pool.query(
-          `INSERT INTO attendance 
-           (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
-            address_login, attendance_status, is_wfh, device_info, browser_info, 
-            ip_address, gps_accuracy, device_fingerprint, validation_method, session_id,
-            trusted_device_id, device_source, desktop_public_key_hash)
-           VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-           RETURNING *`,
-          [employeeCode, today, latitude, longitude, address, attendanceStatus, 
-           isWFH, device_info, browser_info, clientIP, accuracy,
-           deviceValidation.fingerprint, 'trusted_device', sessionId,
-           trustedDeviceId, deviceSource, desktopPublicKeyHash]
+          `INSERT INTO attendance (employee_id, attendance_date, login_time, latitude_login, longitude_login, address_login, attendance_status, is_wfh, device_info, browser_info, ip_address, gps_accuracy, device_fingerprint, validation_method, session_id, trusted_device_id, device_source, desktop_public_key_hash) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *`,
+          [employeeCode, today, latitude, longitude, address, attendanceStatus, isWFH, device_info, browser_info, clientIP, accuracy, deviceValidation.fingerprint || 'electron', electronMode, sessionId, trustedDeviceId, deviceSource, desktopPublicKeyHash]
         );
       }
+
+      await logAudit({ userId: employeeCode, userType: 'employee', action: AUDIT_ACTIONS.CHECKIN_SUCCESS, status: AUDIT_STATUS.SUCCESS, ipAddress: clientIP, userAgent: req.headers['user-agent'], deviceFingerprint: deviceValidation.fingerprint, details: { attendanceStatus, validationMethod: electronMode, isWFH, gpsAccuracy: accuracy } });
       
-      // Log successful check-in
-      await logAudit({
-        userId: employeeCode,
-        userType: 'employee',
-        action: AUDIT_ACTIONS.CHECKIN_SUCCESS,
-        status: AUDIT_STATUS.SUCCESS,
-        ipAddress: clientIP,
-        userAgent: req.headers['user-agent'],
-        deviceFingerprint: deviceValidation.fingerprint,
-        details: { 
-          attendanceStatus,
-          validationMethod: 'trusted_device',
-          isWFH,
-          gpsAccuracy: accuracy
+      return res.json({ success: true, message: 'Check-in successful (Electron)', attendance: result.rows[0], validationMethod: electronMode, sessionId });
+
+    } else {
+      // Browser logic
+      deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, { screenResolution, timezone });
+
+      if (!deviceValidation.valid) {
+        await logAudit({ userId: employeeCode, userType: 'employee', action: AUDIT_ACTIONS.CHECKIN_FAILED, status: AUDIT_STATUS.FAILED, ipAddress: clientIP, userAgent: req.headers['user-agent'], deviceFingerprint: deviceValidation.fingerprint, details: { reason: deviceValidation.message, deviceStatus: deviceValidation.deviceStatus, isNewDevice: deviceValidation.isNewDevice } });
+        return res.status(403).json(deviceValidation);
+      }
+
+      if (validationEnabled) {
+        console.log('✅ Trusted device APPROVED - Allowing attendance, skipping location/network validation');
+        await ensureDailyAttendanceRecords(today);
+        const existingAttendance = await pool.query('SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2', [employeeCode, today]);
+        
+        if (existingAttendance.rows.length > 0 && existingAttendance.rows[0].login_time) {
+          await logAudit({ userId: employeeCode, userType: 'employee', action: AUDIT_ACTIONS.CHECKIN_FAILED, status: AUDIT_STATUS.FAILED, ipAddress: clientIP, userAgent: req.headers['user-agent'], details: { reason: 'Already checked in' } });
+          return res.status(400).json({ success: false, message: 'You have already checked in today' });
         }
-      });
-      
-      return res.json({
-        success: true,
-        message: 'Check-in successful (Trusted Device)',
-        attendance: result.rows[0],
-        validationMethod: 'trusted_device',
-        sessionId
-      });
+        
+        const attendanceStatus = await calculateAttendanceStatus(isWFH);
+        const sessionId = crypto.randomUUID();
+        
+        let result;
+        if (existingAttendance.rows.length > 0) {
+          result = await pool.query(
+            `UPDATE attendance SET login_time = CURRENT_TIMESTAMP, latitude_login = $1, longitude_login = $2, address_login = $3, attendance_status = $4, is_wfh = $5, device_info = $6, browser_info = $7, ip_address = $8, gps_accuracy = $9, device_fingerprint = $10, validation_method = $11, session_id = $12, trusted_device_id = $13, device_source = $14, desktop_public_key_hash = $15, updated_at = CURRENT_TIMESTAMP WHERE employee_id = $16 AND attendance_date = $17 RETURNING *`,
+            [latitude, longitude, address, attendanceStatus, isWFH, device_info, browser_info, clientIP, accuracy, deviceValidation.fingerprint, 'trusted_device', sessionId, trustedDeviceId, deviceSource, desktopPublicKeyHash, employeeCode, today]
+          );
+        } else {
+          result = await pool.query(
+            `INSERT INTO attendance (employee_id, attendance_date, login_time, latitude_login, longitude_login, address_login, attendance_status, is_wfh, device_info, browser_info, ip_address, gps_accuracy, device_fingerprint, validation_method, session_id, trusted_device_id, device_source, desktop_public_key_hash) VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *`,
+            [employeeCode, today, latitude, longitude, address, attendanceStatus, isWFH, device_info, browser_info, clientIP, accuracy, deviceValidation.fingerprint, 'trusted_device', sessionId, trustedDeviceId, deviceSource, desktopPublicKeyHash]
+          );
+        }
+        
+        await logAudit({ userId: employeeCode, userType: 'employee', action: AUDIT_ACTIONS.CHECKIN_SUCCESS, status: AUDIT_STATUS.SUCCESS, ipAddress: clientIP, userAgent: req.headers['user-agent'], deviceFingerprint: deviceValidation.fingerprint, details: { attendanceStatus, validationMethod: 'trusted_device', isWFH, gpsAccuracy: accuracy } });
+        
+        return res.json({ success: true, message: 'Check-in successful (Trusted Device)', attendance: result.rows[0], validationMethod: 'trusted_device', sessionId });
+      }
     }
     // === END TRUSTED DEVICE VALIDATION ===
     
@@ -470,13 +445,7 @@ const checkIn = async (req, res) => {
       });
     }
 
-    // Check WFH permission
-    const wfhResult = await pool.query(
-      'SELECT is_enabled FROM wfh_permissions WHERE employee_id = $1',
-      [employeeCode]
-    );
 
-    const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
 
     // Validate attendance using new multi-mode validator
     const validationResult = await validateAttendance(
@@ -527,20 +496,6 @@ const checkIn = async (req, res) => {
     let result;
     if (existingAttendance.rows.length > 0) {
       result = await pool.query(
-        `UPDATE attendance 
-         SET login_time = CURRENT_TIMESTAMP,
-             latitude_login = $1,
-             longitude_login = $2,
-             address_login = $3,
-             attendance_status = $4,
-             is_wfh = $5,
-             device_info = $6,
-             browser_info = $7,
-             ip_address = $8,
-             gps_accuracy = $9,
-             device_fingerprint = $10,
-             validation_method = $11,
-             session_id = $12,
         `UPDATE attendance 
          SET login_time = CURRENT_TIMESTAMP,
              latitude_login = $1,
@@ -659,48 +614,19 @@ const checkOut = async (req, res) => {
 
     const today = getLocalDateString(); // Use local date instead of UTC
 
-    // === TRUSTED DEVICE VALIDATION ===
-    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
-    
     // Get employee name
     const employeeResult = await pool.query(
       'SELECT name FROM employees WHERE employee_id = $1',
       [employeeCode]
     );
     const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
-    
-    // Validate using the prioritized block-check function (same as Check-In)
-    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {
-      screenResolution,
-      timezone
-    });
 
-    if (!deviceValidation.valid) {
-      // Log failed attempt with full device details
-      const clientIP = getClientIP(req);
-      const userAgent = req.headers['user-agent'] || 'Unknown';
-      const deviceDetails = parseDeviceInfo(userAgent);
-      await logAudit({
-        userId: employeeCode,
-        userType: 'employee',
-        action: AUDIT_ACTIONS.CHECKOUT_FAILED,
-        status: AUDIT_STATUS.FAILED,
-        ipAddress: clientIP,
-        userAgent: userAgent,
-        deviceFingerprint: deviceValidation.fingerprint,
-        details: { 
-          reason: deviceValidation.message,
-          deviceStatus: deviceValidation.deviceStatus,
-          isNewDevice: deviceValidation.isNewDevice,
-          browser: deviceDetails.browser,
-          os: deviceDetails.os,
-          deviceType: deviceDetails.deviceType,
-          validationResult: 'denied'
-        }
-      });
-      
-      return res.status(403).json(deviceValidation);
-    }
+    // Check WFH permission
+    const wfhResult = await pool.query(
+      'SELECT is_enabled FROM wfh_permissions WHERE employee_id = $1',
+      [employeeCode]
+    );
+    const isWFH = wfhResult.rows.length > 0 && wfhResult.rows[0].is_enabled;
 
     // Check if checked in today
     const attendanceResult = await pool.query(
@@ -728,7 +654,15 @@ const checkOut = async (req, res) => {
     // === ATTENDANCE SESSION & DEVICE VALIDATION (ALWAYS ON) ===
     const isElectron = isElectronRequest(req);
     let electronPublicKeyHash = null;
+    let trustedDeviceId = null;
+    let validationMethod = 'standard';
+    let deviceValidation = { valid: false, fingerprint: null };
     
+    const currentFingerprint = generateFingerprint(req);
+    const clientIP = getClientIP(req);
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const deviceDetails = parseDeviceInfo(userAgent);
+
     if (isElectron) {
       const verificationResult = verifyElectronSignature(req);
       if (!verificationResult.valid) {
@@ -740,18 +674,17 @@ const checkOut = async (req, res) => {
         });
       }
       electronPublicKeyHash = verificationResult.publicKeyHash;
+      deviceValidation.fingerprint = `electron-${electronPublicKeyHash}`;
+    } else {
+      deviceValidation.fingerprint = currentFingerprint;
     }
 
-    const currentFingerprint = generateFingerprint(req);
-    const clientIP = getClientIP(req);
-    const userAgent = req.headers['user-agent'] || 'Unknown';
-    const deviceDetails = parseDeviceInfo(userAgent);
-
     const sessionMismatch = attendance.session_id && sessionId !== attendance.session_id;
-    const fingerprintMismatch = attendance.device_fingerprint && currentFingerprint !== attendance.device_fingerprint;
+    const fingerprintMismatch = attendance.device_fingerprint && !isElectron && currentFingerprint !== attendance.device_fingerprint;
     
     const isCheckInElectron = attendance.device_source === 'electron-desktop';
     let electronMismatch = false;
+    
     if (isCheckInElectron) {
       if (!isElectron) {
         electronMismatch = true;
@@ -777,7 +710,7 @@ const checkOut = async (req, res) => {
         status: AUDIT_STATUS.FAILED,
         ipAddress: clientIP,
         userAgent: userAgent,
-        deviceFingerprint: currentFingerprint,
+        deviceFingerprint: deviceValidation.fingerprint,
         details: {
           reason: sessionMismatch && (fingerprintMismatch || electronMismatch) ? 'Both Session and Device mismatch (High Risk)' : 
                   sessionMismatch ? 'Attendance Session mismatch' : 'Check-Out attempted from a different device',
@@ -828,6 +761,98 @@ const checkOut = async (req, res) => {
     }
     console.log('✅ Session and Device verified - MATCH');
     // === END ATTENDANCE SESSION VALIDATION ===
+
+    // === VALIDATION MODE LOGIC ===
+    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+    
+    if (isElectron) {
+      if (!settings.electronDesktop?.enabled) {
+         return res.status(403).json({ success: false, errorCode: 'ELECTRON_ATTENDANCE_DISABLED', message: 'Check-out via the Electron Desktop App is currently disabled.' });
+      }
+
+      const electronMode = settings.electronDesktop.validationMode || 'trusted_device_and_network';
+      validationMethod = electronMode;
+      
+      const requiresTrustedDevice = ['trusted_device_only', 'trusted_device_or_network', 'trusted_device_and_network', 'location_and_trusted_device', 'location_and_trusted_device_and_network'].includes(electronMode);
+      const requiresNetwork = ['network_only', 'trusted_device_or_network', 'trusted_device_and_network', 'location_and_network', 'location_and_trusted_device_and_network'].includes(electronMode);
+      const requiresLocation = ['location_only', 'location_and_trusted_device', 'location_and_network', 'location_and_trusted_device_and_network'].includes(electronMode);
+      const isOrMode = electronMode === 'trusted_device_or_network';
+
+      // 1. Trusted Device Validation
+      let trustedDevicePassed = false;
+      let trustedDeviceError = null;
+
+      const deviceResult = await pool.query(`SELECT * FROM trusted_devices WHERE employee_id = $1 AND desktop_public_key_hash = $2 AND device_source = 'electron-desktop'`, [employeeCode, electronPublicKeyHash]);
+      if (deviceResult.rows.length === 0 || deviceResult.rows[0].approved_status !== 'Approved') {
+        trustedDeviceError = { errorCode: 'DEVICE_APPROVAL_REQUIRED', message: 'This desktop device is not approved yet. Please wait for administrator approval.' };
+      } else {
+        trustedDeviceId = deviceResult.rows[0].id;
+        trustedDevicePassed = true;
+      }
+
+      if (requiresTrustedDevice && !trustedDevicePassed && !isOrMode) {
+        return res.status(403).json({ success: false, ...trustedDeviceError });
+      }
+
+      // 2. Network Validation
+      let networkPassed = false;
+      if (requiresNetwork && !isWFH) {
+        const networkCheck = await validateNetwork(req);
+        networkPassed = networkCheck.valid;
+        if (!networkPassed && (!isOrMode || (!trustedDevicePassed && isOrMode))) {
+           return res.status(403).json({ success: false, errorCode: 'ELECTRON_NETWORK_VALIDATION_FAILED', message: networkCheck.message });
+        }
+      } else if (isWFH) {
+        networkPassed = true;
+      }
+
+      if (isOrMode && !trustedDevicePassed && !networkPassed) {
+         return res.status(403).json({ success: false, errorCode: 'ELECTRON_VALIDATION_FAILED', message: 'Must pass either Trusted Device or Network validation.' });
+      }
+
+      // 3. Location Validation
+      let locationPassed = false;
+      if (requiresLocation && !isWFH) {
+        if (!latitude || !longitude) {
+           return res.status(400).json({ success: false, errorCode: 'ELECTRON_LOCATION_REQUIRED', message: 'Location coordinates are required for this validation mode.' });
+        }
+        const accuracyCheck = await validateGPSAccuracy(req.body.accuracy || 100);
+        if (!accuracyCheck.valid) {
+           return res.status(400).json({ success: false, errorCode: 'ELECTRON_LOCATION_VALIDATION_FAILED', message: accuracyCheck.message });
+        }
+        const locationCheck = await validateLocation(parseFloat(latitude), parseFloat(longitude), false);
+        if (!locationCheck.valid) {
+           return res.status(403).json({ success: false, errorCode: 'ELECTRON_LOCATION_VALIDATION_FAILED', message: locationCheck.message });
+        }
+        locationPassed = true;
+      } else if (isWFH) {
+        locationPassed = true;
+      }
+    } else {
+      // Browser logic
+      deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, { screenResolution, timezone });
+      if (!deviceValidation.valid) {
+        await logAudit({
+          userId: employeeCode, userType: 'employee', action: AUDIT_ACTIONS.CHECKOUT_FAILED, status: AUDIT_STATUS.FAILED, ipAddress: clientIP, userAgent: userAgent, deviceFingerprint: deviceValidation.fingerprint,
+          details: { reason: deviceValidation.message, deviceStatus: deviceValidation.deviceStatus, isNewDevice: deviceValidation.isNewDevice, validationResult: 'denied' }
+        });
+        return res.status(403).json(deviceValidation);
+      }
+      
+      if (validationEnabled) {
+        validationMethod = 'trusted_device';
+      } else {
+         // Perform normal network/location validation for checkout if needed
+         // Using multi-mode validator
+         const locValidationResult = await validateAttendance(req, latitude, longitude, req.body.accuracy || 100, isWFH);
+         if (!locValidationResult.valid) {
+           await logAudit({ userId: employeeCode, userType: 'employee', action: AUDIT_ACTIONS.CHECKOUT_FAILED, status: AUDIT_STATUS.FAILED, ipAddress: clientIP, userAgent: userAgent, details: { reason: locValidationResult.message, validationMethod: locValidationResult.method } });
+           return res.status(403).json(locValidationResult);
+         }
+         validationMethod = locValidationResult.method;
+      }
+    }
+    // === END VALIDATION MODE LOGIC ===
 
     // Check early checkout permission
     const earlyCheckoutResult = await pool.query(
@@ -918,7 +943,7 @@ const checkOut = async (req, res) => {
        RETURNING *`,
       [latitude, longitude, address, workingHours, finalStatus, employeeCode, today,
        deviceValidation.fingerprint || null,
-       validationEnabled ? 'trusted_device' : null]
+       validationMethod]
     );
 
     // Log successful check-out
@@ -934,7 +959,7 @@ const checkOut = async (req, res) => {
         finalStatus,
         workingHours: parseFloat(workingHours),
         earlyCheckout: hasEarlyCheckoutPermission,
-        validationMethod: validationEnabled ? 'trusted_device' : 'standard'
+        validationMethod: validationMethod
       }
     });
 
@@ -987,10 +1012,56 @@ const getTodayAttendance = async (req, res) => {
     );
     const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
 
-    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+    if (isElectronRequest(req)) {
+      const verificationResult = verifyElectronSignature(req);
+      if (!verificationResult.valid) {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'INVALID_SIGNATURE',
+          title: 'Desktop Device Verification Failed',
+          message: verificationResult.message || 'We could not verify this desktop device. Please use the official Attendance Desktop App.'
+        });
+      }
+      
+      const deviceResult = await pool.query(
+        `SELECT * FROM trusted_devices 
+         WHERE employee_id = $1 AND desktop_public_key_hash = $2 AND device_source = 'electron-desktop'`,
+        [employeeCode, verificationResult.publicKeyHash]
+      );
+      
+      if (deviceResult.rows.length === 0 || deviceResult.rows[0].approved_status !== 'Approved') {
+        const status = deviceResult.rows.length > 0 ? deviceResult.rows[0].approved_status : 'Not Found';
+        let errorCode = 'DEVICE_APPROVAL_REQUIRED';
+        let message = 'This desktop device is not approved yet. Please wait for administrator approval before signing in.';
+        let title = 'Device Approval Required';
+        
+        if (status === 'Pending') {
+          errorCode = 'DEVICE_APPROVAL_PENDING';
+          title = 'Approval Pending';
+          message = 'Your desktop device approval request is still pending. Please contact your administrator.';
+        } else if (status === 'Blocked') {
+          errorCode = 'DEVICE_BLOCKED';
+          title = 'Device Blocked';
+          message = 'This desktop device has been blocked by your administrator. Please contact your administrator.';
+        } else if (status === 'Rejected') {
+          errorCode = 'DEVICE_REJECTED';
+          title = 'Device Rejected';
+          message = 'This desktop device was rejected by your administrator. Please contact your administrator.';
+        }
 
-    if (!deviceValidation.valid) {
-      return res.status(403).json(deviceValidation);
+        return res.status(403).json({
+          success: false,
+          errorCode,
+          title,
+          message
+        });
+      }
+    } else {
+      const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+
+      if (!deviceValidation.valid) {
+        return res.status(403).json(deviceValidation);
+      }
     }
     // === END TRUSTED DEVICE VALIDATION ===
 
@@ -1030,10 +1101,56 @@ const getEmployeeMonthlyAttendance = async (req, res) => {
     );
     const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
 
-    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+    if (isElectronRequest(req)) {
+      const verificationResult = verifyElectronSignature(req);
+      if (!verificationResult.valid) {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'INVALID_SIGNATURE',
+          title: 'Desktop Device Verification Failed',
+          message: verificationResult.message || 'We could not verify this desktop device. Please use the official Attendance Desktop App.'
+        });
+      }
+      
+      const deviceResult = await pool.query(
+        `SELECT * FROM trusted_devices 
+         WHERE employee_id = $1 AND desktop_public_key_hash = $2 AND device_source = 'electron-desktop'`,
+        [employeeCode, verificationResult.publicKeyHash]
+      );
+      
+      if (deviceResult.rows.length === 0 || deviceResult.rows[0].approved_status !== 'Approved') {
+        const status = deviceResult.rows.length > 0 ? deviceResult.rows[0].approved_status : 'Not Found';
+        let errorCode = 'DEVICE_APPROVAL_REQUIRED';
+        let message = 'This desktop device is not approved yet. Please wait for administrator approval before signing in.';
+        let title = 'Device Approval Required';
+        
+        if (status === 'Pending') {
+          errorCode = 'DEVICE_APPROVAL_PENDING';
+          title = 'Approval Pending';
+          message = 'Your desktop device approval request is still pending. Please contact your administrator.';
+        } else if (status === 'Blocked') {
+          errorCode = 'DEVICE_BLOCKED';
+          title = 'Device Blocked';
+          message = 'This desktop device has been blocked by your administrator. Please contact your administrator.';
+        } else if (status === 'Rejected') {
+          errorCode = 'DEVICE_REJECTED';
+          title = 'Device Rejected';
+          message = 'This desktop device was rejected by your administrator. Please contact your administrator.';
+        }
 
-    if (!deviceValidation.valid) {
-      return res.status(403).json(deviceValidation);
+        return res.status(403).json({
+          success: false,
+          errorCode,
+          title,
+          message
+        });
+      }
+    } else {
+      const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {});
+
+      if (!deviceValidation.valid) {
+        return res.status(403).json(deviceValidation);
+      }
     }
     // === END TRUSTED DEVICE VALIDATION ===
 

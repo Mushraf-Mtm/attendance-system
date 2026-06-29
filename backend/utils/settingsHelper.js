@@ -52,6 +52,10 @@ async function getSettingsFromDB() {
       },
       trustedDevice: {
         validationEnabled: dbSettings.trusted_device_validation_enabled || false
+      },
+      electronDesktop: {
+        enabled: dbSettings.electron_desktop_enabled !== false,
+        validationMode: dbSettings.electron_desktop_validation_mode || 'trusted_device_and_network'
       }
     };
 
