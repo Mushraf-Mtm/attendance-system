@@ -210,12 +210,18 @@ const AdminTrustedDevices = () => {
         'Job Role': device.job_role || 'N/A',
         'Department': device.department || 'N/A',
         'Device Alias': device.device_alias || 'No alias set',
+        'Device Source': device.device_source === 'electron-desktop' ? 'Electron Desktop App' : 'Browser',
         'Device Type': device.device_type,
+        'Desktop Hostname': device.desktop_hostname || 'N/A',
+        'Desktop Platform': device.desktop_platform || 'N/A',
+        'Electron App Version': device.electron_app_version || 'N/A',
         'Browser': `${device.browser_name || 'Unknown'} ${device.browser_version || ''}`,
         'Operating System': device.operating_system || 'Unknown',
         'Screen Resolution': device.screen_resolution || 'Unknown',
         'Platform': device.platform || 'Unknown',
         'Fingerprint': device.device_fingerprint || 'N/A',
+        'Public Key Hash': device.desktop_public_key_hash ? `${device.desktop_public_key_hash.substring(0, 16)}...` : 'N/A',
+        'Signature Verified': device.desktop_signature_verified_at ? formatDate(device.desktop_signature_verified_at) : 'N/A',
         'First Seen': formatDate(device.first_seen),
         'Last Used': formatDate(device.last_used),
         'Approval Status': device.approved_status,
@@ -306,7 +312,7 @@ const AdminTrustedDevices = () => {
                         <Th>Employee</Th>
                         <Th>Device Alias</Th>
                         <Th>Type</Th>
-                        <Th>Browser & OS</Th>
+                        <Th>Browser & OS / Source</Th>
                         {activeTab === 'pending' && <Th>First Seen</Th>}
                         {activeTab === 'approved' && <Th>Last Used / Approved</Th>}
                         {activeTab === 'rejected' && <Th>Rejected Date</Th>}
@@ -339,8 +345,12 @@ const AdminTrustedDevices = () => {
                           <Td><DeviceTypePill type={device.device_type} /></Td>
                           <Td>
                             <div className="flex flex-col">
-                              <span className="text-xs font-semibold text-[#CBD5E1]">{device.browser_name || '—'} {device.browser_version ? `v${device.browser_version}` : ''}</span>
-                              <span className="text-[10px] text-[#64748B] mt-0.5">{device.operating_system || '—'}</span>
+                              <span className="text-xs font-semibold text-[#CBD5E1]">
+                                {device.device_source === 'electron-desktop' ? 'Electron App' : (device.browser_name || '—') + (device.browser_version ? ` v${device.browser_version}` : '')}
+                              </span>
+                              <span className="text-[10px] text-[#64748B] mt-0.5">
+                                {device.device_source === 'electron-desktop' ? device.desktop_hostname : device.operating_system || '—'}
+                              </span>
                             </div>
                           </Td>
                           

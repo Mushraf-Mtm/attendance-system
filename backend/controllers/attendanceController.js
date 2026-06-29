@@ -5,6 +5,7 @@ const { getSettingsFromDB } = require('../utils/settingsHelper');
 const { logDeviceFingerprint, registerTrustedDevice, isTrustedDeviceApproved, generateFingerprint, validateTrustedDevice, parseDeviceInfo } = require('../services/deviceFingerprintService');
 const { getClientIP } = require('../services/networkValidationService');
 const { logAudit, AUDIT_ACTIONS, AUDIT_STATUS } = require('../services/auditService');
+const { isElectronRequest, verifyElectronSignature } = require('../utils/electronDeviceVerifier');
 
 // Helper function to get local date in YYYY-MM-DD format
 const getLocalDateString = () => {
@@ -236,6 +237,12 @@ const checkIn = async (req, res) => {
     }
     
     // === TRUSTED DEVICE VALIDATION ===
+    const isElectron = isElectronRequest(req);
+    let deviceValidation = { valid: false };
+    let trustedDeviceId = null;
+    let desktopPublicKeyHash = null;
+    const deviceSource = isElectron ? 'electron-desktop' : 'browser';
+
     const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
     
     // Get employee name
@@ -246,11 +253,42 @@ const checkIn = async (req, res) => {
     
     const employeeName = employeeResult.rows.length > 0 ? employeeResult.rows[0].name : 'Unknown';
     
-    // Validate using the prioritized block-check function
-    const deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {
-      screenResolution,
-      timezone
-    });
+    if (isElectron) {
+      const verificationResult = verifyElectronSignature(req);
+      if (!verificationResult.valid) {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'INVALID_SIGNATURE',
+          title: 'Desktop Device Verification Failed',
+          message: verificationResult.message || 'We could not verify this desktop device. Please use the official Attendance Desktop App.'
+        });
+      }
+      
+      desktopPublicKeyHash = verificationResult.publicKeyHash;
+      
+      const deviceResult = await pool.query(
+        `SELECT * FROM trusted_devices 
+         WHERE employee_id = $1 AND desktop_public_key_hash = $2 AND device_source = 'electron-desktop'`,
+        [employeeCode, desktopPublicKeyHash]
+      );
+      
+      if (deviceResult.rows.length === 0 || deviceResult.rows[0].approved_status !== 'Approved') {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'DEVICE_APPROVAL_REQUIRED',
+          message: 'This desktop device is not approved yet. Please wait for administrator approval before signing in.'
+        });
+      }
+      
+      trustedDeviceId = deviceResult.rows[0].id;
+      deviceValidation = { valid: true, fingerprint: `electron-${desktopPublicKeyHash}` };
+    } else {
+      // Validate using the prioritized block-check function
+      deviceValidation = await validateTrustedDevice(employeeCode, employeeName, req, validationEnabled, {
+        screenResolution,
+        timezone
+      });
+    }
 
     if (!deviceValidation.valid) {
       // Log failed attempt
@@ -333,12 +371,16 @@ const checkIn = async (req, res) => {
                device_fingerprint = $10,
                validation_method = $11,
                session_id = $12,
+               trusted_device_id = $13,
+               device_source = $14,
+               desktop_public_key_hash = $15,
                updated_at = CURRENT_TIMESTAMP
-           WHERE employee_id = $13 AND attendance_date = $14
+           WHERE employee_id = $16 AND attendance_date = $17
            RETURNING *`,
           [latitude, longitude, address, attendanceStatus, isWFH, 
            device_info, browser_info, clientIP, accuracy, 
            deviceValidation.fingerprint, 'trusted_device', sessionId,
+           trustedDeviceId, deviceSource, desktopPublicKeyHash,
            employeeCode, today]
         );
       } else {
@@ -346,12 +388,14 @@ const checkIn = async (req, res) => {
           `INSERT INTO attendance 
            (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
             address_login, attendance_status, is_wfh, device_info, browser_info, 
-            ip_address, gps_accuracy, device_fingerprint, validation_method, session_id)
-           VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            ip_address, gps_accuracy, device_fingerprint, validation_method, session_id,
+            trusted_device_id, device_source, desktop_public_key_hash)
+           VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
            RETURNING *`,
           [employeeCode, today, latitude, longitude, address, attendanceStatus, 
            isWFH, device_info, browser_info, clientIP, accuracy,
-           deviceValidation.fingerprint, 'trusted_device', sessionId]
+           deviceValidation.fingerprint, 'trusted_device', sessionId,
+           trustedDeviceId, deviceSource, desktopPublicKeyHash]
         );
       }
       
@@ -497,12 +541,30 @@ const checkIn = async (req, res) => {
              device_fingerprint = $10,
              validation_method = $11,
              session_id = $12,
+        `UPDATE attendance 
+         SET login_time = CURRENT_TIMESTAMP,
+             latitude_login = $1,
+             longitude_login = $2,
+             address_login = $3,
+             attendance_status = $4,
+             is_wfh = $5,
+             device_info = $6,
+             browser_info = $7,
+             ip_address = $8,
+             gps_accuracy = $9,
+             device_fingerprint = $10,
+             validation_method = $11,
+             session_id = $12,
+             trusted_device_id = $13,
+             device_source = $14,
+             desktop_public_key_hash = $15,
              updated_at = CURRENT_TIMESTAMP
-         WHERE employee_id = $13 AND attendance_date = $14
+         WHERE employee_id = $16 AND attendance_date = $17
          RETURNING *`,
         [latitude, longitude, address, attendanceStatus, isWFH, 
          device_info, browser_info, clientIP, accuracy, 
          deviceData ? deviceData.fingerprint : null, validationResult.method, sessionId,
+         trustedDeviceId, deviceSource, desktopPublicKeyHash,
          employeeCode, today]
       );
     } else {
@@ -510,12 +572,14 @@ const checkIn = async (req, res) => {
         `INSERT INTO attendance 
          (employee_id, attendance_date, login_time, latitude_login, longitude_login, 
           address_login, attendance_status, is_wfh, device_info, browser_info, 
-          ip_address, gps_accuracy, device_fingerprint, validation_method, session_id)
-         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          ip_address, gps_accuracy, device_fingerprint, validation_method, session_id,
+          trusted_device_id, device_source, desktop_public_key_hash)
+         VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          RETURNING *`,
         [employeeCode, today, latitude, longitude, address, attendanceStatus, 
          isWFH, device_info, browser_info, clientIP, accuracy,
-         deviceData ? deviceData.fingerprint : null, validationResult.method, sessionId]
+         deviceData ? deviceData.fingerprint : null, validationResult.method, sessionId,
+         trustedDeviceId, deviceSource, desktopPublicKeyHash]
       );
     }
 
@@ -662,6 +726,22 @@ const checkOut = async (req, res) => {
     }
 
     // === ATTENDANCE SESSION & DEVICE VALIDATION (ALWAYS ON) ===
+    const isElectron = isElectronRequest(req);
+    let electronPublicKeyHash = null;
+    
+    if (isElectron) {
+      const verificationResult = verifyElectronSignature(req);
+      if (!verificationResult.valid) {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'INVALID_SIGNATURE',
+          title: 'Desktop Device Verification Failed',
+          message: verificationResult.message || 'We could not verify this desktop device. Please use the official Attendance Desktop App.'
+        });
+      }
+      electronPublicKeyHash = verificationResult.publicKeyHash;
+    }
+
     const currentFingerprint = generateFingerprint(req);
     const clientIP = getClientIP(req);
     const userAgent = req.headers['user-agent'] || 'Unknown';
@@ -669,13 +749,26 @@ const checkOut = async (req, res) => {
 
     const sessionMismatch = attendance.session_id && sessionId !== attendance.session_id;
     const fingerprintMismatch = attendance.device_fingerprint && currentFingerprint !== attendance.device_fingerprint;
+    
+    const isCheckInElectron = attendance.device_source === 'electron-desktop';
+    let electronMismatch = false;
+    if (isCheckInElectron) {
+      if (!isElectron) {
+        electronMismatch = true;
+      } else if (attendance.desktop_public_key_hash !== electronPublicKeyHash) {
+        electronMismatch = true;
+      }
+    } else if (isElectron) {
+      electronMismatch = true;
+    }
 
-    if (sessionMismatch || fingerprintMismatch) {
+    if (sessionMismatch || fingerprintMismatch || electronMismatch) {
       console.log('❌ CHECK-OUT BLOCKED - Session or Device mismatch');
       console.log('Check-In Session:', attendance.session_id);
       console.log('Current Session:', sessionId);
       console.log('Check-In Fingerprint:', attendance.device_fingerprint);
       console.log('Current Fingerprint:', currentFingerprint);
+      console.log('Electron Mismatch:', electronMismatch);
 
       await logAudit({
         userId: employeeCode,
@@ -686,12 +779,13 @@ const checkOut = async (req, res) => {
         userAgent: userAgent,
         deviceFingerprint: currentFingerprint,
         details: {
-          reason: sessionMismatch && fingerprintMismatch ? 'Both Session and Device mismatch (High Risk)' : 
+          reason: sessionMismatch && (fingerprintMismatch || electronMismatch) ? 'Both Session and Device mismatch (High Risk)' : 
                   sessionMismatch ? 'Attendance Session mismatch' : 'Check-Out attempted from a different device',
           checkInSession: attendance.session_id,
           currentSession: sessionId,
           checkInFingerprint: attendance.device_fingerprint,
           currentFingerprint: currentFingerprint,
+          electronMismatch,
           browser: deviceDetails.browser,
           os: deviceDetails.os,
           deviceType: deviceDetails.deviceType,
@@ -700,7 +794,16 @@ const checkOut = async (req, res) => {
         }
       });
 
-      if (sessionMismatch && fingerprintMismatch) {
+      if (electronMismatch) {
+        return res.status(403).json({
+          success: false,
+          valid: false,
+          deviceMismatch: true,
+          errorCode: 'CHECKOUT_DEVICE_MISMATCH',
+          title: 'Check-Out Not Allowed',
+          message: 'For attendance security, you must complete Check-Out using the same approved device that was used for Check-In.'
+        });
+      } else if (sessionMismatch && fingerprintMismatch) {
         return res.status(403).json({
           success: false,
           valid: false,

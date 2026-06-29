@@ -97,18 +97,68 @@ export const mapErrorToDialogConfig = (error) => {
     };
   }
 
-  // 5. Device Fingerprint Mismatch (Check-Out Not Allowed)
-  if (status === 403 && data.deviceMismatch) {
+  // Electron Desktop Device Errors
+  if (data.errorCode === 'INVALID_SIGNATURE') {
     return {
-      priority: 5,
-      title: 'Check-Out Not Allowed',
-      message: 'For attendance security, you must complete Check-Out using the same device that was used for Check-In.\n\nPlease return to your original device.',
+      priority: 3,
+      title: data.title || 'Desktop Device Verification Failed',
+      message: data.message || 'We could not verify this desktop device. Please use the official Attendance Desktop App.',
       buttons: [ERROR_ACTIONS.OK],
       icon: 'device'
     };
   }
 
-  // 3 & 4. Trusted Device Status
+  if (data.errorCode === 'DEVICE_APPROVAL_REQUIRED') {
+    return {
+      priority: 4,
+      title: data.title || 'Device Approval Required',
+      message: data.message || 'This desktop device is not approved yet. Please wait for administrator approval before signing in.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
+  if (data.errorCode === 'DEVICE_APPROVAL_PENDING') {
+    return {
+      priority: 4,
+      title: data.title || 'Approval Pending',
+      message: data.message || 'Your desktop device approval request is still pending. Please contact your administrator.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
+  if (data.errorCode === 'DEVICE_REJECTED') {
+    return {
+      priority: 4,
+      title: data.title || 'Device Rejected',
+      message: data.message || 'This desktop device was rejected by your administrator. Please contact your administrator.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
+  if (data.errorCode === 'DEVICE_BLOCKED') {
+    return {
+      priority: 3,
+      title: data.title || 'Device Blocked',
+      message: data.message || 'This desktop device has been blocked by your administrator. Please contact your administrator.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
+  if (data.errorCode === 'CHECKOUT_DEVICE_MISMATCH' || (status === 403 && data.deviceMismatch)) {
+    return {
+      priority: 5,
+      title: data.title || 'Check-Out Not Allowed',
+      message: data.message || 'For attendance security, you must complete Check-Out using the same approved device that was used for Check-In.',
+      buttons: [ERROR_ACTIONS.OK],
+      icon: 'device'
+    };
+  }
+
+  // 3 & 4. Trusted Device Status (Browser Fallback)
   if (data.deviceStatus) {
     if (data.deviceStatus === 'Pending') {
       return {

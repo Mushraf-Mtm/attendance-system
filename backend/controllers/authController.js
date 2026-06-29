@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const { logAdminActivity, ADMIN_ACTION_TYPES, MODULE_NAMES } = require('../services/adminActivityService');
 const { validateTrustedDevice } = require('../services/deviceFingerprintService');
 const { getSettingsFromDB } = require('../utils/settingsHelper');
+const { isElectronRequest, verifyElectronSignature } = require('../utils/electronDeviceVerifier');
 
 // Admin Login
 const adminLogin = async (req, res) => {
@@ -155,16 +156,104 @@ const employeeLogin = async (req, res) => {
     }
 
     // === TRUSTED DEVICE VALIDATION ===
-    // Always check for Blocked status, even during login
-    const settings = await getSettingsFromDB();
-    const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+    const isElectron = isElectronRequest(req);
     
-    const deviceValidation = await validateTrustedDevice(employee.employee_id, employee.name, req, validationEnabled, {});
+    if (isElectron) {
+      // ELECTRON DESKTOP LOGIN FLOW
+      const verificationResult = verifyElectronSignature(req);
+      
+      if (!verificationResult.valid) {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'INVALID_SIGNATURE',
+          title: 'Desktop Device Verification Failed',
+          message: verificationResult.message || 'We could not verify this desktop device. Please use the official Attendance Desktop App.'
+        });
+      }
 
-    if (!deviceValidation.valid) {
-      // If validation fails (either explicitly blocked, or it's enabled and not approved)
-      return res.status(403).json(deviceValidation);
+      // Check trusted_devices table for Electron device
+      const { publicKey, publicKeyHash, hostname, platform, appVersion } = verificationResult;
+      
+      const deviceResult = await pool.query(
+        `SELECT * FROM trusted_devices 
+         WHERE employee_id = $1 AND desktop_public_key_hash = $2 AND device_source = 'electron-desktop'`,
+        [employee.employee_id, publicKeyHash]
+      );
+
+      if (deviceResult.rows.length === 0) {
+        // Create new Pending request
+        await pool.query(
+          `INSERT INTO trusted_devices 
+           (employee_id, employee_name, device_fingerprint, device_source, desktop_public_key, desktop_public_key_hash, desktop_hostname, desktop_platform, electron_app_version, approved_status) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending')`,
+          [
+            employee.employee_id, 
+            employee.name, 
+            `electron-${publicKeyHash}`,
+            'electron-desktop',
+            publicKey,
+            publicKeyHash,
+            hostname,
+            platform,
+            appVersion
+          ]
+        );
+        
+        return res.status(403).json({
+          success: false,
+          errorCode: 'DEVICE_APPROVAL_REQUIRED',
+          message: 'This desktop device is not approved yet. Please wait for administrator approval before signing in.'
+        });
+      }
+
+      const device = deviceResult.rows[0];
+
+      if (device.approved_status === 'Pending') {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'DEVICE_APPROVAL_PENDING',
+          message: 'Your desktop device approval request is still pending. Please contact your administrator.'
+        });
+      }
+
+      if (device.approved_status === 'Rejected') {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'DEVICE_REJECTED',
+          message: 'This desktop device was rejected by your administrator. Please contact your administrator.'
+        });
+      }
+
+      if (device.approved_status === 'Blocked') {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'DEVICE_BLOCKED',
+          message: 'This desktop device has been blocked by your administrator. Please contact your administrator.'
+        });
+      }
+
+      // Approved! Update last_used
+      await pool.query(
+        `UPDATE trusted_devices 
+         SET last_used = CURRENT_TIMESTAMP, desktop_signature_verified_at = CURRENT_TIMESTAMP 
+         WHERE id = $1`,
+        [device.id]
+      );
+
+    } else {
+      // NORMAL BROWSER LOGIN FLOW
+      // Always check for Blocked status, even during login
+      const settings = await getSettingsFromDB();
+      const validationEnabled = settings.trustedDevice ? settings.trustedDevice.validationEnabled : false;
+      
+      const deviceValidation = await validateTrustedDevice(employee.employee_id, employee.name, req, validationEnabled, {});
+
+      if (!deviceValidation.valid) {
+        // If validation fails (either explicitly blocked, or it's enabled and not approved)
+        return res.status(403).json(deviceValidation);
+      }
     }
+
 
     // Generate JWT token
     const token = jwt.sign(

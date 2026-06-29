@@ -54,7 +54,19 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'X-Desktop-App',
+    'X-Device-Source',
+    'X-Desktop-Public-Key',
+    'X-Desktop-Public-Key-Hash',
+    'X-Desktop-Signature',
+    'X-Desktop-Timestamp',
+    'X-Desktop-Hostname',
+    'X-Desktop-Platform',
+    'X-Electron-App-Version'
+  ]
 }));
 
 // Middleware
