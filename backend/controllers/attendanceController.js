@@ -104,34 +104,34 @@ const checkIn = async (req, res) => {
     const today = getLocalDateString(); // Use local date instead of UTC
     
     // === TEMPORARILY COMMENTED OUT FOR TESTING — UNCOMMENT AFTER TESTING ===
-    // // Check if today is Sunday (using current system date)
-    // const currentDate = new Date();
-    // const dayOfWeek = currentDate.getDay();
-    // 
-    // console.log('=== SUNDAY CHECK ===');
-    // console.log('Current Date:', currentDate.toISOString());
-    // console.log('Local Date String:', today);
-    // console.log('Day of Week:', dayOfWeek, '(0=Sunday, 1=Monday, 2=Tuesday, etc.)');
-    // console.log('Date String:', today);
-    // 
-    // if (dayOfWeek === 0) {
-    //   await logAudit({
-    //     userId: employeeCode,
-    //     userType: 'employee',
-    //     action: AUDIT_ACTIONS.CHECKIN_FAILED,
-    //     status: AUDIT_STATUS.FAILED,
-    //     ipAddress: clientIP,
-    //     userAgent: req.headers['user-agent'],
-    //     details: { reason: 'Sunday', date: today, dayOfWeek }
-    //   });
-    //   
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'Today is Sunday. Attendance is not required on Sundays.',
-    //     isHoliday: true,
-    //     holidayType: 'Sunday'
-    //   });
-    // }
+    // Check if today is Sunday (using current system date)
+    const currentDate = new Date();
+    const dayOfWeek = currentDate.getDay();
+    
+    console.log('=== SUNDAY CHECK ===');
+    console.log('Current Date:', currentDate.toISOString());
+    console.log('Local Date String:', today);
+    console.log('Day of Week:', dayOfWeek, '(0=Sunday, 1=Monday, 2=Tuesday, etc.)');
+    console.log('Date String:', today);
+    
+    if (dayOfWeek === 0) {
+      await logAudit({
+        userId: employeeCode,
+        userType: 'employee',
+        action: AUDIT_ACTIONS.CHECKIN_FAILED,
+        status: AUDIT_STATUS.FAILED,
+        ipAddress: clientIP,
+        userAgent: req.headers['user-agent'],
+        details: { reason: 'Sunday', date: today, dayOfWeek }
+      });
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Today is Sunday. Attendance is not required on Sundays.',
+        isHoliday: true,
+        holidayType: 'Sunday'
+      });
+    }
     // === END TEMPORARY COMMENT ===
 
     // Check if today is an enabled holiday
