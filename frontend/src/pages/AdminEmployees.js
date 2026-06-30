@@ -17,7 +17,10 @@ const AdminEmployees = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen:false, title:'', message:'', onConfirm:null, type:'danger' });
   const [alertDialog,   setAlertDialog]   = useState({ isOpen:false, title:'', message:'', type:'success' });
-  const [formData, setFormData] = useState({ id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active' });
+  const [formData, setFormData] = useState({ 
+    id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'',
+    monthly_salary:'', basic_salary:'', hra:'', special_allowance:'', staff_advance:'', professional_tax:'', tds:''
+  });
 
   useEffect(() => { fetchData(); }, []);
 
@@ -32,10 +35,27 @@ const AdminEmployees = () => {
 
   const handleInputChange = e => setFormData(f => ({ ...f, [e.target.name]: e.target.value }));
 
+  const cleanNumber = (value) => {
+    if (value === undefined || value === null || String(value).trim() === '') {
+      return 0;
+    }
+    const num = Number(value);
+    return Number.isFinite(num) && num >= 0 ? num : 0;
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     try {
-      const response = editMode ? await updateEmployee(formData.id, formData) : await addEmployee(formData);
+      const payload = { ...formData };
+      payload.monthly_salary = cleanNumber(formData.monthly_salary);
+      payload.basic_salary = cleanNumber(formData.basic_salary || formData.base_salary);
+      payload.hra = cleanNumber(formData.hra);
+      payload.special_allowance = cleanNumber(formData.special_allowance);
+      payload.staff_advance = cleanNumber(formData.staff_advance);
+      payload.professional_tax = cleanNumber(formData.professional_tax);
+      payload.tds = cleanNumber(formData.tds);
+
+      const response = editMode ? await updateEmployee(payload.id, payload) : await addEmployee(payload);
       if (response.data.success) {
         setAlertDialog({ isOpen:true, title:'Success', message: editMode ? 'Employee updated successfully!' : 'Employee added successfully!', type:'success' });
         fetchData(); closeModal();
@@ -84,7 +104,13 @@ const AdminEmployees = () => {
     });
   };
 
-  const closeModal = () => { setShowModal(false); setEditMode(false); setShowPassword(false); setFormData({ id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'' }); };
+  const closeModal = () => { 
+    setShowModal(false); setEditMode(false); setShowPassword(false); 
+    setFormData({ 
+      id:'', employee_id:'', name:'', department_id:'', job_role:'', mobile:'', email:'', password:'', status:'Active', date_of_birth:'',
+      monthly_salary:'', basic_salary:'', hra:'', special_allowance:'', staff_advance:'', professional_tax:'', tds:''
+    }); 
+  };
 
   const filteredEmployees = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -228,6 +254,27 @@ const AdminEmployees = () => {
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
+                </div>
+
+                <div className="sm:col-span-2 mt-4 pt-4 border-t border-white/10">
+                  <h3 className="text-sm font-bold text-white mb-4">Salary & Payroll Details</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { label:'Monthly Salary (Gross)', name:'monthly_salary' },
+                      { label:'Basic Salary', name:'basic_salary' },
+                      { label:'HRA', name:'hra' },
+                      { label:'Special Allowance', name:'special_allowance' },
+                      { label:'Staff Advance / Deductions', name:'staff_advance' },
+                      { label:'Professional Tax (PT)', name:'professional_tax' },
+                      { label:'TDS', name:'tds' }
+                    ].map(({ label, name }) => (
+                      <div key={name}>
+                        <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">{label}</label>
+                        <input type="number" step="0.01" name={name} value={formData[name] || ''} onChange={handleInputChange}
+                          className="admin-input" placeholder="0.00" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </form>
             </div>
