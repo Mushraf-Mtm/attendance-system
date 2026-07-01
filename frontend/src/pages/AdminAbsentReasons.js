@@ -70,6 +70,15 @@ const AdminAbsentReasons = () => {
   };
 
   const openModal = (emp) => {
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    const todayStr = today.toISOString().split('T')[0];
+    
+    if (date > todayStr) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'You cannot add absent reason for a future date.', type: 'error' });
+      return;
+    }
+
     setTargetAttendanceId(emp.attendance_id);
     setTargetEmployeeId(emp.employee_id);
     setTargetDate(date);
@@ -80,6 +89,15 @@ const AdminAbsentReasons = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    const todayStr = today.toISOString().split('T')[0];
+    if (targetDate > todayStr) {
+      setAlertDialog({ isOpen: true, title: 'Error', message: 'You cannot add absent reason for a future date.', type: 'error' });
+      return;
+    }
+
     if (!reason.trim()) {
       setAlertDialog({ isOpen: true, title: 'Error', message: 'Absent reason cannot be empty.', type: 'error' });
       return;

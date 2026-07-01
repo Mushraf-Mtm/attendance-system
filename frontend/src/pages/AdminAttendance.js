@@ -187,6 +187,7 @@ const AdminAttendance = () => {
                   <option value="Late">Late</option>
                   <option value="Half Day">Half Day</option>
                   <option value="Absent">Absent</option>
+                  <option value="Not Mention">Not Mention</option>
                 </select>
               </div>
               <div>
@@ -251,14 +252,14 @@ const AdminAttendance = () => {
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <StatusBadge status={r.attendance_status || 'Absent'} dark />
+                            <StatusBadge status={r.attendance_status || 'Not Mention'} dark />
                             {r.validation_method === 'Manual' && (
                               <span className="text-[10px] font-bold text-purple-400 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-full">Manual</span>
                             )}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs font-semibold text-[#CBD5E1] whitespace-nowrap">
-                          {r.attendance_status === 'Absent' ? (r.absent_reason || '—') : '—'}
+                          {r.attendance_status === 'Absent' || r.attendance_status === 'Not Mention' ? (r.absent_reason || '—') : '—'}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {r.is_wfh ? <span className="text-[10px] font-bold text-blue-400 bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-full">WFH</span> : <span className="text-xs text-[#475569] font-medium">Office</span>}
@@ -331,3 +332,4 @@ const AdminAttendance = () => {
   );
 };
 export default AdminAttendance;
+

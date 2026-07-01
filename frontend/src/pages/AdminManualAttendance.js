@@ -77,8 +77,13 @@ const AdminManualAttendance = () => {
   };
 
   const isFutureDate = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return date > today;
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    return date > today.toISOString().split('T')[0];
+  };
+
+  const isFinalStatus = (status) => {
+    return ['Present', 'Late', 'Half Day', 'Absent', 'P', 'HD', 'A'].includes(status);
   };
 
   const handleDelete = (emp) => {
@@ -113,10 +118,10 @@ const AdminManualAttendance = () => {
       return;
     }
     
-    // Check if any selected employee already has attendance
-    const hasExisting = employees.find(e => selectedIds.includes(e.employee_id) && e.attendance_id);
+    // Check if any selected employee already has a final attendance status
+    const hasExisting = employees.find(e => selectedIds.includes(e.employee_id) && e.attendance_status && !['Not Mention', 'No Record', ''].includes(e.attendance_status));
     if (hasExisting) {
-      setAlertDialog({ isOpen: true, title: 'Error', message: `Attendance already exists for ${hasExisting.name}. Do NOT overwrite. Use individual Edit instead.`, type: 'error' });
+      setAlertDialog({ isOpen: true, title: 'Error', message: `This employee with employee ID ${hasExisting.employee_id} already has attendance for this date.`, type: 'error' });
       return;
     }
 
@@ -291,7 +296,7 @@ const AdminManualAttendance = () => {
                   ) : filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                     <tr key={emp.employee_id} className={`admin-table-row ${selectedIds.includes(emp.employee_id) ? 'bg-blue-500/5' : ''}`}>
                       <td className="px-4 py-3.5">
-                        <button onClick={() => toggleSelection(emp.employee_id)} className="text-slate-400 hover:text-white">
+                        <button onClick={() => toggleSelection(emp.employee_id)} disabled={isFinalStatus(emp.attendance_status)} className={`transition-colors ${isFinalStatus(emp.attendance_status) ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-white'}`}>
                           {selectedIds.includes(emp.employee_id) ? <FiCheckSquare size={18} className="text-blue-400" /> : <FiSquare size={18} />}
                         </button>
                       </td>
@@ -308,17 +313,19 @@ const AdminManualAttendance = () => {
                         {emp.logout_time ? new Date(emp.logout_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        {emp.attendance_id ? (
-                          emp.validation_method === 'Manual' ? (
+                        {isFinalStatus(emp.attendance_status) ? (
+                          <span className="text-xs text-slate-500 font-medium px-2 py-1 bg-white/5 rounded-md border border-white/5">Already Marked</span>
+                        ) : (
+                          emp.attendance_id && emp.validation_method === 'Manual' ? (
                             <div className="flex items-center gap-3">
                               <button onClick={() => openEditModal(emp)} className="text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiEdit size={14} /> Edit</button>
                               <button onClick={() => handleDelete(emp)} className="text-red-400 hover:text-red-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiTrash2 size={14} /> Delete</button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-500 italic">System Generated</span>
+                            <button onClick={() => { setSelectedIds([emp.employee_id]); setTimeout(openBulkModal, 50); }} className="text-amber-400 hover:text-amber-300 transition-colors text-sm font-medium flex items-center gap-1.5">
+                              {emp.attendance_id ? <><FiEdit size={14} /> Add (Update)</> : <><FiPlus size={14} /> Add</>}
+                            </button>
                           )
-                        ) : (
-                          <button onClick={() => { setSelectedIds([emp.employee_id]); setTimeout(openBulkModal, 50); }} className="text-amber-400 hover:text-amber-300 transition-colors text-sm font-medium flex items-center gap-1.5"><FiPlus size={14} /> Add</button>
                         )}
                       </td>
                     </tr>

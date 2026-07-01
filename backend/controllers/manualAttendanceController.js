@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { normalizeAttendanceStatus } = require('../utils/statusHelper');
 const { getClientIP } = require('../services/networkValidationService');
 const { logAdminActivity } = require('../services/adminActivityService');
 
@@ -45,12 +46,14 @@ const getEmployeesForManualAttendance = async (req, res) => {
 
     if (status) {
       if (status === 'No Record') {
-        query += ` AND a.id IS NULL`;
+        query += ` AND (a.id IS NULL OR a.attendance_status = 'Not Mention')`;
       } else {
         query += ` AND a.attendance_status = $${paramIndex}`;
         params.push(status);
         paramIndex++;
       }
+    } else {
+      query += ` AND (a.id IS NULL OR a.attendance_status = 'Not Mention')`;
     }
 
     query += ` ORDER BY e.employee_id ASC`;
@@ -111,14 +114,19 @@ const createManualAttendance = async (req, res) => {
 
       // Check if attendance already exists
       const checkResult = await client.query(
-        'SELECT id FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
+        'SELECT id, attendance_status FROM attendance WHERE employee_id = $1 AND attendance_date = $2',
         [employee_id, attendance_date]
       );
 
+      let existingRecord = null;
       if (checkResult.rows.length > 0) {
-        const err = new Error(`Attendance already exists for employee ${employee_id} on ${attendance_date}`);
-        err.errorCode = 'DUPLICATE_ATTENDANCE';
-        throw err;
+        existingRecord = checkResult.rows[0];
+        const normalizedStatus = normalizeAttendanceStatus(existingRecord.attendance_status);
+        if (['Present', 'Late', 'Half Day', 'Absent'].includes(normalizedStatus)) {
+          const err = new Error(`This employee with employee ID ${employee_id} already has attendance for this date.`);
+          err.errorCode = 'DUPLICATE_ATTENDANCE';
+          throw err;
+        }
       }
 
       // Calculate working hours if both times provided
@@ -127,21 +135,38 @@ const createManualAttendance = async (req, res) => {
         workingHours = (new Date(logout_time) - new Date(login_time)) / (1000 * 60 * 60);
       }
 
-      // Insert attendance
-      const insertResult = await client.query(
-        `INSERT INTO attendance (
-          employee_id, attendance_date, login_time, logout_time, 
-          total_working_hours, attendance_status, is_wfh, 
-          validation_method, device_info
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-        [
-          employee_id, attendance_date, login_time || null, logout_time || null,
-          workingHours, attendance_status, is_wfh || false,
-          'Manual', remarks || reason
-        ]
-      );
-
-      const newAttendance = insertResult.rows[0];
+      let newAttendance;
+      if (existingRecord) {
+        // Update existing 'Not Mention' record
+        const updateResult = await client.query(
+          `UPDATE attendance SET 
+            login_time = $1, logout_time = $2, 
+            total_working_hours = $3, attendance_status = $4, is_wfh = $5, 
+            validation_method = $6, device_info = $7, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $8 RETURNING *`,
+          [
+            login_time || null, logout_time || null,
+            workingHours, attendance_status, is_wfh || false,
+            'Manual', remarks || reason, existingRecord.id
+          ]
+        );
+        newAttendance = updateResult.rows[0];
+      } else {
+        // Insert new attendance
+        const insertResult = await client.query(
+          `INSERT INTO attendance (
+            employee_id, attendance_date, login_time, logout_time, 
+            total_working_hours, attendance_status, is_wfh, 
+            validation_method, device_info
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+          [
+            employee_id, attendance_date, login_time || null, logout_time || null,
+            workingHours, attendance_status, is_wfh || false,
+            'Manual', remarks || reason
+          ]
+        );
+        newAttendance = insertResult.rows[0];
+      }
 
       // Log manual action
       await client.query(
@@ -367,3 +392,4 @@ module.exports = {
   updateManualAttendance,
   deleteManualAttendance
 };
+

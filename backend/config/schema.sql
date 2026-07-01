@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     longitude_logout DECIMAL(11,8),
     address_login TEXT,
     address_logout TEXT,
-    attendance_status VARCHAR(20) DEFAULT 'Present',
+    attendance_status VARCHAR(20) DEFAULT 'Not Mention',
     is_wfh BOOLEAN DEFAULT FALSE,
     is_auto_checkout BOOLEAN DEFAULT FALSE,
     device_info TEXT,
