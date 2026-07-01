@@ -154,12 +154,14 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
 
            // Calculate max hours for this day across all records
            let hours = 0;
-           if (att.total_hours) {
-              hours = parseFloat(att.total_hours);
-           } else if (att.total_minutes) {
+           if (att.total_minutes != null) {
               hours = parseFloat(att.total_minutes) / 60;
-           } else if (att.total_working_hours) {
+           } else if (att.total_hours != null) {
+              hours = parseFloat(att.total_hours);
+           } else if (att.total_working_hours != null) {
               hours = parseFloat(att.total_working_hours);
+           } else if (att.working_hours != null) {
+              hours = parseFloat(att.working_hours);
            } else if (att.login_time && att.logout_time) {
               hours = (new Date(att.logout_time) - new Date(att.login_time)) / 3600000;
            }
@@ -174,7 +176,10 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
         };
       }
       
-      totalHours += maxHours;
+      // Only count hours if employee actually worked
+      if (['P', 'Late', 'HD', 'WFH'].includes(finalCode)) {
+        totalHours += maxHours;
+      }
 
       // Exact count
       if (finalCode === 'A') absent++;

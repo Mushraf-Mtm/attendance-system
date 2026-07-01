@@ -114,7 +114,9 @@ const AdminReports = () => {
                         <td className="px-5 py-3.5 text-xs font-bold text-yellow-500 whitespace-nowrap">{r.halfDay}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-blue-400 whitespace-nowrap">{r.holiday}</td>
                         <td className="px-5 py-3.5 text-xs font-bold text-amber-500 whitespace-nowrap">{r.lateCount}</td>
-                        <td className="px-5 py-3.5 text-xs text-white whitespace-nowrap">{r.totalHours}</td>
+                        <td className="px-5 py-3.5 text-xs text-white whitespace-nowrap">
+                          {Number(r.totalHours ?? r.total_hours ?? r.totalWorkingHours ?? r.total_working_hours ?? 0).toFixed(1).replace('.0', '')}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
