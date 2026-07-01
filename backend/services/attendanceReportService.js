@@ -45,6 +45,39 @@ function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
   return '';
 }
 
+function getWorkedMinutes(att) {
+  const totalWorkingHours = Number(att.total_working_hours || 0);
+  if (Number.isFinite(totalWorkingHours) && totalWorkingHours > 0) {
+    return Math.round(totalWorkingHours * 60);
+  }
+
+  const totalMinutes = Number(att.total_minutes || 0);
+  if (Number.isFinite(totalMinutes) && totalMinutes > 0) {
+    return totalMinutes;
+  }
+
+  const totalHours = Number(att.total_hours || 0);
+  if (Number.isFinite(totalHours) && totalHours > 0) {
+    return Math.round(totalHours * 60);
+  }
+
+  const workingHours = Number(att.working_hours || 0);
+  if (Number.isFinite(workingHours) && workingHours > 0) {
+    return Math.round(workingHours * 60);
+  }
+
+  if (att.login_time && att.logout_time) {
+    const login = new Date(att.login_time);
+    const logout = new Date(att.logout_time);
+    const diff = (logout - login) / 60000;
+    if (Number.isFinite(diff) && diff > 0) {
+      return Math.round(diff);
+    }
+  }
+
+  return 0;
+}
+
 async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
   const settings = await getSettingsFromDB();
   const officeLateTimeInMinutes = parseTime(settings.workingHours.lateAfterTime);
@@ -113,7 +146,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
     let halfDay = 0;
     let lateCount = 0;
     let holidayCount = 0;
-    let totalHours = 0;
+    let monthlyTotalMinutes = 0;
 
     const days = {};
 
@@ -135,7 +168,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
       
       let finalCode = '';
       let finalRecord = null;
-      let maxHours = 0;
+      let dailyMinutes = 0;
 
       if (!dateRecords || dateRecords.length === 0) {
         finalCode = getFinalAttendanceCode(null, isSun, isGovH, isOffH);
@@ -152,20 +185,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
               finalRecord = att;
            }
 
-           // Calculate max hours for this day across all records
-           let hours = 0;
-           if (att.total_minutes != null) {
-              hours = parseFloat(att.total_minutes) / 60;
-           } else if (att.total_hours != null) {
-              hours = parseFloat(att.total_hours);
-           } else if (att.total_working_hours != null) {
-              hours = parseFloat(att.total_working_hours);
-           } else if (att.working_hours != null) {
-              hours = parseFloat(att.working_hours);
-           } else if (att.login_time && att.logout_time) {
-              hours = (new Date(att.logout_time) - new Date(att.login_time)) / 3600000;
-           }
-           maxHours = Math.max(maxHours, hours);
+           const mins = getWorkedMinutes(att);
+           dailyMinutes = Math.max(dailyMinutes, mins);
         }
       }
 
@@ -178,7 +199,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
       
       // Only count hours if employee actually worked
       if (['P', 'Late', 'HD', 'WFH'].includes(finalCode)) {
-        totalHours += maxHours;
+        monthlyTotalMinutes += dailyMinutes;
       }
 
       // Exact count
@@ -187,6 +208,8 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
       else if (finalCode === 'Late') lateCount++;
       else if (finalCode === 'P' || finalCode === 'WFH') present++;
     }
+
+    const totalHours = Number((monthlyTotalMinutes / 60).toFixed(1));
 
     matrixRows.push({
       id: emp.id,
