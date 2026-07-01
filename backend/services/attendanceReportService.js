@@ -7,15 +7,42 @@ function isSunday(year, month, day) {
   return date.getDay() === 0;
 }
 
-function getAttendanceCodeFromDB(record) {
-  if (!record.login_time && record.attendance_status === 'Absent') return 'A';
-  if (!record.login_time) return null;
-  const status = record.attendance_status;
+function normalizeAttendanceStatus(status) {
+  const s = String(status || '').trim().toLowerCase();
+
+  if (s === 'p' || s === 'present') return 'Present';
+  if (s === 'late') return 'Late';
+  if (s === 'hd' || s === 'half day' || s === 'half_day' || s === 'halfday') return 'Half Day';
+  if (s === 'a' || s === 'absent') return 'Absent';
+  if (s === 'wfh' || s === 'work from home' || s === 'work_from_home') return 'Work From Home';
+  if (
+    s === 'not mention' ||
+    s === 'not mentioned' ||
+    s === 'not_mention' ||
+    s === 'not_mentioned' ||
+    s === ''
+  ) return 'Not Mention';
+
+  return 'Not Mention';
+}
+
+function getFinalAttendanceCode(record, isSun, isGovH, isOffH) {
+  if (isSun) return 'Sun';
+  if (isGovH) return 'GovH';
+  if (isOffH) return 'OffH';
+
+  if (!record) return '';
+
+  const status = normalizeAttendanceStatus(record.attendance_status || record.status);
+
+  if (status === 'Present') return 'P';
   if (status === 'Late') return 'Late';
   if (status === 'Half Day') return 'HD';
-  if (status === 'Present' || status === 'Work From Home') return 'P';
   if (status === 'Absent') return 'A';
-  return null;
+  if (status === 'Work From Home') return 'WFH';
+  if (status === 'Not Mention') return '';
+
+  return '';
 }
 
 async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
@@ -92,92 +119,58 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
 
     for (let day = 1; day <= daysInMonth; day++) {
       // 1. Check Sunday
-      if (isSunday(year, month, day)) {
-        if (day <= maxDay) days[day] = 'Sun';
-        holidayCount++;
-        continue;
-      }
+      const isSun = isSunday(year, month, day);
       
       // 2. Check Holiday
       const holiday = holidayMap[day];
-      if (holiday) {
-        const type = holiday.holiday_type === 'Government Holiday' ? 'GovH' : 'OffH';
-        if (day <= maxDay) days[day] = type;
+      const isGovH = holiday && holiday.holiday_type === 'Government Holiday';
+      const isOffH = holiday && holiday.holiday_type === 'Office Holiday';
+
+      if (isSun || holiday) {
         holidayCount++;
-        continue;
       }
 
       // 3. Evaluate attendance
       const dateRecords = attByDate[day];
-      if (!dateRecords || dateRecords.length === 0) {
-        if (day <= maxDay) days[day] = '';
-        continue;
-      }
-
-      // Priority: Absent > Half Day > Late > Present
-      let finalCode = 'P';
-      let hasA = false;
-      let hasHD = false;
-      let hasLate = false;
-      let hasP = false;
       
+      let finalCode = '';
+      let finalRecord = null;
       let maxHours = 0;
 
-      for (const att of dateRecords) {
-        const code = getAttendanceCodeFromDB(att);
-        if (code === 'A') hasA = true;
-        if (code === 'HD') hasHD = true;
-        if (code === 'Late') hasLate = true;
-        if (code === 'P') hasP = true;
-
-        if (att.checkin_status === 'late' || att.late_minutes > 0) {
-          hasLate = true;
-        } else if (!att.checkin_status && att.login_time) {
-          const loginDate = new Date(att.login_time);
-          const localLoginMinutes = (loginDate.getUTCHours() * 60 + loginDate.getUTCMinutes() + (5.5 * 60)) % (24 * 60);
-          if (localLoginMinutes > officeLateTimeInMinutes) {
-             hasLate = true;
-          }
-        }
-
-        let hours = 0;
-        if (att.total_hours) {
-           hours = parseFloat(att.total_hours);
-        } else if (att.total_minutes) {
-           hours = parseFloat(att.total_minutes) / 60;
-        } else if (att.total_working_hours) {
-           hours = parseFloat(att.total_working_hours);
-        } else if (att.login_time && att.logout_time) {
-           hours = (new Date(att.logout_time) - new Date(att.login_time)) / 3600000;
-        }
-        maxHours = Math.max(maxHours, hours);
-      }
-
-      if (hasA && !hasP && !hasHD && !hasLate) {
-        finalCode = 'A';
-      } else if (hasHD) {
-        finalCode = 'HD';
-      } else if (hasLate) {
-        finalCode = 'Late';
-      } else if (hasP) {
-        finalCode = 'P';
-      } else if (hasA) {
-        finalCode = 'A';
+      if (!dateRecords || dateRecords.length === 0) {
+        finalCode = getFinalAttendanceCode(null, isSun, isGovH, isOffH);
       } else {
-        finalCode = '';
+        // Priority map for multiple records (Absent > HD > Late > P > WFH > empty > Sun > GovH > OffH)
+        let highestPriority = -1;
+        const priorityMap = { 'A': 5, 'HD': 4, 'Late': 3, 'P': 2, 'WFH': 2, '': 1, 'Sun': 0, 'GovH': 0, 'OffH': 0 };
+        
+        for (const att of dateRecords) {
+           const code = getFinalAttendanceCode(att, isSun, isGovH, isOffH);
+           if (priorityMap[code] > highestPriority) {
+              highestPriority = priorityMap[code];
+              finalCode = code;
+              finalRecord = att;
+           }
+
+           // Calculate max hours for this day across all records
+           let hours = 0;
+           if (att.total_hours) {
+              hours = parseFloat(att.total_hours);
+           } else if (att.total_minutes) {
+              hours = parseFloat(att.total_minutes) / 60;
+           } else if (att.total_working_hours) {
+              hours = parseFloat(att.total_working_hours);
+           } else if (att.login_time && att.logout_time) {
+              hours = (new Date(att.logout_time) - new Date(att.login_time)) / 3600000;
+           }
+           maxHours = Math.max(maxHours, hours);
+        }
       }
 
       if (day <= maxDay) {
-        // Find the record that gave the finalCode to pass its metadata
-        let finalRecord = null;
-        if (finalCode === 'A') finalRecord = dateRecords.find(a => getAttendanceCodeFromDB(a) === 'A');
-        else if (finalCode === 'HD') finalRecord = dateRecords.find(a => getAttendanceCodeFromDB(a) === 'HD');
-        else if (finalCode === 'Late') finalRecord = dateRecords.find(a => getAttendanceCodeFromDB(a) === 'Late' || a.checkin_status === 'late' || a.late_minutes > 0);
-        else if (finalCode === 'P') finalRecord = dateRecords.find(a => getAttendanceCodeFromDB(a) === 'P');
-
         days[day] = {
           code: finalCode,
-          record: finalRecord || dateRecords[0]
+          record: finalRecord || (dateRecords ? dateRecords[0] : null)
         };
       }
       
@@ -187,7 +180,7 @@ async function buildMonthlyAttendanceMatrixAndSummary(month, year) {
       if (finalCode === 'A') absent++;
       else if (finalCode === 'HD') halfDay++;
       else if (finalCode === 'Late') lateCount++;
-      else if (finalCode === 'P') present++;
+      else if (finalCode === 'P' || finalCode === 'WFH') present++;
     }
 
     matrixRows.push({
