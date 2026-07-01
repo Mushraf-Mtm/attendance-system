@@ -183,7 +183,16 @@ const AdminPayroll = () => {
                         <td className="px-5 py-4 text-xs font-bold text-white whitespace-nowrap">{r.totalDays}</td>
                         <td className="px-5 py-4 text-xs text-[#CBD5E1] whitespace-nowrap">{r.workingDays}</td>
                         <td className="px-5 py-4 text-xs font-bold text-emerald-400 whitespace-nowrap">{parseFloat(r.paidDays).toFixed(1)}</td>
-                        <td className="px-5 py-4 text-xs text-yellow-500 whitespace-nowrap">{r.halfDays > 0 ? r.halfDays : '-'}</td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {parseFloat(r.halfDays) > 0 ? (
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-yellow-500">{parseFloat(r.halfDays).toFixed(1)} days</span>
+                              <span className="text-[10px] text-red-400/80">{formatCurrency(r.halfDayLossAmount ?? r.half_day_loss_amount ?? 0)}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[#64748B]">-</span>
+                          )}
+                        </td>
                         <td className="px-5 py-4 text-xs text-white whitespace-nowrap">{formatCurrency(r.monthlyEarning)}</td>
                         <td className="px-5 py-4 text-xs text-[#94A3B8] whitespace-nowrap">₹{parseFloat(r.perDaySalary).toFixed(0)}</td>
                         <td className="px-5 py-4 whitespace-nowrap">

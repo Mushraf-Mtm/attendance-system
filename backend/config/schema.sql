@@ -394,6 +394,7 @@ CREATE TABLE IF NOT EXISTS payroll_records (
   working_days INTEGER DEFAULT 0,
   paid_days NUMERIC(6,2) DEFAULT 0,
   half_days NUMERIC(6,2) DEFAULT 0,
+  half_day_loss_amount NUMERIC(12,2) DEFAULT 0,
 
   monthly_earning NUMERIC(12,2) DEFAULT 0,
   per_day_salary NUMERIC(12,2) DEFAULT 0,

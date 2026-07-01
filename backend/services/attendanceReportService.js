@@ -266,6 +266,7 @@ async function buildMonthlyPayroll(month, year) {
 
     const monthlyEarning = parseFloat(emp.monthly_salary) || 0;
     const perDaySalary = totalDays > 0 ? (monthlyEarning / totalDays) : 0;
+    const halfDayLossAmount = halfDays * 0.5 * perDaySalary;
     const lopAmount = lopDays * perDaySalary;
     const netEarning = monthlyEarning - lopAmount;
 
@@ -292,6 +293,7 @@ async function buildMonthlyPayroll(month, year) {
       holidayDays,
       blankUnmarkedDays,
       paidDays: parseFloat(paidDays.toFixed(2)),
+      halfDayLossAmount: parseFloat(halfDayLossAmount.toFixed(2)),
       lopDays: parseFloat(lopDays.toFixed(2)),
       monthlyEarning: parseFloat(monthlyEarning.toFixed(2)),
       perDaySalary: parseFloat(perDaySalary.toFixed(2)),
